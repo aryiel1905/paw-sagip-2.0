@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
 :root {
+  /* Base */
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Primary Brand Colors */
+  --primary-mintgreen: #2a9d8f; /* used for "Sign up" button, links, section titles */
+  --primary-orange: #f57c00; /* used for "Log in", "Apply Now", "Report a Stray" buttons */
+
+  /* Secondary/Accent Colors */
+  --secondary-orange: #ff9800; /* hover and emphasis */
+  --dark-gray: #333333; /* headings */
+  --mid-gray: #666666; /* body text */
+  --light-gray: #999999; /* subtle text/secondary info */
+
+  /* Utility */
+  --card-bg: #fafafa; /* for card sections */
+  --border-color: #e0e0e0; /* card borders / separators */
+  --white: #ffffff; /* always useful for buttons/cards */
 }
 
 @theme inline {
@@ -12,7 +28,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
@@ -23,4 +39,67 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.surface {
+  background: var(--white);
+  border: 1px solid var(--border-color);
+}
+
+.ink-muted {
+  color: var(--mid-gray);
+}
+
+.ink-subtle {
+  color: var(--light-gray);
+}
+
+.ink-heading {
+  color: var(--dark-gray);
+}
+
+.glass {
+  backdrop-filter: saturate(180%) blur(10px);
+  background-color: rgba(255, 255, 255, 0.65);
+}
+
+.glass-dark {
+  backdrop-filter: saturate(180%) blur(10px);
+  background-color: rgba(23, 23, 23, 0.65);
+}
+
+.shadow-soft {
+  box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.2);
+}
+
+.pill {
+  border-radius: 9999px;
+}
+
+.btn {
+  border-radius: 1rem;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--primary-mintgreen);
+  color: var(--white);
+}
+
+.btn-primary:hover {
+  filter: brightness(0.95);
+}
+
+.btn-accent {
+  background: var(--primary-orange);
+  color: var(--white);
+}
+
+.btn-accent:hover {
+  filter: brightness(0.95);
+}
+
+.active-tab {
+  background: var(--dark-gray);
+  color: #ffffff;
 }
