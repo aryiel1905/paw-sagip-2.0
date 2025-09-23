@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
+// Ensure this route always runs on the Node.js runtime (not Edge)
+export const runtime = "nodejs";
+// Make sure the handler is always dynamic (avoid any caching surprises)
+export const dynamic = "force-dynamic";
+
 const REPORT_TYPES = new Set(["lost", "found", "cruelty", "adoption"]);
 
 type ReportPayload = {
@@ -44,4 +49,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true });
 }
-
