@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
   AlertType,
   Alert,
@@ -143,6 +143,7 @@ export default function Home() {
   }, []);
 
   const loadAlerts = useCallback(async () => {
+    const supabase = getSupabaseClient();
     const toAlert = (item: AlertRow): Alert => {
       const imageUrl = item.photo_path
         ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(item.photo_path)
@@ -283,6 +284,7 @@ export default function Home() {
 
   // Listen for realtime alert inserts so the UI reflects new reports immediately
   useEffect(() => {
+    const supabase = getSupabaseClient();
     const channel = supabase
       .channel("public:alerts")
       .on(
@@ -304,6 +306,7 @@ export default function Home() {
     let ignore = false;
 
     async function loadAdoptions() {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from("adoption_pets")
         .select(
@@ -481,6 +484,7 @@ export default function Home() {
   }, [reportPhotoPreviewUrl]);
 
   const handleSubmitReport = async () => {
+    const supabase = getSupabaseClient();
     setReportStatus("submitting");
 
     let uploadedPhotoPath: string | null = null;
@@ -582,7 +586,7 @@ export default function Home() {
           className="mx-auto mt-5 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-29"
         >
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px] overflow-hidden">
               <h1 className="text-3xl font-extrabold tracking-tight ink-heading sm:text-4xl">
                 Find. <span style={{ color: "#2a9d8f" }}>Rescue.</span> Reunite.
               </h1>
