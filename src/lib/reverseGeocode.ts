@@ -1,6 +1,7 @@
 // -----------------------------
 // Backward-compatible types (ported from previous repo)
 // -----------------------------
+
 // Minimal GeoJSON Point Feature type to avoid adding deps
 type GeoJSONPointFeature = {
   type: "Feature";
@@ -21,6 +22,20 @@ type Options = {
   countrycodes?: string;
   regionHost?: string;
 };
+
+// Safe helpers for unknown JSON shapes
+function getAddress(obj: unknown): Record<string, unknown> {
+  if (typeof obj === "object" && obj !== null) {
+    const addr = (obj as { address?: unknown }).address;
+    if (typeof addr === "object" && addr !== null) return addr as Record<string, unknown>;
+  }
+  return {};
+}
+
+function getString(obj: Record<string, unknown>, key: string): string {
+  const v = obj[key];
+  return typeof v === "string" ? v : "";
+}
 
 // -----------------------------
 // Core: LocationIQ reverse geocode
@@ -59,9 +74,9 @@ async function reverseGeocodeLocationIQCore(
   const res = await fetch(String(url), { signal });
   if (res.status === 429) {
     return {
-      full: "Rate limited — try again shortly.",
-      address: "Rate limited — try again shortly.",
-      place_name: "Rate limited — try again shortly.",
+      full: "Rate limited - try again shortly.",
+      address: "Rate limited - try again shortly.",
+      place_name: "Rate limited - try again shortly.",
       feature: null,
       raw: null,
     };
@@ -71,23 +86,29 @@ async function reverseGeocodeLocationIQCore(
     throw new Error(`LocationIQ reverse geocode failed: ${res.status} ${body}`);
   }
 
-  const data = await res.json();
-  const addr = data?.address || {};
+  const data: unknown = await res.json();
+  const addr = getAddress(data);
 
-  const road = addr.road || "";
-  const zone = addr.neighbourhood || addr.purok || addr.quarter || "";
-  const barangay = addr.village || addr.suburb || "";
-  const town = addr.town || addr.city || addr.municipality || "";
+  const road = getString(addr, "road");
+  const zone = getString(addr, "neighbourhood") || getString(addr, "purok") || getString(addr, "quarter");
+  const barangay = getString(addr, "village") || getString(addr, "suburb");
+  const town = getString(addr, "town") || getString(addr, "city") || getString(addr, "municipality");
   // Build only up to town/city level (omit province/country for brevity)
   const trimmed =
     [road, zone, barangay, town].filter(Boolean).join(", ") ||
     "No address found";
 
-  const feature = data
+  const feature: GeoJSONPointFeature | null = data
     ? {
         type: "Feature",
-        properties: { display_name: trimmed, address: data.address },
-        geometry: { type: "Point", coordinates: [Number(lng), Number(lat)] },
+        properties: {
+          display_name: trimmed,
+          address: addr,
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [Number(lng), Number(lat)] as [number, number],
+        },
       }
     : null;
 
@@ -129,3 +150,4 @@ export async function reverseGeocodeMapTiler(
 }
 
 export default reverseGeocode;
+
