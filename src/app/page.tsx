@@ -63,6 +63,12 @@ const ALERT_FILTERS: AlertType[] = [
   "adoption",
 ];
 
+// Union type for search modal selection
+type ModalItem =
+  | { kind: "alert"; alert: Alert }
+  | { kind: "adoption"; adoption: AdoptionPet }
+  | null;
+
 // Map alert types to icon badges displayed in cards
 function mapEmoji(type: Exclude<AlertType, "all">) {
   switch (type) {
@@ -130,6 +136,16 @@ export default function Home() {
   const isMountedRef = useRef(true);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchAlerts, setSearchAlerts] = useState<Alert[]>([]);
+  const [searchAdoptions, setSearchAdoptions] = useState<AdoptionPet[]>([]);
+  const [modalItem, setModalItem] = useState<ModalItem>(null);
+  const searchBoxRef = useRef<HTMLDivElement | null>(null);
+  const searchDebounceRef = useRef<number | null>(null);
+
   // Guard against state updates when the component unmounts while async work is in flight
   useEffect(() => {
     // Ensure the mounted flag is re-enabled on mount (important after client navigation)
@@ -141,6 +157,165 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Simple text scoring for ranking ILIKE results by "best match"
+  const scoreText = useCallback(
+    (needle: string, hay: string | null | undefined) => {
+      if (!needle) return 0;
+      const q = needle.toLowerCase().trim();
+      const t = (hay ?? "").toLowerCase();
+      if (!q || !t) return 0;
+      const idx = t.indexOf(q);
+      if (idx === -1) return 0;
+      let score = 1; // base for any match
+      if (t === q) score += 120; // exact
+      if (t.startsWith(q)) score += 80; // prefix
+      if (idx === 0) score += 30; // occurs at start
+      score += Math.max(0, 30 - idx); // earlier is better
+      score += Math.min(40, q.length); // longer query slightly higher
+      return score;
+    },
+    []
+  );
+
+  const runSearch = useCallback(
+    async (query: string) => {
+      const q = query.trim();
+      if (!q || q.length < 2) {
+        if (isMountedRef.current) {
+          setSearchAlerts([]);
+          setSearchAdoptions([]);
+          setSearchLoading(false);
+        }
+        return;
+      }
+
+      setSearchLoading(true);
+
+      try {
+        const supabase = getSupabaseClient();
+
+        // Alerts search via ILIKE across common text fields
+        const qLower = q.toLowerCase();
+        const alertTypeMatches = [
+          "lost",
+          "found",
+          "cruelty",
+          "adoption",
+        ].filter((t) => t.includes(qLower));
+        const qSafe = q.replace(/[,]/g, " ");
+        const alertOrParts = [
+          `title.ilike.%${qSafe}%`,
+          `area.ilike.%${qSafe}%`,
+          ...alertTypeMatches.map((t) => `type.eq.${t}`),
+        ];
+        const { data: alertData, error: alertErr } = await supabase
+          .from("alerts")
+          .select("id,title,area,type,created_at,photo_path,latitude,longitude")
+          .or(alertOrParts.join(","))
+          .limit(25);
+
+        if (alertErr) {
+          console.error("Search alerts failed", alertErr.message ?? alertErr);
+        }
+
+        const toAlert = (item: AlertRow): Alert => {
+          const supabase = getSupabaseClient();
+          const imageUrl = item.photo_path
+            ? supabase.storage
+                .from(PET_MEDIA_BUCKET)
+                .getPublicUrl(item.photo_path).data.publicUrl
+            : null;
+          return {
+            id: item.id,
+            title: item.title,
+            area: item.area,
+            type: item.type,
+            emoji: mapEmoji(item.type),
+            minutes: resolveMinutes(item),
+            imageUrl,
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null,
+          };
+        };
+
+        let alertsList: Alert[] = Array.isArray(alertData)
+          ? (alertData as AlertRow[]).map(toAlert)
+          : [];
+
+        // Rank alerts by best text match
+        alertsList = alertsList
+          .map((a) => {
+            const score =
+              scoreText(q, a.title) * 2 +
+              scoreText(q, a.area) +
+              scoreText(q, a.type);
+            return { a, score };
+          })
+          .sort((x, y) => y.score - x.score)
+          .slice(0, 5)
+          .map((x) => x.a);
+
+        // Adoption search via ILIKE across common text fields
+        const kindMatches = ["dog", "cat"].filter((k) => k.includes(qLower));
+        const adoptOrParts = [
+          `name.ilike.%${qSafe}%`,
+          `location.ilike.%${qSafe}%`,
+          `note.ilike.%${qSafe}%`,
+          `age.ilike.%${qSafe}%`,
+          ...kindMatches.map((k) => `kind.eq.${k}`),
+        ];
+        const { data: adoptData, error: adoptErr } = await supabase
+          .from("adoption_pets")
+          .select(
+            "id, kind, name, age, note, location, emoji_code, status, created_at"
+          )
+          .eq("status", "available")
+          .or(adoptOrParts.join(","))
+          .limit(25);
+
+        if (adoptErr) {
+          console.error("Search adoption failed", adoptErr.message ?? adoptErr);
+        }
+
+        let adoptList: AdoptionPet[] = Array.isArray(adoptData)
+          ? (adoptData as any[]).map((item) => ({
+              id: item.id,
+              kind: item.kind,
+              name: item.name,
+              age: item.age ?? "",
+              note: item.note ?? "",
+              location: item.location ?? "",
+              emoji: item.emoji_code ?? "P0",
+            }))
+          : [];
+
+        adoptList = adoptList
+          .map((p) => {
+            const score =
+              scoreText(q, p.name) * 2 +
+              scoreText(q, p.location) +
+              scoreText(q, p.note) +
+              scoreText(q, p.kind) +
+              scoreText(q, p.age);
+            return { p, score };
+          })
+          .sort((x, y) => y.score - x.score)
+          .slice(0, 5)
+          .map((x) => x.p);
+
+        if (isMountedRef.current) {
+          setSearchAlerts(alertsList);
+          setSearchAdoptions(adoptList);
+        }
+      } catch (e) {
+        console.error("Search failed", e);
+      } finally {
+        if (isMountedRef.current) setSearchLoading(false);
+      }
+    },
+    [scoreText]
+  );
 
   const loadAlerts = useCallback(async () => {
     const supabase = getSupabaseClient();
@@ -245,6 +420,18 @@ export default function Home() {
       window.history.replaceState(null, "", cleanPath);
       window.scrollTo({ top: 0, behavior: "auto" });
     }
+  }, []);
+
+  // Close search suggestions when clicking outside the search box
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!searchBoxRef.current) return;
+      if (!searchBoxRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   // Kick off the initial alert load and mark the section as loading
@@ -614,20 +801,167 @@ export default function Home() {
                 <label className="sr-only" htmlFor="pet-search">
                   Search pets
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    id="pet-search"
-                    className="w-full rounded-xl px-4 py-3"
-                    placeholder="Search by name, breed, location."
-                    style={{ border: "1px solid var(--border-color)" }}
-                    type="search"
-                  />
-                  <button
-                    className="px-5 py-3 rounded-2xl  bg-[#333333] hover:bg-[#535353] text-white transition-colors"
-                    type="button"
-                  >
-                    Search
-                  </button>
+                <div ref={searchBoxRef}>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        id="pet-search"
+                        className="w-full rounded-xl px-4 py-3"
+                        placeholder="Search alerts and adoption..."
+                        style={{ border: "1px solid var(--border-color)" }}
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSearchQuery(value);
+                          if (searchDebounceRef.current) {
+                            window.clearTimeout(searchDebounceRef.current);
+                          }
+                          searchDebounceRef.current = window.setTimeout(() => {
+                            runSearch(value);
+                          }, 250);
+                          setSearchOpen(true);
+                        }}
+                        onFocus={() => {
+                          if (searchQuery.length >= 2) setSearchOpen(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setSearchOpen(false);
+                          if (e.key === "Enter") {
+                            runSearch(searchQuery);
+                            setSearchOpen(true);
+                          }
+                        }}
+                      />
+
+                      {searchOpen && (
+                        <div
+                          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl shadow-soft surface pb-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                        >
+                          <div className="max-h-72 overflow-y-auto py-2">
+                            {searchLoading ? (
+                              <div className="p-3 text-sm ink-muted">
+                                Searching...
+                              </div>
+                            ) : (
+                              <>
+                                {searchAlerts.length === 0 &&
+                                searchAdoptions.length === 0 ? (
+                                  <div className="p-3 text-sm ink-muted">
+                                    No matches
+                                  </div>
+                                ) : (
+                                  <>
+                                    {searchAlerts.length > 0 && (
+                                      <div>
+                                        <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide">
+                                          Alerts
+                                        </div>
+                                        <ul>
+                                          {searchAlerts.map((a) => (
+                                            <li
+                                              key={`s-a-${a.id}`}
+                                              className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
+                                              onClick={() => {
+                                                setModalItem({
+                                                  kind: "alert",
+                                                  alert: a,
+                                                });
+                                                setSearchOpen(false);
+                                              }}
+                                            >
+                                              {a.imageUrl ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={a.imageUrl}
+                                                  alt="alert"
+                                                  className="h-8 w-8 rounded-md object-cover"
+                                                />
+                                              ) : (
+                                                <div
+                                                  className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                                  style={{
+                                                    background:
+                                                      "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                                  }}
+                                                >
+                                                  {a.emoji}
+                                                </div>
+                                              )}
+                                              <div className="min-w-0">
+                                                <div className="truncate text-sm ink-heading">
+                                                  {a.title}
+                                                </div>
+                                                <div className="truncate text-xs ink-subtle">
+                                                  {a.area}
+                                                </div>
+                                              </div>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {searchAdoptions.length > 0 && (
+                                      <div>
+                                        <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide">
+                                          Adoption
+                                        </div>
+                                        <ul>
+                                          {searchAdoptions.map((p) => (
+                                            <li
+                                              key={`s-p-${p.id}`}
+                                              className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
+                                              onClick={() => {
+                                                setModalItem({
+                                                  kind: "adoption",
+                                                  adoption: p,
+                                                });
+                                                setSearchOpen(false);
+                                              }}
+                                            >
+                                              <div
+                                                className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                                style={{
+                                                  background:
+                                                    "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                                }}
+                                              >
+                                                {p.emoji}
+                                              </div>
+                                              <div className="min-w-0">
+                                                <div className="truncate text-sm ink-heading">
+                                                  {p.name}
+                                                </div>
+                                                <div className="truncate text-xs ink-subtle">
+                                                  {p.kind.toUpperCase()} ·{" "}
+                                                  {p.location}
+                                                </div>
+                                              </div>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="px-5 py-3 rounded-2xl  bg-[#333333] hover:bg-[#535353] text-white transition-colors"
+                      type="button"
+                      onClick={() => {
+                        runSearch(searchQuery);
+                        setSearchOpen(true);
+                      }}
+                    >
+                      Search
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -797,6 +1131,127 @@ export default function Home() {
           </div>
         </nav>
       </main>
+      <SearchModal
+        item={modalItem}
+        onClose={() => setModalItem(null)}
+        timeAgoFromMinutes={timeAgoFromMinutes}
+      />
     </>
+  );
+}
+
+function DetailsRow({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <div className="ink-subtle">{label}</div>
+      <div className="ink-heading">{value || "-"}</div>
+    </>
+  );
+}
+
+function SearchModal({
+  item,
+  onClose,
+  timeAgoFromMinutes,
+}: {
+  item: ModalItem;
+  onClose: () => void;
+  timeAgoFromMinutes: (m: number) => string;
+}) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-2xl rounded-2xl shadow-soft surface">
+        <div
+          className="flex items-center justify-between border-b p-5"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <div>
+            <h3 className="text-lg font-semibold ink-heading">
+              {item.kind === "alert"
+                ? `Reported Pet - ${item.alert.type.toUpperCase()}`
+                : `Adoption - ${item.adoption.name}`}
+            </h3>
+            {item.kind === "alert" ? (
+              <p className="text-sm ink-muted">
+                {timeAgoFromMinutes(item.alert.minutes)} · {item.alert.area}
+              </p>
+            ) : (
+              <p className="text-sm ink-muted">{item.adoption.location}</p>
+            )}
+          </div>
+          <button
+            className="pill px-3 py-1"
+            style={{ border: "1px solid var(--border-color)" }}
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="grid gap-5 md:grid-cols-3">
+            <div className="md:col-span-1">
+              {item.kind === "alert" ? (
+                item.alert.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.alert.imageUrl}
+                    alt="alert"
+                    className="h-32 w-full max-w-[180px] rounded-xl object-cover"
+                  />
+                ) : (
+                  <div
+                    className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                    }}
+                  >
+                    {item.alert.emoji}
+                  </div>
+                )
+              ) : (
+                <div
+                  className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                  }}
+                >
+                  {item.adoption.emoji}
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {item.kind === "alert" ? (
+                <>
+                  <DetailsRow label="Status" value={item.alert.type} />
+                  <DetailsRow label="Location" value={item.alert.area} />
+                  <DetailsRow
+                    label="Time"
+                    value={timeAgoFromMinutes(item.alert.minutes)}
+                  />
+                </>
+              ) : (
+                <>
+                  <DetailsRow label="Name" value={item.adoption.name} />
+                  <DetailsRow
+                    label="Kind"
+                    value={item.adoption.kind.toUpperCase()}
+                  />
+                  <DetailsRow label="Age" value={item.adoption.age} />
+                  <DetailsRow label="Notes" value={item.adoption.note} />
+                  <DetailsRow label="Location" value={item.adoption.location} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
