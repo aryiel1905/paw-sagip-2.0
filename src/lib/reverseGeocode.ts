@@ -1,12 +1,19 @@
 // -----------------------------
 // Backward-compatible types (ported from previous repo)
 // -----------------------------
+// Minimal GeoJSON Point Feature type to avoid adding deps
+type GeoJSONPointFeature = {
+  type: "Feature";
+  properties: { display_name: string; address?: Record<string, unknown> };
+  geometry: { type: "Point"; coordinates: [number, number] };
+};
+
 export type ReverseGeocodeResult = {
   full: string;
   address?: string;
   place_name?: string;
-  feature: any | null;
-  raw: any;
+  feature: GeoJSONPointFeature | null;
+  raw: unknown;
 };
 
 type Options = {
