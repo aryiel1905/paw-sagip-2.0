@@ -6,6 +6,7 @@ import {
   useCallback,
   useState,
   FormEvent,
+  useRef,
 } from "react";
 import Link from "next/link";
 import { MapPin, Clock } from "lucide-react";
@@ -62,6 +63,120 @@ export function ReportSection({
   const [qFriendly, setQFriendly] = useState(false);
   const [showQuickValidation, setShowQuickValidation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // Inline popover for checkbox tips (Quick Report)
+  const [tipOpen, setTipOpen] = useState(false);
+  const [tipKey, setTipKey] = useState<
+    "aggressive" | "friendly" | "anonymous" | null
+  >(null);
+  const [tipPos, setTipPos] = useState<{
+    top: number;
+    left: number;
+    below: boolean;
+    arrowLeft: number;
+  }>({ top: 0, left: 0, below: true, arrowLeft: 16 });
+  const tipAnchorElRef = useRef<HTMLElement | null>(null);
+
+  const getTipContent = (key: "aggressive" | "friendly" | "anonymous") => {
+    switch (key) {
+      case "aggressive":
+        return (
+          <div className="flex items-start gap-2">
+            <div className="text-xl">🚫</div>
+            <div>
+              <p className="font-semibold">
+                Aggressive / Fearful — Safety First
+              </p>
+              <p className="mt-1 text-sm">
+                Do not approach. Keep 3–5 meters away. Avoid eye contact and
+                sudden moves. Observe from a distance and include a clear
+                photo/video if possible.
+              </p>
+            </div>
+          </div>
+        );
+      case "friendly":
+        return (
+          <div className="flex items-start gap-2">
+            <div className="text-xl">😊</div>
+            <div>
+              <p className="font-semibold">Seems Friendly — Approach Slowly</p>
+              <p className="mt-1 text-sm">
+                Speak softly and crouch to appear smaller. Check for a collar or
+                tag. Offer water; avoid chasing.
+              </p>
+            </div>
+          </div>
+        );
+      case "anonymous":
+        return (
+          <div className="flex items-start gap-2">
+            <div className="text-xl">🕶️</div>
+            <div>
+              <p className="font-semibold">Submit Anonymously</p>
+              <p className="mt-1 text-sm">
+                Your name won’t be shown. If safe, add a phone or email so
+                responders can coordinate follow‑ups.
+              </p>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  const positionPopover = (anchor: HTMLElement) => {
+    const rect = anchor.getBoundingClientRect();
+    const tipWidth = Math.min(window.innerWidth * 0.92, 360);
+    const estimatedHeight = 140; // rough estimate for placement
+    const margin = 8;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placeBelow = spaceBelow > estimatedHeight + margin;
+    const top = placeBelow
+      ? rect.bottom + margin
+      : rect.top - estimatedHeight - margin;
+
+    const anchorCenter = rect.left + rect.width / 2;
+    const left = Math.max(
+      8,
+      Math.min(rect.left, window.innerWidth - tipWidth - 8)
+    );
+    const arrowLeft = Math.max(
+      8,
+      Math.min(anchorCenter - left - 6, tipWidth - 24)
+    );
+
+    setTipPos({ top, left, below: placeBelow, arrowLeft });
+  };
+
+  const showTipFor = (
+    anchor: HTMLElement,
+    key: "aggressive" | "friendly" | "anonymous"
+  ) => {
+    tipAnchorElRef.current = anchor;
+    setTipKey(key);
+    setTipOpen(true);
+    positionPopover(anchor);
+  };
+
+  const hideTip = () => {
+    setTipOpen(false);
+    setTipKey(null);
+    tipAnchorElRef.current = null;
+  };
+
+  useEffect(() => {
+    const onWin = () => {
+      const el = tipAnchorElRef.current as HTMLElement | null;
+      if (tipOpen && el) positionPopover(el);
+    };
+    window.addEventListener("scroll", onWin);
+    window.addEventListener("resize", onWin);
+    return () => {
+      window.removeEventListener("scroll", onWin);
+      window.removeEventListener("resize", onWin);
+    };
+  }, [tipOpen]);
 
   // Derive a lightweight helper for quick report: we map the "Feature" input
   // directly to the shared reportDescription so the existing submit flow works.
@@ -341,7 +456,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qAggressive}
-                    onChange={(e) => onQuickAggressiveToggle(e.target.checked)}
+                    onChange={(e) => {
+                      onQuickAggressiveToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "aggressive");
+                      else hideTip();
+                    }}
                     style={
                       qAggressive
                         ? ({
@@ -364,7 +483,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qFriendly}
-                    onChange={(e) => onQuickFriendlyToggle(e.target.checked)}
+                    onChange={(e) => {
+                      onQuickFriendlyToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "friendly");
+                      else hideTip();
+                    }}
                     style={
                       qFriendly
                         ? ({
@@ -380,7 +503,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qAnon}
-                    onChange={(e) => setQAnon(e.target.checked)}
+                    onChange={(e) => {
+                      setQAnon(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "anonymous");
+                      else hideTip();
+                    }}
                   />
                   <span>Submit anonymously</span>
                 </label>
@@ -506,7 +633,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qAggressive}
-                    onChange={(e) => onQuickAggressiveToggle(e.target.checked)}
+                    onChange={(e) => {
+                      onQuickAggressiveToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "aggressive");
+                      else hideTip();
+                    }}
                     style={
                       qAggressive
                         ? ({
@@ -529,7 +660,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qFriendly}
-                    onChange={(e) => onQuickFriendlyToggle(e.target.checked)}
+                    onChange={(e) => {
+                      onQuickFriendlyToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "friendly");
+                      else hideTip();
+                    }}
                     style={
                       qFriendly
                         ? ({
@@ -545,7 +680,11 @@ export function ReportSection({
                     type="checkbox"
                     className="h-4 w-4"
                     checked={qAnon}
-                    onChange={(e) => setQAnon(e.target.checked)}
+                    onChange={(e) => {
+                      setQAnon(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "anonymous");
+                      else hideTip();
+                    }}
                   />
                   <span>Submit anonymously</span>
                 </label>
@@ -650,6 +789,50 @@ export function ReportSection({
       </div>
 
       {/* Regular Report moved to /report-form */}
+      {tipOpen && tipKey && (
+        <div
+          className="fixed z-50"
+          style={{
+            top: tipPos.top,
+            left: tipPos.left,
+            width: "min(92vw, 360px)",
+          }}
+          role="dialog"
+          aria-live="polite"
+        >
+          <div
+            className="surface rounded-2xl p-3 shadow-soft"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="flex-1 text-sm">{getTipContent(tipKey)}</div>
+              <button
+                type="button"
+                className="pill px-2 py-1 text-xs"
+                style={{ border: "1px solid var(--border-color)" }}
+                onClick={hideTip}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div
+            className="absolute"
+            style={
+              {
+                width: 12,
+                height: 12,
+                left: tipPos.arrowLeft,
+                [tipPos.below ? "top" : "bottom"]: -6,
+                background: "var(--white)",
+                transform: `rotate(${tipPos.below ? 45 : 225}deg)`,
+                borderLeft: "1px solid var(--border-color)",
+                borderTop: "1px solid var(--border-color)",
+              } as React.CSSProperties
+            }
+          />
+        </div>
+      )}
       <MapPickerModal
         open={showMapPicker}
         onClose={() => setShowMapPicker(false)}

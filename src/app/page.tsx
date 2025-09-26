@@ -22,6 +22,7 @@ import { ReportSection } from "@/components/ReportSection";
 import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
+import { DetailsModal } from "@/components/DetailsModal";
 import {
   HeartHandshake,
   Locate,
@@ -279,7 +280,7 @@ export default function Home() {
         }
 
         let adoptList: AdoptionPet[] = Array.isArray(adoptData)
-          ? (adoptData as any[]).map((item) => ({
+          ? (adoptData as AdoptionRow[]).map((item) => ({
               id: item.id,
               kind: item.kind,
               name: item.name,
@@ -422,17 +423,19 @@ export default function Home() {
     }
   }, []);
 
-  // Close search suggestions when clicking outside the search box
+  // Close suggestions only when empty; keep them "sticky" if there is input
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!searchBoxRef.current) return;
       if (!searchBoxRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
+        if (searchQuery.trim().length === 0) {
+          setSearchOpen(false);
+        }
       }
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
+  }, [searchQuery]);
 
   // Kick off the initial alert load and mark the section as loading
   useEffect(() => {
@@ -773,7 +776,7 @@ export default function Home() {
           className="mx-auto mt-5 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-29"
         >
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px] overflow-hidden">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
               <h1 className="text-3xl font-extrabold tracking-tight ink-heading sm:text-4xl">
                 Find. <span style={{ color: "#2a9d8f" }}>Rescue.</span> Reunite.
               </h1>
@@ -801,9 +804,9 @@ export default function Home() {
                 <label className="sr-only" htmlFor="pet-search">
                   Search pets
                 </label>
-                <div ref={searchBoxRef}>
+                <div ref={searchBoxRef} className="relative">
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
+                    <div className="flex-1">
                       <input
                         id="pet-search"
                         className="w-full rounded-xl px-4 py-3"
@@ -820,26 +823,27 @@ export default function Home() {
                           searchDebounceRef.current = window.setTimeout(() => {
                             runSearch(value);
                           }, 250);
-                          setSearchOpen(true);
+                          setSearchOpen(value.trim().length > 0);
                         }}
                         onFocus={() => {
-                          if (searchQuery.length >= 2) setSearchOpen(true);
+                          if (searchQuery.trim().length > 0)
+                            setSearchOpen(true);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Escape") setSearchOpen(false);
                           if (e.key === "Enter") {
                             runSearch(searchQuery);
-                            setSearchOpen(true);
+                            setSearchOpen(searchQuery.trim().length > 0);
                           }
                         }}
                       />
 
-                      {searchOpen && (
+                      {false && searchOpen && (
                         <div
-                          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl shadow-soft surface pb-2"
+                          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl surface"
                           style={{ border: "1px solid var(--border-color)" }}
                         >
-                          <div className="max-h-72 overflow-y-auto py-2">
+                          <div className="w-full max-h-[60vh] overflow-y-auto">
                             {searchLoading ? (
                               <div className="p-3 text-sm ink-muted">
                                 Searching...
@@ -854,8 +858,8 @@ export default function Home() {
                                 ) : (
                                   <>
                                     {searchAlerts.length > 0 && (
-                                      <div>
-                                        <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide">
+                                      <div className="h-[18vh]">
+                                        <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide pb-2 ">
                                           Alerts
                                         </div>
                                         <ul>
@@ -868,7 +872,6 @@ export default function Home() {
                                                   kind: "alert",
                                                   alert: a,
                                                 });
-                                                setSearchOpen(false);
                                               }}
                                             >
                                               {a.imageUrl ? (
@@ -917,7 +920,6 @@ export default function Home() {
                                                   kind: "adoption",
                                                   adoption: p,
                                                 });
-                                                setSearchOpen(false);
                                               }}
                                             >
                                               <div
@@ -956,12 +958,132 @@ export default function Home() {
                       type="button"
                       onClick={() => {
                         runSearch(searchQuery);
-                        setSearchOpen(true);
+                        setSearchOpen(searchQuery.trim().length > 0);
                       }}
                     >
                       Search
                     </button>
                   </div>
+                  {searchOpen && (
+                    <div
+                      className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl surface"
+                      style={{ border: "1px solid var(--border-color)" }}
+                    >
+                      <div className="w-full max-h-[60vh] overflow-y-auto">
+                        {searchLoading ? (
+                          <div className="p-3 text-sm ink-muted">
+                            Searching...
+                          </div>
+                        ) : (
+                          <>
+                            {searchAlerts.length === 0 &&
+                            searchAdoptions.length === 0 ? (
+                              <div className="p-3 text-sm ink-muted">
+                                No matches
+                              </div>
+                            ) : (
+                              <>
+                                {searchAlerts.length > 0 && (
+                                  <div className="h-[18vh]">
+                                    <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide pb-2 ">
+                                      Alerts
+                                    </div>
+                                    <ul>
+                                      {searchAlerts.map((a) => (
+                                        <li
+                                          key={`s-a-${a.id}`}
+                                          className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
+                                          onClick={() => {
+                                            setModalItem({
+                                              kind: "alert",
+                                              alert: a,
+                                            });
+                                          }}
+                                        >
+                                          {a.imageUrl ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                              src={a.imageUrl}
+                                              alt="alert"
+                                              className="h-8 w-8 rounded-md object-cover"
+                                            />
+                                          ) : (
+                                            <div
+                                              className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                              style={{
+                                                background:
+                                                  "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                              }}
+                                            >
+                                              {a.emoji}
+                                            </div>
+                                          )}
+                                          <div className="min-w-0 flex-1">
+                                            <div className="truncate text-sm ink-heading">
+                                              {a.title}
+                                            </div>
+                                            <div className="truncate text-xs ink-subtle">
+                                              {a.area}
+                                            </div>
+                                          </div>
+                                          <div className="text-xs ink-subtle whitespace-nowrap ml-2">
+                                            View →
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {searchAdoptions.length > 0 && (
+                                  <div>
+                                    <div className="px-3 py-2 text-xs ink-subtle uppercase tracking-wide">
+                                      Adoption
+                                    </div>
+                                    <ul>
+                                      {searchAdoptions.map((p) => (
+                                        <li
+                                          key={`s-p-${p.id}`}
+                                          className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
+                                          onClick={() => {
+                                            setModalItem({
+                                              kind: "adoption",
+                                              adoption: p,
+                                            });
+                                          }}
+                                        >
+                                          <div
+                                            className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                            style={{
+                                              background:
+                                                "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                            }}
+                                          >
+                                            {p.emoji}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="truncate text-sm ink-heading">
+                                              {p.name}
+                                            </div>
+                                            <div className="truncate text-xs ink-subtle">
+                                              {p.kind.toUpperCase()} ·{" "}
+                                              {p.location}
+                                            </div>
+                                          </div>
+                                          <div className="text-xs ink-subtle whitespace-nowrap ml-2">
+                                            View &gt;
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1131,10 +1253,11 @@ export default function Home() {
           </div>
         </nav>
       </main>
-      <SearchModal
+      <DetailsModal
         item={modalItem}
         onClose={() => setModalItem(null)}
         timeAgoFromMinutes={timeAgoFromMinutes}
+        getMapsLink={getMapsLink}
       />
     </>
   );
@@ -1153,10 +1276,12 @@ function SearchModal({
   item,
   onClose,
   timeAgoFromMinutes,
+  getMapsLink,
 }: {
   item: ModalItem;
   onClose: () => void;
   timeAgoFromMinutes: (m: number) => string;
+  getMapsLink: (a: Alert) => string | null;
 }) {
   if (!item) return null;
   return (
@@ -1175,7 +1300,8 @@ function SearchModal({
             </h3>
             {item.kind === "alert" ? (
               <p className="text-sm ink-muted">
-                {timeAgoFromMinutes(item.alert.minutes)} · {item.alert.area}
+                {timeAgoFromMinutes(item.alert.minutes)} {" · "}{" "}
+                {item.alert.area}
               </p>
             ) : (
               <p className="text-sm ink-muted">{item.adoption.location}</p>
@@ -1229,12 +1355,20 @@ function SearchModal({
             <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {item.kind === "alert" ? (
                 <>
+                  <DetailsRow label="Species / Breed" value="-" />
+                  <DetailsRow label="Gender / Age" value="-" />
+
                   <DetailsRow label="Status" value={item.alert.type} />
+                  <DetailsRow label="Distinctive Features" value="-" />
+
                   <DetailsRow label="Location" value={item.alert.area} />
                   <DetailsRow
                     label="Time"
                     value={timeAgoFromMinutes(item.alert.minutes)}
                   />
+
+                  <DetailsRow label="Reporter Notes" value="-" />
+                  <DetailsRow label="Rescue Status" value="-" />
                 </>
               ) : (
                 <>
@@ -1249,6 +1383,29 @@ function SearchModal({
                 </>
               )}
             </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button className="btn btn-primary px-4 py-2" type="button">
+              Contact Reporter
+            </button>
+            <button className="btn btn-accent px-4 py-2" type="button">
+              Emergency Hotline
+            </button>
+            {item.kind === "alert" &&
+              (() => {
+                const link = getMapsLink(item.alert);
+                return link ? (
+                  <a
+                    className="btn px-4 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open in Google Maps
+                  </a>
+                ) : null;
+              })()}
           </div>
         </div>
       </div>

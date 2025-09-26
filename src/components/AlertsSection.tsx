@@ -1,6 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { AlertType, Alert } from "@/types/app";
+import { DetailsModal } from "@/components/DetailsModal";
 
 type AlertsSectionProps = {
   filters: AlertType[];
@@ -63,6 +64,17 @@ export function AlertsSection({
     return R * c;
   };
 
+  // Shorten area similar to Nearby Alerts in the hero
+  const shortArea = (area: string) => {
+    if (!area) return "";
+    const parts = area
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
+    return parts[0] ?? area;
+  };
+
   const getMapsLink = (a: Alert): string | null => {
     const lat = (a as any).latitude as number | undefined;
     const lng = (a as any).longitude as number | undefined;
@@ -113,13 +125,13 @@ export function AlertsSection({
           ) : (
             filteredAlerts.map((alert) => (
               <article key={alert.id} className="surface rounded-2xl p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-start">
                   <div className="flex items-center gap-3">
                     {alert.imageUrl ? (
                       <img
                         src={alert.imageUrl}
                         alt="alert photo"
-                        className="h-10 w-10 rounded-xl object-cover"
+                        className="h-25 w-25 rounded-xl object-cover"
                       />
                     ) : (
                       <div
@@ -136,8 +148,11 @@ export function AlertsSection({
                       <h3 className="font-semibold ink-heading">
                         {alert.title}
                       </h3>
-                      <p className="ink-muted text-sm">
-                        {alert.area} - {timeAgoFromMinutes(alert.minutes)}
+                      <p className="text-sm ink-heading">
+                        {(() => shortArea(alert.area))()}
+                      </p>
+                      <p className="text-xs ink-muted">
+                        {timeAgoFromMinutes(alert.minutes)}
                         {(() => {
                           const d = kmDistance(
                             myLat,
@@ -155,16 +170,16 @@ export function AlertsSection({
                           return "";
                         })()}
                       </p>
+                      <button
+                        className="pill px-3 py-1 text-xs mt-2"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        type="button"
+                        onClick={() => setSelected(alert)}
+                      >
+                        More Details
+                      </button>
                     </div>
                   </div>
-                  <button
-                    className="pill px-3 py-1 text-xs"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    type="button"
-                    onClick={() => setSelected(alert)}
-                  >
-                    More Details
-                  </button>
                 </div>
               </article>
             ))
@@ -281,6 +296,12 @@ export function AlertsSection({
           </div>
         </div>
       )}
+      <DetailsModal
+        item={selected ? { kind: "alert", alert: selected } : null}
+        onClose={() => setSelected(null)}
+        timeAgoFromMinutes={timeAgoFromMinutes}
+        getMapsLink={(a) => getMapsLink(a)}
+      />
     </section>
   );
 }
