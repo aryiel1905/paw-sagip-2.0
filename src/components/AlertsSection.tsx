@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from "react";
 import { AlertType, Alert } from "@/types/app";
 
 type AlertsSectionProps = {
@@ -6,6 +7,8 @@ type AlertsSectionProps = {
   activeFilter: AlertType;
   onFilterChange: (filter: AlertType) => void;
   filteredAlerts: Alert[];
+  myLat?: number | null;
+  myLng?: number | null;
 };
 
 export function AlertsSection({
@@ -13,6 +16,8 @@ export function AlertsSection({
   activeFilter,
   onFilterChange,
   filteredAlerts,
+  myLat,
+  myLng,
 }: AlertsSectionProps) {
   // Human-friendly time formatter using minutes since creation
   const timeAgoFromMinutes = (minutes: number) => {
@@ -24,9 +29,51 @@ export function AlertsSection({
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
     const months = Math.floor(days / 30);
-    if (months < 12) return `${months} ${months === 1 ? "month" : "months"} ago`;
+    if (months < 12)
+      return `${months} ${months === 1 ? "month" : "months"} ago`;
     const years = Math.floor(months / 12);
     return `${years} ${years === 1 ? "year" : "years"} ago`;
+  };
+
+  const kmDistance = (
+    lat1?: number | null,
+    lng1?: number | null,
+    lat2?: number | null,
+    lng2?: number | null
+  ) => {
+    if (
+      lat1 == null ||
+      lng1 == null ||
+      lat2 == null ||
+      lng2 == null ||
+      Number.isNaN(lat1) ||
+      Number.isNaN(lng1) ||
+      Number.isNaN(lat2) ||
+      Number.isNaN(lng2)
+    )
+      return null;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getMapsLink = (a: Alert): string | null => {
+    const lat = (a as any).latitude as number | undefined;
+    const lng = (a as any).longitude as number | undefined;
+    if (typeof lat === "number" && typeof lng === "number") {
+      if (typeof myLat === "number" && typeof myLng === "number") {
+        return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${lat},${lng}&travelmode=walking`;
+      }
+      return `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    // No coordinates -> no link (avoid imprecise text search)
+    return null;
   };
   const [selected, setSelected] = useState<Alert | null>(null);
 
@@ -91,6 +138,22 @@ export function AlertsSection({
                       </h3>
                       <p className="ink-muted text-sm">
                         {alert.area} - {timeAgoFromMinutes(alert.minutes)}
+                        {(() => {
+                          const d = kmDistance(
+                            myLat,
+                            myLng,
+                            (alert as any).latitude as number | null,
+                            (alert as any).longitude as number | null
+                          );
+                          if (d == null) return "";
+                          if (alert.type === "found") {
+                            return ` • ${d.toFixed(1)} km away`;
+                          }
+                          if (alert.type === "lost") {
+                            return ` • last seen ${d.toFixed(1)} km away`;
+                          }
+                          return "";
+                        })()}
                       </p>
                     </div>
                   </div>
@@ -111,12 +174,22 @@ export function AlertsSection({
 
       {selected && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSelected(null)}
+          />
           <div className="relative w-full max-w-2xl rounded-2xl shadow-soft surface">
-            <div className="flex items-center justify-between border-b p-5" style={{ borderColor: "var(--border-color)" }}>
+            <div
+              className="flex items-center justify-between border-b p-5"
+              style={{ borderColor: "var(--border-color)" }}
+            >
               <div>
-                <h3 className="text-lg font-semibold ink-heading">Reported Pet — {selected.type.toUpperCase()}</h3>
-                <p className="text-sm ink-muted">{timeAgoFromMinutes(selected.minutes)} • {selected.area}</p>
+                <h3 className="text-lg font-semibold ink-heading">
+                  Reported Pet — {selected.type.toUpperCase()}
+                </h3>
+                <p className="text-sm ink-muted">
+                  {timeAgoFromMinutes(selected.minutes)} • {selected.area}
+                </p>
               </div>
               <button
                 className="pill px-3 py-1"
@@ -142,7 +215,10 @@ export function AlertsSection({
                   ) : (
                     <div
                       className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
-                      style={{ background: "color-mix(in srgb, var(--primary-green) 12%, #fff)" }}
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                      }}
                     >
                       {selected.emoji}
                     </div>
@@ -167,7 +243,9 @@ export function AlertsSection({
                   <div className="ink-heading">{selected.area}</div>
 
                   <div className="ink-subtle">Time</div>
-                  <div className="ink-heading">{timeAgoFromMinutes(selected.minutes)}</div>
+                  <div className="ink-heading">
+                    {timeAgoFromMinutes(selected.minutes)}
+                  </div>
 
                   <div className="ink-subtle">Reporter Notes</div>
                   <div className="ink-heading">—</div>
@@ -178,8 +256,26 @@ export function AlertsSection({
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <button className="btn btn-primary px-4 py-2" type="button">Contact Reporter</button>
-                <button className="btn btn-accent px-4 py-2" type="button">Emergency Hotline</button>
+                <button className="btn btn-primary px-4 py-2" type="button">
+                  Contact Reporter
+                </button>
+                <button className="btn btn-accent px-4 py-2" type="button">
+                  Emergency Hotline
+                </button>
+                {(() => {
+                  const link = getMapsLink(selected);
+                  return link ? (
+                    <a
+                      className="btn px-4 py-2"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open in Google Maps
+                    </a>
+                  ) : null;
+                })()}
               </div>
             </div>
           </div>

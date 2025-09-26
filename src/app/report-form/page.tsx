@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, ChangeEvent } from "react";
 import Link from "next/link";
+import { MapPin, Clock } from "lucide-react";
+import MapPickerModal from "@/components/MapPickerModal";
 import { supabase } from "@/lib/supabaseClient";
 import { AlertType, ReportStatus } from "@/types/app";
+import { showToast } from "@/lib/toast";
 
 // Storage bucket to keep report photos consistent with the home page
 const PET_MEDIA_BUCKET = "pet-media";
@@ -13,6 +16,8 @@ export default function ReportFormPage() {
     useState<Exclude<AlertType, "all">>("found");
   const [reportCondition, setReportCondition] = useState("Healthy");
   const [reportLocation, setReportLocation] = useState("");
+  const [reportLat, setReportLat] = useState<number | null>(null);
+  const [reportLng, setReportLng] = useState<number | null>(null);
   const [reportDescription, setReportDescription] = useState("");
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
   const [species, setSpecies] = useState("Dog");
@@ -28,6 +33,10 @@ export default function ReportFormPage() {
   >(null);
   const reportPhotoInputRef = useRef<HTMLInputElement>(null);
   const [prevPhotoName, setPrevPhotoName] = useState<string>("");
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [reporterName, setReporterName] = useState("");
+  const [friendly, setFriendly] = useState(false);
+  const [aggressiveFlag, setAggressiveFlag] = useState(false);
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -44,6 +53,12 @@ export default function ReportFormPage() {
       if (reportPhotoPreviewUrl) URL.revokeObjectURL(reportPhotoPreviewUrl);
     };
   }, [reportPhotoPreviewUrl]);
+
+  // Keep the helper checkboxes in sync with the selected condition
+  useEffect(() => {
+    setAggressiveFlag(reportCondition === "Aggressive");
+    setFriendly(reportCondition === "Healthy");
+  }, [reportCondition]);
 
   // Prefill from quick report draft stored in sessionStorage
   useEffect(() => {
@@ -83,6 +98,11 @@ export default function ReportFormPage() {
     }
   }, []);
 
+  // When toggling anonymous, clear and disable the name input
+  useEffect(() => {
+    if (anonymous) setReporterName("");
+  }, [anonymous]);
+
   const handleSubmitReport = useCallback(async () => {
     setReportStatus("submitting");
 
@@ -114,6 +134,8 @@ export default function ReportFormPage() {
       description: reportDescription,
       condition: reportCondition,
       location: reportLocation,
+      lat: reportLat,
+      lng: reportLng,
       photoPath: uploadedPhotoPath,
     };
 
@@ -125,9 +147,11 @@ export default function ReportFormPage() {
       });
       if (!response.ok) {
         setReportStatus("error");
+        showToast("error", "Something went wrong. Please try again.");
         return;
       }
       setReportStatus("success");
+      showToast("success", "Report submitted! Rescue team notified.");
       setReportDescription("");
       setReportLocation("");
       setReportPhoto(null);
@@ -201,7 +225,7 @@ export default function ReportFormPage() {
             <div>
               <h3 className="font-semibold ink-heading">Pet Photos</h3>
               <label
-                className="mt-2 block cursor-pointer rounded-xl p-6 text-center"
+                className="mt-2 flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-photo"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -232,7 +256,7 @@ export default function ReportFormPage() {
                   <img
                     src={reportPhotoPreviewUrl}
                     alt="Selected photo preview"
-                    className="mx-auto h-40 w-full max-w-xs rounded-xl object-cover"
+                    className="h-full w-full object-contain"
                   />
                 )}
               </label>
@@ -343,19 +367,73 @@ export default function ReportFormPage() {
                     onChange={(e) => setReportDescription(e.target.value)}
                   />
                 </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reportCondition === "Aggressive"}
-                    onChange={(e) =>
-                      setReportCondition(
-                        e.target.checked ? "Aggressive" : "Healthy"
-                      )
+                <div className="mt-1 flex flex-wrap items-center gap-4">
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      aggressiveFlag
+                        ? { color: "var(--primary-orange)" }
+                        : undefined
                     }
-                  />
-                  <span>This pet may be aggressive</span>
-                </label>
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={aggressiveFlag}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAggressiveFlag(checked);
+                        if (checked) {
+                          setFriendly(false);
+                          setReportCondition("Aggressive");
+                        } else if (reportCondition === "Aggressive") {
+                          // Default back to Healthy when turning off aggressive
+                          setReportCondition("Healthy");
+                        }
+                      }}
+                      style={
+                        aggressiveFlag
+                          ? ({
+                              accentColor: "var(--primary-orange)",
+                            } as React.CSSProperties)
+                          : undefined
+                      }
+                    />
+                    <span>This pet may be aggressive</span>
+                  </label>
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      friendly ? { color: "var(--primary-mintgreen)" } : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={friendly}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFriendly(checked);
+                        if (checked) {
+                          setAggressiveFlag(false);
+                          setReportCondition("Healthy");
+                        } else if (reportCondition === "Healthy") {
+                          // Keep at Healthy by default when turning off
+                          setReportCondition("Healthy");
+                        }
+                      }}
+                      style={
+                        friendly
+                          ? ({
+                              accentColor: "var(--primary-mintgreen)",
+                            } as React.CSSProperties)
+                          : undefined
+                      }
+                    />
+                    <span>Pet seems friendly</span>
+                  </label>
+                  {/* Anonymous toggle remains in Notes & Contact section */}
+                </div>
               </div>
             </div>
           </div>
@@ -369,26 +447,73 @@ export default function ReportFormPage() {
             <div className="mt-3 grid gap-3 lg:grid-cols-2">
               <label className="block text-sm">
                 Location
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="Barangay / Street / Pin"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportLocation}
-                  onChange={(e) => setReportLocation(e.target.value)}
-                  required
-                />
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)]"
+                    placeholder="Use the pin to pick location"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportLocation}
+                    readOnly
+                    aria-readonly
+                    required
+                  />
+                  <button
+                    type="button"
+                    aria-label="Open map picker"
+                    onClick={() => setShowMapPicker(true)}
+                    className="rounded-xl px-3 py-2 text-white"
+                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                  >
+                    Pin
+                  </button>
+                </div>
               </label>
               <label className="block text-sm">
                 When
-                <input
-                  type="datetime-local"
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={when}
-                  onChange={(e) => setWhen(e.target.value)}
-                  required
-                />
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={when}
+                    onChange={(e) => setWhen(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    aria-label="Set current date & time"
+                    onClick={() => {
+                      const now = new Date();
+                      const iso = new Date(
+                        now.getTime() - now.getTimezoneOffset() * 60000
+                      )
+                        .toISOString()
+                        .slice(0, 16);
+                      setWhen(iso);
+                    }}
+                    className="rounded-xl px-3 py-2 text-white"
+                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                  >
+                    <Clock className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="mt-1 text-xs ink-muted">
+                  You can type a date/time or tap the clock to set now.
+                </p>
               </label>
+              {/* Hidden precise coordinates so we retain accuracy while showing address */}
+              <input
+                type="hidden"
+                name="lat"
+                value={reportLat ?? ""}
+                readOnly
+              />
+              <input
+                type="hidden"
+                name="lng"
+                value={reportLng ?? ""}
+                readOnly
+              />
             </div>
           </div>
 
@@ -411,6 +536,9 @@ export default function ReportFormPage() {
                 <input
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
+                  value={reporterName}
+                  onChange={(e) => setReporterName(e.target.value)}
+                  disabled={anonymous}
                 />
               </label>
               <label className="block text-sm">
@@ -448,8 +576,13 @@ export default function ReportFormPage() {
               {reportStatus === "submitting" ? "Submitting…" : "Submit Report"}
             </button>
             {showValidation && !isFormValid && (
-              <p className="text-sm" style={{ color: "var(--primary-orange)" }} aria-live="polite">
-                Please fill required fields: {missingFields.join(" and ") || ""}.
+              <p
+                className="text-sm"
+                style={{ color: "var(--primary-orange)" }}
+                aria-live="polite"
+              >
+                Please fill required fields: {missingFields.join(" and ") || ""}
+                .
               </p>
             )}
             {reportStatus === "success" && (
@@ -465,6 +598,16 @@ export default function ReportFormPage() {
           </div>
         </form>
       </div>
+      <MapPickerModal
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onSelect={(lat, lng, address) => {
+          setReportLocation(address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+          setReportLat(lat);
+          setReportLng(lng);
+          setShowMapPicker(false);
+        }}
+      />
     </main>
   );
 }

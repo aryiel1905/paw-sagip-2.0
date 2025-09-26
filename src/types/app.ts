@@ -8,6 +8,8 @@ export type Alert = {
   minutes: number;
   emoji: string;
   imageUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type AdoptionPet = {
@@ -30,6 +32,8 @@ export type AlertRow = {
   created_at?: string | null;
   minutes?: number | string | null;
   photo_path?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type AdoptionRow = {

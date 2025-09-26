@@ -118,6 +118,11 @@ export default function Home() {
   const [reportDescription, setReportDescription] = useState("");
   const [reportCondition, setReportCondition] = useState("Healthy");
   const [reportLocation, setReportLocation] = useState("");
+  const [reportLat, setReportLat] = useState<number | null>(null);
+  const [reportLng, setReportLng] = useState<number | null>(null);
+  const [myLat, setMyLat] = useState<number | null>(null);
+  const [myLng, setMyLng] = useState<number | null>(null);
+  const geoWatchIdRef = useRef<number | null>(null);
   const [reportPhoto, setReportPhoto] = useState<File | null>(null);
   const [reportPhotoName, setReportPhotoName] = useState("");
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
@@ -151,12 +156,14 @@ export default function Home() {
         emoji: mapEmoji(item.type),
         minutes: resolveMinutes(item),
         imageUrl,
+        latitude: item.latitude ?? null,
+        longitude: item.longitude ?? null,
       };
     };
 
     const { data, error } = await supabase
       .from("alerts")
-      .select("id,title,area,type,created_at,photo_path")
+      .select("id,title,area,type,created_at,photo_path,latitude,longitude")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -250,6 +257,30 @@ export default function Home() {
     });
   }, [loadAlerts]);
 
+  // Continuously track user's location while the app is in use to keep distances fresh
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        setMyLat(coords.latitude);
+        setMyLng(coords.longitude);
+      },
+      () => {
+        // If permission denied or error, leave myLat/myLng as-is; distances will hide automatically
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+    );
+    geoWatchIdRef.current = watchId;
+    return () => {
+      if (geoWatchIdRef.current != null) {
+        try {
+          navigator.geolocation.clearWatch(geoWatchIdRef.current);
+        } catch {}
+        geoWatchIdRef.current = null;
+      }
+    };
+  }, []);
+
   // Listen for realtime alert inserts so the UI reflects new reports immediately
   useEffect(() => {
     const channel = supabase
@@ -312,7 +343,7 @@ export default function Home() {
     };
   }, []);
 
-  const nearbyAlerts = useMemo(() => alerts.slice(0, 3), [alerts]);
+  const nearbyAlerts = useMemo(() => alerts, [alerts]);
 
   // Human-friendly time formatter using minutes since creation
   const timeAgoFromMinutes = useCallback((minutes: number) => {
@@ -324,10 +355,71 @@ export default function Home() {
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
     const months = Math.floor(days / 30);
-    if (months < 12) return `${months} ${months === 1 ? "month" : "months"} ago`;
+    if (months < 12)
+      return `${months} ${months === 1 ? "month" : "months"} ago`;
     const years = Math.floor(months / 12);
     return `${years} ${years === 1 ? "year" : "years"} ago`;
   }, []);
+
+  const getMapsLink = useCallback(
+    (a: Alert): string | null => {
+      const hasCoords =
+        typeof a.latitude === "number" && typeof a.longitude === "number";
+      if (hasCoords) {
+        if (typeof myLat === "number" && typeof myLng === "number") {
+          return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${a.latitude},${a.longitude}&travelmode=walking`;
+        }
+        return `https://www.google.com/maps?q=${a.latitude},${a.longitude}`;
+      }
+      // No coordinates -> do not provide a maps link to avoid imprecise geocoding
+      return null;
+    },
+    [myLat, myLng]
+  );
+
+  // Shorten area to two most-specific segments (e.g., "Street, Barangay" or "Barangay, Town")
+  const shortArea = useCallback((area: string) => {
+    if (!area) return "";
+    const parts = area
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]}, ${parts[1]}`;
+    }
+    return parts[0] ?? area;
+  }, []);
+
+  const kmDistance = useCallback(
+    (
+      lat1?: number | null,
+      lng1?: number | null,
+      lat2?: number | null,
+      lng2?: number | null
+    ) => {
+      if (
+        lat1 == null ||
+        lng1 == null ||
+        lat2 == null ||
+        lng2 == null ||
+        Number.isNaN(lat1) ||
+        Number.isNaN(lng1) ||
+        Number.isNaN(lat2) ||
+        Number.isNaN(lng2)
+      )
+        return null;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    },
+    []
+  );
 
   const filteredAlerts = useMemo(() => {
     if (alertFilter === "all") {
@@ -424,6 +516,8 @@ export default function Home() {
       description: reportDescription,
       condition: reportCondition,
       location: reportLocation,
+      lat: reportLat,
+      lng: reportLng,
       photoPath: uploadedPhotoPath,
     };
 
@@ -435,6 +529,19 @@ export default function Home() {
       });
 
       if (!response.ok) {
+        try {
+          const data = await response.json();
+          console.error(
+            "Submit report failed:",
+            data?.error ?? response.statusText
+          );
+        } catch {
+          console.error(
+            "Submit report failed with status:",
+            response.status,
+            response.statusText
+          );
+        }
         setReportStatus("error");
         return;
       }
@@ -475,7 +582,7 @@ export default function Home() {
           className="mx-auto mt-5 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-29"
         >
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="surface rounded-2xl p-6 shadow-soft">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
               <h1 className="text-3xl font-extrabold tracking-tight ink-heading sm:text-4xl">
                 Find. <span style={{ color: "#2a9d8f" }}>Rescue.</span> Reunite.
               </h1>
@@ -521,59 +628,95 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="surface rounded-2xl p-6 shadow-soft">
-              <h2 className="text-lg font-bold ink-heading">Nearby Alerts</h2>
-              <ul className="mt-3 space-y-3">
-                {alertsLoading && (
-                  <li
-                    className="rounded-xl p-3"
-                    style={{ border: "1px solid var(--border-color)" }}
-                  >
-                    Loading alerts...
-                  </li>
-                )}
-                {!alertsLoading && nearbyAlerts.length === 0 && (
-                  <li
-                    className="rounded-xl p-3 ink-muted"
-                    style={{ border: "1px solid var(--border-color)" }}
-                  >
-                    No alerts available yet.
-                  </li>
-                )}
-                {nearbyAlerts.map((alert) => (
-                  <li
-                    key={alert.id}
-                    className="flex items-start gap-3 rounded-xl p-3"
-                    style={{ border: "1px solid var(--border-color)" }}
-                  >
-                    {alert.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={alert.imageUrl}
-                        alt="alert photo"
-                        className="h-10 w-10 rounded-xl object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="grid h-10 w-10 place-content-center rounded-xl text-xl"
-                        style={{
-                          background:
-                            "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                        }}
-                      >
-                        {alert.emoji}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-medium ink-heading">{alert.title}</p>
-                      <p className="text-sm ink-muted">
-                        {alert.area} - {timeAgoFromMinutes(alert.minutes)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
+              <h2 className="px-1 text-2xl font-extrabold tracking-tight ink-heading">
+                Nearby Alerts
+              </h2>
+              <div className="mt-3 flex-1 overflow-y-auto">
+                <ul className="space-y-3">
+                  {alertsLoading && (
+                    <li
+                      className="rounded-xl p-3"
+                      style={{ border: "1px solid var(--border-color)" }}
+                    >
+                      Loading alerts...
+                    </li>
+                  )}
+                  {!alertsLoading && nearbyAlerts.length === 0 && (
+                    <li
+                      className="rounded-xl p-3 ink-muted"
+                      style={{ border: "1px solid var(--border-color)" }}
+                    >
+                      No alerts available yet.
+                    </li>
+                  )}
+                  {nearbyAlerts.map((alert) => {
+                    const dist = kmDistance(
+                      myLat,
+                      myLng,
+                      alert.latitude,
+                      alert.longitude
+                    );
+                    return (
+                      <li key={alert.id} className="surface rounded-2xl p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {alert.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={alert.imageUrl}
+                                alt="alert photo"
+                                className="h-15 w-15 rounded-xl object-cover"
+                              />
+                            ) : (
+                              <div
+                                className="grid h-15 w-15 place-content-center rounded-xl text-xl"
+                                style={{
+                                  background:
+                                    "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                }}
+                              >
+                                {alert.emoji}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium ink-heading">
+                                {alert.title}
+                              </p>
+                              <p className="text-sm ink-heading">
+                                {shortArea(alert.area)}
+                              </p>
+                              <p className="text-xs ink-muted">
+                                {timeAgoFromMinutes(alert.minutes)}
+                                {dist != null
+                                  ? ` • ${dist.toFixed(1)} km away`
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                          {(() => {
+                            const link = getMapsLink(alert);
+                            return link ? (
+                              <a
+                                className="btn btn-primary px-4 py-2 "
+                                style={{
+                                  border: "1px solid var(--border-color)",
+                                }}
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Open Google Maps
+                              </a>
+                            ) : null;
+                          })()}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              {/*<div className="mt-4">
                 <a
                   className="hover:underline"
                   href="#alerts"
@@ -581,7 +724,7 @@ export default function Home() {
                 >
                   View all alerts {"->"}
                 </a>
-              </div>
+              </div>*/}
             </div>
           </div>
         </section>
@@ -591,6 +734,8 @@ export default function Home() {
           activeFilter={alertFilter}
           onFilterChange={handleAlertFilterChange}
           filteredAlerts={filteredAlerts}
+          myLat={myLat}
+          myLng={myLng}
         />
 
         <ReportSection
@@ -602,6 +747,12 @@ export default function Home() {
           setReportCondition={setReportCondition}
           reportLocation={reportLocation}
           setReportLocation={setReportLocation}
+          reportLat={reportLat}
+          reportLng={reportLng}
+          setReportCoords={(lat, lng) => {
+            setReportLat(lat);
+            setReportLng(lng);
+          }}
           reportPhotoName={reportPhotoName}
           reportStatus={reportStatus}
           handlePhotoChange={handlePhotoChange}
