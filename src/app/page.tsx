@@ -127,6 +127,8 @@ export default function Home() {
 
   // Guard against state updates when the component unmounts while async work is in flight
   useEffect(() => {
+    // Ensure the mounted flag is re-enabled on mount (important after client navigation)
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       if (scrollTimeoutRef.current) {
@@ -312,6 +314,21 @@ export default function Home() {
 
   const nearbyAlerts = useMemo(() => alerts.slice(0, 3), [alerts]);
 
+  // Human-friendly time formatter using minutes since creation
+  const timeAgoFromMinutes = useCallback((minutes: number) => {
+    const mins = Math.max(0, Math.floor(minutes));
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins} ${mins === 1 ? "minute" : "minutes"} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} ${months === 1 ? "month" : "months"} ago`;
+    const years = Math.floor(months / 12);
+    return `${years} ${years === 1 ? "year" : "years"} ago`;
+  }, []);
+
   const filteredAlerts = useMemo(() => {
     if (alertFilter === "all") {
       return alerts;
@@ -329,6 +346,24 @@ export default function Home() {
     }
     return pets;
   }, [adoptions, adoptionFilter, adoptionSort]);
+
+  // Keep report type and alert filter in sync for lost/found
+  const handleAlertFilterChange = useCallback((filter: AlertType) => {
+    setAlertFilter(filter);
+    if (filter === "lost" || filter === "found") {
+      setReportType(filter);
+    }
+  }, []);
+
+  const handleReportTypeChange = useCallback(
+    (type: Exclude<AlertType, "all">) => {
+      setReportType(type);
+      if (type === "lost" || type === "found") {
+        setAlertFilter(type);
+      }
+    },
+    []
+  );
 
   // Track the selected photo locally so it can be uploaded prior to submitting the report
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -454,7 +489,7 @@ export default function Home() {
                   onClick={() => scrollToTarget("#report")}
                   type="button"
                 >
-                  Report a Stray
+                  Quick Report
                 </button>
                 <button
                   className="px-5 py-2.5 rounded-2xl font-semibold border-2 border-[#2a9d8f] text-[#2a9d8f] bg-white hover:bg-[#2a9d8f] hover:text-white transition-colors shadow-lg"
@@ -532,7 +567,7 @@ export default function Home() {
                     <div>
                       <p className="font-medium ink-heading">{alert.title}</p>
                       <p className="text-sm ink-muted">
-                        {alert.area} - {alert.minutes} mins ago
+                        {alert.area} - {timeAgoFromMinutes(alert.minutes)}
                       </p>
                     </div>
                   </li>
@@ -554,13 +589,13 @@ export default function Home() {
         <AlertsSection
           filters={ALERT_FILTERS}
           activeFilter={alertFilter}
-          onFilterChange={setAlertFilter}
+          onFilterChange={handleAlertFilterChange}
           filteredAlerts={filteredAlerts}
         />
 
         <ReportSection
           reportType={reportType}
-          setReportType={setReportType}
+          setReportType={handleReportTypeChange}
           reportDescription={reportDescription}
           setReportDescription={setReportDescription}
           reportCondition={reportCondition}
