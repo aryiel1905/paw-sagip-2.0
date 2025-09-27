@@ -14,6 +14,7 @@ import MapPickerModal from "@/components/MapPickerModal";
 import { AlertType, ReportStatus } from "@/types/app";
 import { useEffect } from "react";
 import { showToast } from "@/lib/toast";
+import { useMemo } from "react";
 
 type ReportSectionProps = {
   reportType: Exclude<AlertType, "all">;
@@ -33,6 +34,13 @@ type ReportSectionProps = {
   handleSubmitReport: () => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
   reportPhotoPreviewUrl: string | null;
+  // Landmark photos (multiple)
+  landmarkPreviewUrls: string[];
+  handleLandmarkPhotosChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  removeLandmarkAt: (index: number) => void;
+  clearLandmarkPhotos: () => void;
+  landmarkInputRef: RefObject<HTMLInputElement>;
+  landmarkInputMobileRef: RefObject<HTMLInputElement>;
 };
 
 export function ReportSection({
@@ -53,6 +61,12 @@ export function ReportSection({
   handleSubmitReport,
   reportPhotoInputRef,
   reportPhotoPreviewUrl,
+  landmarkPreviewUrls,
+  handleLandmarkPhotosChange,
+  removeLandmarkAt,
+  clearLandmarkPhotos,
+  landmarkInputRef,
+  landmarkInputMobileRef,
 }: ReportSectionProps) {
   // Local UI state for the quick form and modal behavior
   const [qSpecies, setQSpecies] = useState("Dog");
@@ -357,6 +371,55 @@ export function ReportSection({
               </label>
             </div>
 
+            {/* Landmark Photos (multiple) */}
+            <div>
+              <label
+                className="mt-1 relative flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-landmarks-mobile"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  id="report-landmarks-mobile"
+                  onChange={handleLandmarkPhotosChange}
+                  ref={landmarkInputMobileRef}
+                />
+                {landmarkPreviewUrls.length === 0 ? (
+                  <>
+                    <span className="block text-3xl">🗺️</span>
+                    <span className="text-sm ink-muted">
+                      Upload landmark photos (up to 5)
+                    </span>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    {/* Simple carousel: show current slide; use index in dataset */}
+                    <LandmarkCarousel
+                      urls={landmarkPreviewUrls}
+                      onRemove={(idx) => removeLandmarkAt(idx)}
+                      onClearAll={() => clearLandmarkPhotos()}
+                    />
+                  </div>
+                )}
+                {landmarkPreviewUrls.length < 5 && (
+                  <div
+                    className="absolute bottom-2 right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-soft"
+                    style={{
+                      background: "var(--white)",
+                      border: "1px solid var(--border-color)",
+                      pointerEvents: "none",
+                    }}
+                    aria-hidden
+                  >
+                    <span className="text-xl leading-none">+</span>
+                  </div>
+                )}
+              </label>
+            </div>
+
             {/* Group: Report Type / Species / Location / When */}
             <div className="space-y-3">
               <label className="block text-sm">
@@ -537,7 +600,7 @@ export function ReportSection({
 
           {/* Desktop layout */}
           <div className="hidden gap-3 md:grid md:grid-cols-3">
-            {/* Column 1: Pet Photos */}
+            {/* Column 1: Photos */}
             <div className="order-1 md:order-none">
               <label
                 className="mt-2 flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
@@ -568,6 +631,52 @@ export function ReportSection({
                     alt="Selected photo preview"
                     className="h-full w-full object-contain"
                   />
+                )}
+              </label>
+
+              {/* Landmark Photos (multiple) */}
+              <label
+                className="mt-3 relative flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-landmarks"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  id="report-landmarks"
+                  onChange={handleLandmarkPhotosChange}
+                  ref={landmarkInputRef}
+                />
+                {landmarkPreviewUrls.length === 0 ? (
+                  <>
+                    <span className="block text-3xl">🗺️</span>
+                    <span className="text-sm ink-muted">
+                      Upload landmark photos (up to 5)
+                    </span>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    <LandmarkCarousel
+                      urls={landmarkPreviewUrls}
+                      onRemove={(idx) => removeLandmarkAt(idx)}
+                      onClearAll={() => clearLandmarkPhotos()}
+                    />
+                  </div>
+                )}
+                {landmarkPreviewUrls.length < 5 && (
+                  <div
+                    className="absolute bottom-2 right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-soft"
+                    style={{
+                      background: "var(--white)",
+                      border: "1px solid var(--border-color)",
+                      pointerEvents: "none",
+                    }}
+                    aria-hidden
+                  >
+                    <span className="text-xl leading-none">+</span>
+                  </div>
                 )}
               </label>
             </div>
@@ -843,5 +952,102 @@ export function ReportSection({
         }}
       />
     </section>
+  );
+}
+
+function LandmarkCarousel({
+  urls,
+  onRemove,
+  onClearAll,
+}: {
+  urls: string[];
+  onRemove: (index: number) => void;
+  onClearAll: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const count = urls.length;
+  const current = useMemo(() => (count ? urls[Math.min(index, count - 1)] : null), [urls, index, count]);
+  useEffect(() => {
+    if (index > count - 1) setIndex(Math.max(0, count - 1));
+  }, [count, index]);
+  if (count === 0) return null;
+  return (
+    <div className="relative h-full w-full">
+      {/* image */}
+      {current && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={current}
+          alt={`landmark ${index + 1} of ${count}`}
+          className="h-full w-full object-cover rounded-xl"
+        />
+      )}
+      {/* arrows */}
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous"
+            className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i - 1 + count) % count);
+            }}
+          >
+            ◀
+          </button>
+          <button
+            type="button"
+            aria-label="Next"
+            className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i + 1) % count);
+            }}
+          >
+            ▶
+          </button>
+        </>
+      )}
+      {/* index indicator */}
+      <div
+        className="absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-xs"
+        style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+      >
+        {Math.min(index + 1, count)}/{count}
+      </div>
+      {/* remove pill (current) */}
+      <button
+        type="button"
+        className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRemove(Math.min(index, count - 1));
+          setIndex((i) => Math.max(0, i - 1));
+        }}
+      >
+        Remove
+      </button>
+      {/* clear all pill */}
+      <button
+        type="button"
+        className="absolute top-2 left-2 pill px-2 py-1 text-xs"
+        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClearAll();
+          setIndex(0);
+        }}
+      >
+        Clear
+      </button>
+    </div>
   );
 }
