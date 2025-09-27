@@ -9,7 +9,7 @@ import {
   useRef,
 } from "react";
 import Link from "next/link";
-import { MapPin, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { AlertType, ReportStatus } from "@/types/app";
 import { useEffect } from "react";
@@ -129,8 +129,8 @@ export function ReportSection({
             <div>
               <p className="font-semibold">Submit Anonymously</p>
               <p className="mt-1 text-sm">
-                Your name won’t be shown. If safe, add a phone or email so
-                responders can coordinate follow‑ups.
+                Your name wonâ€™t be shown. If safe, add a phone or email so
+                responders can coordinate followâ€‘ups.
               </p>
             </div>
           </div>
@@ -258,6 +258,18 @@ export function ReportSection({
     qFriendly,
   ]);
 
+  const clearMainPhoto = useCallback(() => {
+    try {
+      const input = reportPhotoInputRef.current;
+      if (!input) return;
+      input.value = "";
+      const ev = new Event("change", { bubbles: true });
+      input.dispatchEvent(ev);
+    } catch {
+      // ignore
+    }
+  }, [reportPhotoInputRef]);
+
   // Show toast messages for submit status
   useEffect(() => {
     if (reportStatus === "success") {
@@ -339,7 +351,7 @@ export function ReportSection({
             {/* Photos */}
             <div>
               <label
-                className="mt-2 flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-photo-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -359,14 +371,54 @@ export function ReportSection({
                         ? `Selected: ${reportPhotoName}`
                         : "Upload one or more photos"}
                     </span>
+                    {/* centered plus overlay */}
+                    <div
+                      className="pointer-events-none absolute inset-0 grid place-items-center"
+                      aria-hidden
+                    >
+                      <div
+                        className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      >
+                        +
+                      </div>
+                    </div>
                   </>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={reportPhotoPreviewUrl}
-                    alt="Selected photo preview"
-                    className="h-full w-full object-contain"
-                  />
+                  <div className="relative h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={reportPhotoPreviewUrl}
+                      alt="Selected photo preview"
+                      className="h-full w-full object-cover rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Add/replace photo"
+                      className="absolute bottom-2 right-2 pill px-2 py-1 text-xs shadow-soft"
+                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        reportPhotoInputRef.current?.click();
+                      }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remove photo"
+                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        clearMainPhoto();
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </label>
             </div>
@@ -374,7 +426,7 @@ export function ReportSection({
             {/* Landmark Photos (multiple) */}
             <div>
               <label
-                className="mt-1 relative flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                className="mt-1 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-landmarks-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -393,6 +445,18 @@ export function ReportSection({
                     <span className="text-sm ink-muted">
                       Upload landmark photos (up to 5)
                     </span>
+                    {/* centered plus overlay on empty state */}
+                    <div
+                      className="pointer-events-none absolute inset-0 grid place-items-center"
+                      aria-hidden
+                    >
+                      <div
+                        className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      >
+                        +
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div className="relative h-full w-full">
@@ -401,22 +465,11 @@ export function ReportSection({
                       urls={landmarkPreviewUrls}
                       onRemove={(idx) => removeLandmarkAt(idx)}
                       onClearAll={() => clearLandmarkPhotos()}
+                      onAdd={() => landmarkInputMobileRef.current?.click()}
                     />
                   </div>
                 )}
-                {landmarkPreviewUrls.length < 5 && (
-                  <div
-                    className="absolute bottom-2 right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-soft"
-                    style={{
-                      background: "var(--white)",
-                      border: "1px solid var(--border-color)",
-                      pointerEvents: "none",
-                    }}
-                    aria-hidden
-                  >
-                    <span className="text-xl leading-none">+</span>
-                  </div>
-                )}
+                {/* When photos exist, the inner carousel shows its own add button. */}
               </label>
             </div>
 
@@ -455,12 +508,13 @@ export function ReportSection({
                 Location
                 <div className="mt-1 flex items-center gap-2">
                   <input
-                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)]"
+                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                     placeholder="Use the pin to pick location"
                     style={{ border: "1px solid var(--border-color)" }}
                     value={reportLocation}
                     readOnly
                     aria-readonly
+                    disabled
                     required
                   />
                   <button
@@ -473,6 +527,9 @@ export function ReportSection({
                     Pin
                   </button>
                 </div>
+                <p className="mt-1 text-xs ink-muted">
+                  Use the pin to pick an exact location.
+                </p>
               </label>
               <label className="block text-sm">
                 When
@@ -508,73 +565,7 @@ export function ReportSection({
 
             {/* Group: Checkboxes / Features / Contact */}
             <div className="space-y-3">
-              <div className="mt-1 flex flex-wrap items-center gap-4">
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qAggressive ? { color: "var(--primary-orange)" } : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qAggressive}
-                    onChange={(e) => {
-                      onQuickAggressiveToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "aggressive");
-                      else hideTip();
-                    }}
-                    style={
-                      qAggressive
-                        ? ({
-                            accentColor: "var(--primary-orange)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>This pet may be aggressive</span>
-                </label>
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qFriendly
-                      ? { color: "var(--primary-mintgreen)" }
-                      : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qFriendly}
-                    onChange={(e) => {
-                      onQuickFriendlyToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "friendly");
-                      else hideTip();
-                    }}
-                    style={
-                      qFriendly
-                        ? ({
-                            accentColor: "var(--primary-mintgreen)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>Pet seems friendly</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qAnon}
-                    onChange={(e) => {
-                      setQAnon(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "anonymous");
-                      else hideTip();
-                    }}
-                  />
-                  <span>Submit anonymously</span>
-                </label>
-              </div>
+              {/* Flags moved to column 1 above */}
               <label className="block text-sm">
                 Distinctive Features (optional)
                 <input
@@ -598,90 +589,120 @@ export function ReportSection({
             </div>
           </div>
 
-          {/* Desktop layout */}
-          <div className="hidden gap-3 md:grid md:grid-cols-3">
-            {/* Column 1: Photos */}
-            <div className="order-1 md:order-none">
-              <label
-                className="mt-2 flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-                htmlFor="report-photo"
-                style={{ border: "2px dashed var(--border-color)" }}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  id="report-photo"
-                  onChange={handlePhotoChange}
-                  ref={reportPhotoInputRef}
-                />
-                {!reportPhotoPreviewUrl ? (
-                  <>
-                    <span className="block text-3xl">📷</span>
-                    <span className="text-sm ink-muted">
-                      {reportPhotoName
-                        ? `Selected: ${reportPhotoName}`
-                        : "Upload one or more photos"}
-                    </span>
-                  </>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
+          {/* Desktop: centered photo placeholders above columns */}
+          <div className="hidden md:flex justify-center gap-6 mb-4">
+            {/* Report Photo */}
+            <label
+              className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+              htmlFor="report-photo"
+              style={{ border: "2px dashed var(--border-color)" }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                id="report-photo"
+                onChange={handlePhotoChange}
+                ref={reportPhotoInputRef}
+              />
+              {!reportPhotoPreviewUrl ? (
+                <>
+                  <span className="block text-3xl">📷</span>
+                  <span className="text-sm ink-muted">
+                    {reportPhotoName
+                      ? `Selected: ${reportPhotoName}`
+                      : "Upload one or more photos"}
+                  </span>
+                </>
+              ) : (
+                <div className="relative h-full w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={reportPhotoPreviewUrl}
+                    src={reportPhotoPreviewUrl!}
                     alt="Selected photo preview"
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover rounded-xl"
                   />
-                )}
-              </label>
-
-              {/* Landmark Photos (multiple) */}
-              <label
-                className="mt-3 relative flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-                htmlFor="report-landmarks"
-                style={{ border: "2px dashed var(--border-color)" }}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  id="report-landmarks"
-                  onChange={handleLandmarkPhotosChange}
-                  ref={landmarkInputRef}
-                />
-                {landmarkPreviewUrls.length === 0 ? (
-                  <>
-                    <span className="block text-3xl">🗺️</span>
-                    <span className="text-sm ink-muted">
-                      Upload landmark photos (up to 5)
-                    </span>
-                  </>
-                ) : (
-                  <div className="relative h-full w-full">
-                    <LandmarkCarousel
-                      urls={landmarkPreviewUrls}
-                      onRemove={(idx) => removeLandmarkAt(idx)}
-                      onClearAll={() => clearLandmarkPhotos()}
-                    />
-                  </div>
-                )}
-                {landmarkPreviewUrls.length < 5 && (
-                  <div
-                    className="absolute bottom-2 right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-soft"
-                    style={{
-                      background: "var(--white)",
-                      border: "1px solid var(--border-color)",
-                      pointerEvents: "none",
+                  <button
+                    type="button"
+                    aria-label="Add/replace photo"
+                    className="absolute bottom-2 right-2 pill px-2 py-1 text-xs shadow-soft"
+                    style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      reportPhotoInputRef.current?.click();
                     }}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove photo"
+                    className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                    style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      clearMainPhoto();
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </label>
+
+            {/* Landmark Photos (multiple) */}
+            <label
+              className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+              htmlFor="report-landmarks"
+              style={{ border: "2px dashed var(--border-color)" }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                id="report-landmarks"
+                onChange={handleLandmarkPhotosChange}
+                ref={landmarkInputRef}
+              />
+              {landmarkPreviewUrls.length === 0 ? (
+                <>
+                  <span className="block text-3xl">🗺️</span>
+                  <span className="text-sm ink-muted">
+                    Upload landmark photos (up to 5)
+                  </span>
+                  {/* centered plus overlay on empty state */}
+                  <div
+                    className="pointer-events-none absolute inset-0 grid place-items-center"
                     aria-hidden
                   >
-                    <span className="text-xl leading-none">+</span>
+                    <div
+                      className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                    >
+                      +
+                    </div>
                   </div>
-                )}
-              </label>
-            </div>
+                </>
+              ) : (
+                <div className="relative h-full w-full">
+                  <LandmarkCarousel
+                    urls={landmarkPreviewUrls}
+                    onRemove={(idx) => removeLandmarkAt(idx)}
+                    onClearAll={() => clearLandmarkPhotos()}
+                    onAdd={() => landmarkInputRef.current?.click()}
+                  />
+                </div>
+              )}
+              {/* When photos exist, the inner carousel shows its own add button. */}
+            </label>
+          </div>
 
-            {/* Column 2: Report Type + Location + Features */}
+          {/* Desktop layout */}
+          <div className="hidden gap-3 md:grid md:grid-cols-2">
+            {/* Column 1: Report Type + Location + Features */}
             <div className="order-2 space-y-3 md:order-none">
               <label className="block text-sm">
                 Report Type
@@ -698,16 +719,18 @@ export function ReportSection({
                   <option value="lost">Lost</option>
                 </select>
               </label>
+
               <label className="block text-sm">
                 Location
                 <div className="mt-1 flex items-center gap-2">
                   <input
-                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)]"
+                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                     placeholder="Use the pin to pick location"
                     style={{ border: "1px solid var(--border-color)" }}
                     value={reportLocation}
                     readOnly
                     aria-readonly
+                    disabled
                     required
                   />
                   <button
@@ -720,7 +743,11 @@ export function ReportSection({
                     Pin
                   </button>
                 </div>
+                <p className="mt-1 text-xs ink-muted">
+                  Use the pin to pick an exact location.
+                </p>
               </label>
+
               <label className="block text-sm">
                 Distinctive Features (optional)
                 <input
@@ -731,76 +758,10 @@ export function ReportSection({
                   onChange={(e) => onQuickFeatureChange(e.target.value)}
                 />
               </label>
-              <div className="mt-1 flex flex-wrap items-center gap-4">
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qAggressive ? { color: "var(--primary-orange)" } : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qAggressive}
-                    onChange={(e) => {
-                      onQuickAggressiveToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "aggressive");
-                      else hideTip();
-                    }}
-                    style={
-                      qAggressive
-                        ? ({
-                            accentColor: "var(--primary-orange)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>This pet may be aggressive</span>
-                </label>
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qFriendly
-                      ? { color: "var(--primary-mintgreen)" }
-                      : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qFriendly}
-                    onChange={(e) => {
-                      onQuickFriendlyToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "friendly");
-                      else hideTip();
-                    }}
-                    style={
-                      qFriendly
-                        ? ({
-                            accentColor: "var(--primary-mintgreen)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>Pet seems friendly</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qAnon}
-                    onChange={(e) => {
-                      setQAnon(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "anonymous");
-                      else hideTip();
-                    }}
-                  />
-                  <span>Submit anonymously</span>
-                </label>
-              </div>
+              {/* flags removed on desktop */}
             </div>
 
-            {/* Column 3: Species + When + Contact */}
+            {/* Column 2: When + Contact + Flags */}
             <div className="order-3 space-y-3 md:order-none">
               <label className="block text-sm">
                 Species
@@ -846,7 +807,7 @@ export function ReportSection({
                   </button>
                 </div>
                 <p className="mt-1 text-xs ink-muted">
-                  You can type a date/time or tap the clock to set now.
+                  You can type a date/time or tap the auto to set now.
                 </p>
               </label>
               <label className="block text-sm">
@@ -859,6 +820,73 @@ export function ReportSection({
                   onChange={(e) => setQContact(e.target.value)}
                 />
               </label>
+              <div className="mt-1 flex flex-wrap items-center gap-4">
+                <label
+                  className="inline-flex items-center gap-2 text-sm"
+                  style={
+                    qAggressive ? { color: "var(--primary-orange)" } : undefined
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={qAggressive}
+                    onChange={(e) => {
+                      onQuickAggressiveToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "aggressive");
+                      else hideTip();
+                    }}
+                    style={
+                      qAggressive
+                        ? ({
+                            accentColor: "var(--primary-orange)",
+                          } as React.CSSProperties)
+                        : undefined
+                    }
+                  />
+                  <span>This pet may be aggressive</span>
+                </label>
+                <label
+                  className="inline-flex items-center gap-2 text-sm"
+                  style={
+                    qFriendly
+                      ? { color: "var(--primary-mintgreen)" }
+                      : undefined
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={qFriendly}
+                    onChange={(e) => {
+                      onQuickFriendlyToggle(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "friendly");
+                      else hideTip();
+                    }}
+                    style={
+                      qFriendly
+                        ? ({
+                            accentColor: "var(--primary-mintgreen)",
+                          } as React.CSSProperties)
+                        : undefined
+                    }
+                  />
+                  <span>Pet seems friendly</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={qAnon}
+                    onChange={(e) => {
+                      setQAnon(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "anonymous");
+                      else hideTip();
+                    }}
+                  />
+                  <span>Submit anonymously</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -867,7 +895,7 @@ export function ReportSection({
           <div className="flex flex-nowrap items-stretch gap-2 pt-2">
             <button
               type="submit"
-              className="btn btn-primary px-4 py-2 flex-1 min-w-0"
+              className="btn btn-accent px-4 py-2 flex-1 min-w-0"
               disabled={reportStatus === "submitting"}
             >
               {reportStatus === "submitting"
@@ -959,14 +987,19 @@ function LandmarkCarousel({
   urls,
   onRemove,
   onClearAll,
+  onAdd,
 }: {
   urls: string[];
   onRemove: (index: number) => void;
   onClearAll: () => void;
+  onAdd?: () => void;
 }) {
   const [index, setIndex] = useState(0);
   const count = urls.length;
-  const current = useMemo(() => (count ? urls[Math.min(index, count - 1)] : null), [urls, index, count]);
+  const current = useMemo(
+    () => (count ? urls[Math.min(index, count - 1)] : null),
+    [urls, index, count]
+  );
   useEffect(() => {
     if (index > count - 1) setIndex(Math.max(0, count - 1));
   }, [count, index]);
@@ -989,7 +1022,10 @@ function LandmarkCarousel({
             type="button"
             aria-label="Previous"
             className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
-            style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -1002,7 +1038,10 @@ function LandmarkCarousel({
             type="button"
             aria-label="Next"
             className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
-            style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -1015,16 +1054,38 @@ function LandmarkCarousel({
       )}
       {/* index indicator */}
       <div
-        className="absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-xs"
+        className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
         style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
       >
         {Math.min(index + 1, count)}/{count}
       </div>
+      {/* add more pill (bottom-right) */}
+      {count < 5 && onAdd && (
+        <button
+          type="button"
+          className="absolute bottom-2 right-2 pill px-2 py-1 text-xs"
+          style={{
+            background: "var(--white)",
+            border: "1px solid var(--border-color)",
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onAdd();
+          }}
+          aria-label="Add more photos"
+        >
+          +
+        </button>
+      )}
       {/* remove pill (current) */}
       <button
         type="button"
         className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+        style={{
+          background: "var(--white)",
+          border: "1px solid var(--border-color)",
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1038,7 +1099,10 @@ function LandmarkCarousel({
       <button
         type="button"
         className="absolute top-2 left-2 pill px-2 py-1 text-xs"
-        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+        style={{
+          background: "var(--white)",
+          border: "1px solid var(--border-color)",
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1051,3 +1115,5 @@ function LandmarkCarousel({
     </div>
   );
 }
+
+
