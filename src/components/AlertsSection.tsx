@@ -80,7 +80,7 @@ export function AlertsSection({
     const lng = (a as any).longitude as number | undefined;
     if (typeof lat === "number" && typeof lng === "number") {
       if (typeof myLat === "number" && typeof myLng === "number") {
-        return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${lat},${lng}&travelmode=walking`;
+        return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${lat},${lng}&travelmode=driving`;
       }
       return `https://www.google.com/maps?q=${lat},${lng}`;
     }

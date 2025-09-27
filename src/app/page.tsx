@@ -560,7 +560,7 @@ export default function Home() {
         typeof a.latitude === "number" && typeof a.longitude === "number";
       if (hasCoords) {
         if (typeof myLat === "number" && typeof myLng === "number") {
-          return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${a.latitude},${a.longitude}&travelmode=walking`;
+          return `https://www.google.com/maps/dir/?api=1&origin=${myLat},${myLng}&destination=${a.latitude},${a.longitude}&travelmode=driving`;
         }
         return `https://www.google.com/maps?q=${a.latitude},${a.longitude}`;
       }
@@ -1158,7 +1158,7 @@ export default function Home() {
                             const link = getMapsLink(alert);
                             return link ? (
                               <a
-                                className="btn btn-primary px-4 py-2 "
+                                className="btn btn-primary px-4 py-2 text-[12px]"
                                 style={{
                                   border: "1px solid var(--border-color)",
                                 }}
