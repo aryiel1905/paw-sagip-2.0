@@ -1,4 +1,8 @@
+"use client";
+
 import { Alert, AdoptionPet } from "@/types/app";
+import { useEffect, useMemo, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type ModalItem =
   | { kind: "alert"; alert: Alert }
@@ -21,7 +25,7 @@ function DetailsRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function DetailsModal({
+function DetailsModalInner({
   item,
   onClose,
   timeAgoFromMinutes,
@@ -29,6 +33,55 @@ export function DetailsModal({
 }: DetailsModalProps) {
   if (!item) return null;
   const isAlert = item.kind === "alert";
+  const initialLm = isAlert ? item.alert.landmarkImageUrls ?? [] : [];
+  const [lmUrls, setLmUrls] = useState<string[]>(initialLm);
+  const [lmIndex, setLmIndex] = useState(0);
+  const lmCount = lmUrls.length;
+  const currentLm = useMemo(
+    () => (lmCount ? lmUrls[Math.min(lmIndex, lmCount - 1)] : null),
+    [lmUrls, lmIndex, lmCount]
+  );
+
+  // Keep local urls in sync if modal item changes
+  useEffect(() => {
+    setLmUrls(initialLm);
+    setLmIndex(0);
+  }, [item, initialLm]);
+
+  // Fallback: if landmark urls are missing on alerts, look up the matching report by photo_path
+  useEffect(() => {
+    if (!isAlert) return;
+    if (lmUrls.length > 0) return;
+    const imageUrl = item.alert.imageUrl;
+    if (!imageUrl) return;
+    const marker = "/storage/v1/object/public/";
+    const idx = imageUrl.indexOf(marker);
+    if (idx === -1) return;
+    const rest = imageUrl.slice(idx + marker.length); // <bucket>/<path>
+    const slash = rest.indexOf("/");
+    if (slash === -1) return;
+    const bucket = rest.slice(0, slash);
+    const path = rest.slice(slash + 1);
+    if (!path) return;
+
+    const supabase = getSupabaseClient();
+    supabase
+      .from("reports")
+      .select("landmark_media_paths")
+      .eq("photo_path", path)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) return;
+        const arr = (data?.landmark_media_paths ?? []) as string[];
+        if (Array.isArray(arr) && arr.length > 0) {
+          const urls = arr
+            .filter(Boolean)
+            .map((p) => supabase.storage.from(bucket).getPublicUrl(p).data.publicUrl);
+          setLmUrls(urls);
+        }
+      })
+      .catch(() => {});
+  }, [isAlert, lmUrls.length, item]);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -95,6 +148,48 @@ export function DetailsModal({
                   {item.adoption.emoji}
                 </div>
               )}
+
+              {/* Landmark carousel (same size) */}
+              {isAlert && lmCount > 0 && (
+                <div className="relative mt-3 h-32 w-full max-w-[180px]">
+                  {currentLm && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={currentLm}
+                      alt={`landmark ${Math.min(lmIndex + 1, lmCount)} of ${lmCount}`}
+                      className="h-full w-full object-cover rounded-xl"
+                    />
+                  )}
+                  {lmCount > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous landmark"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                        onClick={() => setLmIndex((i) => (i - 1 + lmCount) % lmCount)}
+                      >
+                        ◀
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next landmark"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                        onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
+                      >
+                        ▶
+                      </button>
+                    </>
+                  )}
+                  <div
+                    className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+                    style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                  >
+                    {Math.min(lmIndex + 1, lmCount)}/{lmCount}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -154,3 +249,19 @@ export function DetailsModal({
   );
 }
 
+export function DetailsModal({
+  item,
+  onClose,
+  timeAgoFromMinutes,
+  getMapsLink,
+}: DetailsModalProps) {
+  if (!item) return null;
+  return (
+    <DetailsModalInner
+      item={item}
+      onClose={onClose}
+      timeAgoFromMinutes={timeAgoFromMinutes}
+      getMapsLink={getMapsLink}
+    />
+  );
+}

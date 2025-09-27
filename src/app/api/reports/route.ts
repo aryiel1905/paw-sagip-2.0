@@ -16,6 +16,7 @@ type ReportPayload = {
   photoPath?: string | null;
   lat?: number | null;
   lng?: number | null;
+  landmarkMediaPaths?: string[] | null;
 };
 
 export async function POST(request: Request) {
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
       condition: payload.condition ?? null,
       location: payload.location ?? null,
       photo_path: payload.photoPath ?? null,
+      landmark_media_paths: payload.landmarkMediaPaths ?? [],
       latitude,
       longitude,
     },

@@ -10,6 +10,7 @@ export type Alert = {
   imageUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  landmarkImageUrls?: string[];
 };
 
 export type AdoptionPet = {
@@ -34,6 +35,7 @@ export type AlertRow = {
   photo_path?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  landmark_media_paths?: string[] | null;
 };
 
 export type AdoptionRow = {

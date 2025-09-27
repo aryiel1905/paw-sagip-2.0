@@ -23,11 +23,9 @@ import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
 import { DetailsModal } from "@/components/DetailsModal";
+import { showToast } from "@/lib/toast";
 import {
   HeartHandshake,
-  Locate,
-  Navigation2,
-  ShieldAlert,
   BellRing,
   ClipboardList,
   IdCard,
@@ -74,15 +72,15 @@ type ModalItem =
 function mapEmoji(type: Exclude<AlertType, "all">) {
   switch (type) {
     case "lost":
-      return "🔎";
+      return "??";
     case "found":
-      return "📍";
+      return "??";
     case "cruelty":
-      return "🚨";
+      return "??";
     case "adoption":
-      return "🐾";
+      return "??";
     default:
-      return "🐾";
+      return "??";
   }
 }
 
@@ -134,8 +132,13 @@ export default function Home() {
   const [reportPhotoName, setReportPhotoName] = useState("");
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
   const reportPhotoInputRef = useRef<HTMLInputElement>(null!);
+  const landmarkInputRef = useRef<HTMLInputElement>(null!);
+  const landmarkInputMobileRef = useRef<HTMLInputElement>(null!);
   const isMountedRef = useRef(true);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
+  // Landmark photos (multiple)
+  const [landmarkPhotos, setLandmarkPhotos] = useState<File[]>([]);
+  const [landmarkPreviewUrls, setLandmarkPreviewUrls] = useState<string[]>([]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -212,7 +215,9 @@ export default function Home() {
         ];
         const { data: alertData, error: alertErr } = await supabase
           .from("alerts")
-          .select("id,title,area,type,created_at,photo_path,latitude,longitude")
+          .select(
+            "id,title,area,type,created_at,photo_path,latitude,longitude,landmark_media_paths"
+          )
           .or(alertOrParts.join(","))
           .limit(25);
 
@@ -227,6 +232,15 @@ export default function Home() {
                 .from(PET_MEDIA_BUCKET)
                 .getPublicUrl(item.photo_path).data.publicUrl
             : null;
+          const landmarkImageUrls = Array.isArray(item.landmark_media_paths)
+            ? item.landmark_media_paths
+                .filter(Boolean)
+                .map(
+                  (p) =>
+                    supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
+                      .publicUrl
+                )
+            : [];
           return {
             id: item.id,
             title: item.title,
@@ -237,6 +251,7 @@ export default function Home() {
             imageUrl,
             latitude: item.latitude ?? null,
             longitude: item.longitude ?? null,
+            landmarkImageUrls,
           };
         };
 
@@ -325,6 +340,15 @@ export default function Home() {
         ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(item.photo_path)
             .data.publicUrl
         : null;
+      const landmarkImageUrls = Array.isArray(item.landmark_media_paths)
+        ? item.landmark_media_paths
+            .filter(Boolean)
+            .map(
+              (p) =>
+                supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
+                  .publicUrl
+            )
+        : [];
       return {
         id: item.id,
         title: item.title,
@@ -335,12 +359,15 @@ export default function Home() {
         imageUrl,
         latitude: item.latitude ?? null,
         longitude: item.longitude ?? null,
+        landmarkImageUrls,
       };
     };
 
     const { data, error } = await supabase
       .from("alerts")
-      .select("id,title,area,type,created_at,photo_path,latitude,longitude")
+      .select(
+        "id,title,area,type,created_at,photo_path,latitude,longitude,landmark_media_paths"
+      )
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -678,6 +705,7 @@ export default function Home() {
     setReportStatus("submitting");
 
     let uploadedPhotoPath: string | null = null;
+    let uploadedLandmarkPaths: string[] = [];
 
     if (reportPhoto) {
       const fileExt = reportPhoto.name.split(".").pop()?.toLowerCase() ?? "";
@@ -705,6 +733,28 @@ export default function Home() {
       uploadedPhotoPath = uploadData?.path ?? filePath;
     }
 
+    // Upload landmark photos (max 5)
+    if (landmarkPhotos.length > 0) {
+      const paths: string[] = [];
+      for (const file of landmarkPhotos.slice(0, 5)) {
+        const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+        const uniqueFileName = `${crypto.randomUUID()}${
+          fileExt ? `.${fileExt}` : ""
+        }`;
+        const filePath = `reports/landmarks/${uniqueFileName}`;
+        const { data: up, error: err } = await supabase.storage
+          .from(PET_MEDIA_BUCKET)
+          .upload(filePath, file, { cacheControl: "3600", upsert: false });
+        if (err) {
+          console.error("Failed to upload landmark photo", err.message ?? err);
+          setReportStatus("error");
+          return;
+        }
+        paths.push(up?.path ?? filePath);
+      }
+      uploadedLandmarkPaths = paths;
+    }
+
     const payload = {
       type: reportType,
       description: reportDescription,
@@ -713,6 +763,7 @@ export default function Home() {
       lat: reportLat,
       lng: reportLng,
       photoPath: uploadedPhotoPath,
+      landmarkMediaPaths: uploadedLandmarkPaths,
     };
 
     try {
@@ -752,6 +803,14 @@ export default function Home() {
         URL.revokeObjectURL(reportPhotoPreviewUrl);
         setReportPhotoPreviewUrl(null);
       }
+      // Clear landmark previews
+      if (landmarkPreviewUrls.length) {
+        try {
+          landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+        } catch {}
+      }
+      setLandmarkPhotos([]);
+      setLandmarkPreviewUrls([]);
       if (isMountedRef.current) {
         setTimeout(() => {
           if (isMountedRef.current) {
@@ -765,6 +824,67 @@ export default function Home() {
       console.error("Failed to submit report", error);
       setReportStatus("error");
     }
+  };
+
+  // Handle landmark file selection with limits and previews
+  const handleLandmarkPhotosChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const existing = landmarkPhotos.length;
+    const availableSlots = Math.max(0, 5 - existing);
+    const toAdd = files.slice(0, availableSlots);
+    const tooMany = files.length > availableSlots;
+    const overSize = toAdd.some((f) => f.size > 5 * 1024 * 1024);
+    if (overSize) {
+      showToast("error", "Each photo must be under 5 MB.");
+      return;
+    }
+    const newFiles = [...landmarkPhotos, ...toAdd];
+    const newUrls = [
+      ...landmarkPreviewUrls,
+      ...toAdd.map((f) => URL.createObjectURL(f)),
+    ];
+    setLandmarkPhotos(newFiles);
+    setLandmarkPreviewUrls(newUrls);
+    // Allow selecting the same file again by clearing input value
+    try {
+      (event.target as HTMLInputElement).value = "";
+    } catch {}
+    if (tooMany) {
+      showToast("error", "You can upload up to 5 landmark photos.");
+    }
+  };
+
+  const removeLandmarkAt = (index: number) => {
+    if (index < 0 || index >= landmarkPhotos.length) return;
+    const nextFiles = landmarkPhotos.filter((_, i) => i !== index);
+    const nextUrls = landmarkPreviewUrls.filter((u, i) => {
+      if (i === index) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {}
+        return false;
+      }
+      return true;
+    });
+    setLandmarkPhotos(nextFiles);
+    setLandmarkPreviewUrls(nextUrls);
+    if (nextFiles.length === 0) {
+      if (landmarkInputRef.current) landmarkInputRef.current.value = "";
+      if (landmarkInputMobileRef.current)
+        landmarkInputMobileRef.current.value = "";
+    }
+  };
+
+  const clearLandmarkPhotos = () => {
+    try {
+      landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+    } catch {}
+    setLandmarkPhotos([]);
+    setLandmarkPreviewUrls([]);
+    if (landmarkInputRef.current) landmarkInputRef.current.value = "";
+    if (landmarkInputMobileRef.current)
+      landmarkInputMobileRef.current.value = "";
   };
 
   return (
@@ -936,7 +1056,7 @@ export default function Home() {
                                                   {p.name}
                                                 </div>
                                                 <div className="truncate text-xs ink-subtle">
-                                                  {p.kind.toUpperCase()} ·{" "}
+                                                  {p.kind.toUpperCase()} �{" "}
                                                   {p.location}
                                                 </div>
                                               </div>
@@ -1027,7 +1147,7 @@ export default function Home() {
                                             </div>
                                           </div>
                                           <div className="text-xs ink-subtle whitespace-nowrap ml-2">
-                                            View →
+                                            View ?
                                           </div>
                                         </li>
                                       ))}
@@ -1065,7 +1185,7 @@ export default function Home() {
                                               {p.name}
                                             </div>
                                             <div className="truncate text-xs ink-subtle">
-                                              {p.kind.toUpperCase()} ·{" "}
+                                              {p.kind.toUpperCase()} �{" "}
                                               {p.location}
                                             </div>
                                           </div>
@@ -1149,7 +1269,7 @@ export default function Home() {
                               <p className="text-xs ink-muted">
                                 {timeAgoFromMinutes(alert.minutes)}
                                 {dist != null
-                                  ? ` • ${dist.toFixed(1)} km away`
+                                  ? ` � ${dist.toFixed(1)} km away`
                                   : ""}
                               </p>
                             </div>
@@ -1219,6 +1339,12 @@ export default function Home() {
           handleSubmitReport={handleSubmitReport}
           reportPhotoInputRef={reportPhotoInputRef}
           reportPhotoPreviewUrl={reportPhotoPreviewUrl}
+          landmarkPreviewUrls={landmarkPreviewUrls}
+          handleLandmarkPhotosChange={handleLandmarkPhotosChange}
+          removeLandmarkAt={removeLandmarkAt}
+          clearLandmarkPhotos={clearLandmarkPhotos}
+          landmarkInputRef={landmarkInputRef}
+          landmarkInputMobileRef={landmarkInputMobileRef}
         />
 
         <RegistrySection
@@ -1246,7 +1372,7 @@ export default function Home() {
                   scrollToTarget(link.href, MOBILE_NAV_OFFSETS[link.href] ?? 0)
                 }
               >
-                <link.icon className="mx-auto   mb-1 h-5 w-5" />
+                <link.icon className="mx-auto mb-1 h-5 w-5" />
                 <div className="text-[11px]">{link.label}</div>
               </a>
             ))}
@@ -1283,7 +1409,12 @@ function SearchModal({
   timeAgoFromMinutes: (m: number) => string;
   getMapsLink: (a: Alert) => string | null;
 }) {
+  const [lmIndex, setLmIndex] = useState(0);
+
   if (!item) return null;
+  const isAlert = item.kind === "alert";
+  const lmUrls = isAlert ? item.alert.landmarkImageUrls ?? [] : [];
+  const lmCount = lmUrls.length;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -1300,7 +1431,7 @@ function SearchModal({
             </h3>
             {item.kind === "alert" ? (
               <p className="text-sm ink-muted">
-                {timeAgoFromMinutes(item.alert.minutes)} {" · "}{" "}
+                {timeAgoFromMinutes(item.alert.minutes)} {" � "}{" "}
                 {item.alert.area}
               </p>
             ) : (
@@ -1348,6 +1479,55 @@ function SearchModal({
                   }}
                 >
                   {item.adoption.emoji}
+                </div>
+              )}
+              {isAlert && lmCount > 0 && (
+                <div className="relative mt-3 h-32 w-full max-w-[180px]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={lmUrls[Math.min(lmIndex, lmCount - 1)]}
+                    alt={`landmark ${Math.min(
+                      lmIndex + 1,
+                      lmCount
+                    )} of ${lmCount}`}
+                    className="h-full w-full object-cover rounded-xl"
+                  />
+                  {lmCount > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous landmark"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                        onClick={() =>
+                          setLmIndex((i) => (i - 1 + lmCount) % lmCount)
+                        }
+                      >
+                        ?
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next landmark"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                        onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
+                      >
+                        ?
+                      </button>
+                    </>
+                  )}
+                  <div
+                    className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+                    style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                  >
+                    {Math.min(lmIndex + 1, lmCount)}/{lmCount}
+                  </div>
                 </div>
               )}
             </div>

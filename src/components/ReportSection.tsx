@@ -366,18 +366,14 @@ export function ReportSection({
                 {!reportPhotoPreviewUrl ? (
                   <>
                     <span className="block text-3xl">📷</span>
-                    <span className="text-sm ink-muted">
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
                         : "Upload one or more photos"}
                     </span>
-                    {/* centered plus overlay */}
-                    <div
-                      className="pointer-events-none absolute inset-0 grid place-items-center"
-                      aria-hidden
-                    >
+                    <div className="mt-2">
                       <div
-                        className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
                         style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
                       >
                         +
@@ -392,24 +388,15 @@ export function ReportSection({
                       alt="Selected photo preview"
                       className="h-full w-full object-cover rounded-xl"
                     />
-                    <button
-                      type="button"
-                      aria-label="Add/replace photo"
-                      className="absolute bottom-2 right-2 pill px-2 py-1 text-xs shadow-soft"
-                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        reportPhotoInputRef.current?.click();
-                      }}
-                    >
-                      +
-                    </button>
+                    
                     <button
                       type="button"
                       aria-label="Remove photo"
                       className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border-color)",
+                      }}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -426,7 +413,7 @@ export function ReportSection({
             {/* Landmark Photos (multiple) */}
             <div>
               <label
-                className="mt-1 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                className="mt-1 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-landmarks-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -442,16 +429,12 @@ export function ReportSection({
                 {landmarkPreviewUrls.length === 0 ? (
                   <>
                     <span className="block text-3xl">🗺️</span>
-                    <span className="text-sm ink-muted">
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       Upload landmark photos (up to 5)
                     </span>
-                    {/* centered plus overlay on empty state */}
-                    <div
-                      className="pointer-events-none absolute inset-0 grid place-items-center"
-                      aria-hidden
-                    >
+                    <div className="mt-2">
                       <div
-                        className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
                         style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
                       >
                         +
@@ -608,11 +591,19 @@ export function ReportSection({
               {!reportPhotoPreviewUrl ? (
                 <>
                   <span className="block text-3xl">📷</span>
-                  <span className="text-sm ink-muted">
+                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                     {reportPhotoName
                       ? `Selected: ${reportPhotoName}`
                       : "Upload one or more photos"}
                   </span>
+                  <div className="mt-2">
+                    <div
+                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                    >
+                      +
+                    </div>
+                  </div>
                 </>
               ) : (
                 <div className="relative h-full w-full">
@@ -622,24 +613,15 @@ export function ReportSection({
                     alt="Selected photo preview"
                     className="h-full w-full object-cover rounded-xl"
                   />
-                  <button
-                    type="button"
-                    aria-label="Add/replace photo"
-                    className="absolute bottom-2 right-2 pill px-2 py-1 text-xs shadow-soft"
-                    style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      reportPhotoInputRef.current?.click();
-                    }}
-                  >
-                    +
-                  </button>
+                  
                   <button
                     type="button"
                     aria-label="Remove photo"
                     className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                    style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                    style={{
+                      background: "var(--white)",
+                      border: "1px solid var(--border-color)",
+                    }}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -654,7 +636,7 @@ export function ReportSection({
 
             {/* Landmark Photos (multiple) */}
             <label
-              className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+              className="mt-2 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
               htmlFor="report-landmarks"
               style={{ border: "2px dashed var(--border-color)" }}
             >
@@ -670,16 +652,12 @@ export function ReportSection({
               {landmarkPreviewUrls.length === 0 ? (
                 <>
                   <span className="block text-3xl">🗺️</span>
-                  <span className="text-sm ink-muted">
+                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                     Upload landmark photos (up to 5)
                   </span>
-                  {/* centered plus overlay on empty state */}
-                  <div
-                    className="pointer-events-none absolute inset-0 grid place-items-center"
-                    aria-hidden
-                  >
+                  <div className="mt-2">
                     <div
-                      className="rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
                       style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
                     >
                       +
@@ -1003,6 +981,14 @@ function LandmarkCarousel({
   useEffect(() => {
     if (index > count - 1) setIndex(Math.max(0, count - 1));
   }, [count, index]);
+  // When new photos are added, jump to the latest one
+  const prevCountRef = useRef(count);
+  useEffect(() => {
+    if (count > prevCountRef.current) {
+      setIndex(Math.max(0, count - 1));
+    }
+    prevCountRef.current = count;
+  }, [count]);
   if (count === 0) return null;
   return (
     <div className="relative h-full w-full">
@@ -1115,5 +1101,3 @@ function LandmarkCarousel({
     </div>
   );
 }
-
-
