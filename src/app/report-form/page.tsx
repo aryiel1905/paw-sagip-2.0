@@ -69,7 +69,9 @@ export default function ReportFormPage() {
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-5 w-5 text-[var(--primary-orange)]" />
             <div>
-              <p className="font-semibold">Aggressive / Fearful - Safety First</p>
+              <p className="font-semibold">
+                Aggressive / Fearful - Safety First
+              </p>
               <p className="mt-1 text-sm">
                 Do not approach. Keep 3-5 meters away. Avoid eye contact and
                 sudden moves. Observe from a distance and add a clear
@@ -378,7 +380,7 @@ export default function ReportFormPage() {
       if (landmarkInputMobileRef.current)
         landmarkInputMobileRef.current.value = "";
       setTimeout(() => setReportStatus("idle"), 5000);
-    } catch (e) {
+    } catch {
       setReportStatus("error");
     }
   }, [
@@ -388,6 +390,10 @@ export default function ReportFormPage() {
     reportPhoto,
     reportPhotoPreviewUrl,
     reportType,
+    landmarkPhotos,
+    landmarkPreviewUrls,
+    reportLat,
+    reportLng,
   ]);
 
   const isFormValid = Boolean(
@@ -878,7 +884,9 @@ export default function ReportFormPage() {
               className="btn btn-primary px-6 py-3"
               disabled={reportStatus === "submitting"}
             >
-              {reportStatus === "submitting" ? "Submitting..." : "Submit Report"}
+              {reportStatus === "submitting"
+                ? "Submitting..."
+                : "Submit Report"}
             </button>
             {showValidation && !isFormValid && (
               <p

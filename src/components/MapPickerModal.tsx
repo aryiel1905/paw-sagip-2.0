@@ -236,16 +236,19 @@ export default function MapPickerModal({
     } as import("maplibre-gl").StyleSpecification;
   }
 
-  const placePinOnMap = useCallback((lng: number, lat: number) => {
-    const ML = maplibreRef.current;
-    if (!ML || !mapRef.current) return;
-    pinMarkerRef.current?.remove();
-    pinMarkerRef.current = new ML.Marker()
-      .setLngLat([lng, lat])
-      .addTo(mapRef.current);
-    setPin({ lat, lng });
-    lookupAddress(lat, lng);
-  }, []);
+  const placePinOnMap = useCallback(
+    (lng: number, lat: number) => {
+      const ML = maplibreRef.current;
+      if (!ML || !mapRef.current) return;
+      pinMarkerRef.current?.remove();
+      pinMarkerRef.current = new ML.Marker()
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+      setPin({ lat, lng });
+      lookupAddress(lat, lng);
+    },
+    [lookupAddress]
+  );
 
   // Inject simple CSS for a pulsing location marker (once per page)
   const ensurePulseCSS = () => {
@@ -263,7 +266,7 @@ export default function MapPickerModal({
     document.head.appendChild(style);
   };
 
-  const drawMyMarker = (lng: number, lat: number) => {
+  const drawMyMarker = useCallback((lng: number, lat: number) => {
     const ML = maplibreRef.current;
     if (!ML || !mapRef.current) return;
     ensurePulseCSS();
@@ -284,7 +287,7 @@ export default function MapPickerModal({
     } else {
       meMarkerRef.current.setLngLat([lng, lat]);
     }
-  };
+  }, []);
 
   // Initialize MapLibre map if available
   useEffect(() => {
@@ -348,10 +351,10 @@ export default function MapPickerModal({
       meMarkerRef.current = null;
       geolocateCtrlRef.current = null;
     };
-  }, [mode, open, placePinOnMap]);
+  }, [mode, open, placePinOnMap, drawMyMarker, pin]);
 
   // Use my current location (works for both stub and maplibre modes)
-  const getMyLocation = () => {
+  const getMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -375,7 +378,7 @@ export default function MapPickerModal({
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
     );
-  };
+  }, [mode, placePinOnMap, drawMyMarker]);
 
   // Stub click handler as a fallback
   const onStubClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -425,7 +428,7 @@ export default function MapPickerModal({
       clearTimeout(t);
       clearTimeout(t2);
     };
-  }, [open]);
+  }, [getMyLocation, open]);
 
   if (!open) return null;
 

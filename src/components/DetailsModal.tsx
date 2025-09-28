@@ -31,9 +31,11 @@ function DetailsModalInner({
   timeAgoFromMinutes,
   getMapsLink,
 }: DetailsModalProps) {
-  if (!item) return null;
-  const isAlert = item.kind === "alert";
-  const initialLm = isAlert ? item.alert.landmarkImageUrls ?? [] : [];
+  const isAlert = item?.kind === "alert";
+  const initialLm = useMemo(
+    () => (item && isAlert ? item.alert.landmarkImageUrls ?? [] : []),
+    [isAlert, item]
+  );
   const [lmUrls, setLmUrls] = useState<string[]>(initialLm);
   const [lmIndex, setLmIndex] = useState(0);
   const lmCount = lmUrls.length;
@@ -50,7 +52,7 @@ function DetailsModalInner({
 
   // Fallback: if landmark urls are missing on alerts, look up the matching report by photo_path
   useEffect(() => {
-    if (!isAlert) return;
+    if (!item || !isAlert) return;
     if (lmUrls.length > 0) return;
     const imageUrl = item.alert.imageUrl;
     if (!imageUrl) return;
@@ -76,12 +78,16 @@ function DetailsModalInner({
         if (Array.isArray(arr) && arr.length > 0) {
           const urls = arr
             .filter(Boolean)
-            .map((p) => supabase.storage.from(bucket).getPublicUrl(p).data.publicUrl);
+            .map(
+              (p) =>
+                supabase.storage.from(bucket).getPublicUrl(p).data.publicUrl
+            );
           setLmUrls(urls);
         }
-      })
-      .catch(() => {});
+      });
   }, [isAlert, lmUrls.length, item]);
+
+  if (!item) return null;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -99,7 +105,8 @@ function DetailsModalInner({
             </h3>
             {isAlert ? (
               <p className="text-sm ink-muted">
-                {timeAgoFromMinutes(item.alert.minutes)} {" · "} {item.alert.area}
+                {timeAgoFromMinutes(item.alert.minutes)} {" · "}{" "}
+                {item.alert.area}
               </p>
             ) : (
               <p className="text-sm ink-muted">{item.adoption.location}</p>
@@ -156,7 +163,10 @@ function DetailsModalInner({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={currentLm}
-                      alt={`landmark ${Math.min(lmIndex + 1, lmCount)} of ${lmCount}`}
+                      alt={`landmark ${Math.min(
+                        lmIndex + 1,
+                        lmCount
+                      )} of ${lmCount}`}
                       className="h-full w-full object-cover rounded-xl"
                     />
                   )}
@@ -166,8 +176,13 @@ function DetailsModalInner({
                         type="button"
                         aria-label="Previous landmark"
                         className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
-                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
-                        onClick={() => setLmIndex((i) => (i - 1 + lmCount) % lmCount)}
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                        onClick={() =>
+                          setLmIndex((i) => (i - 1 + lmCount) % lmCount)
+                        }
                       >
                         ◀
                       </button>
@@ -175,7 +190,10 @@ function DetailsModalInner({
                         type="button"
                         aria-label="Next landmark"
                         className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
-                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
                         onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
                       >
                         ▶
@@ -213,7 +231,10 @@ function DetailsModalInner({
               ) : (
                 <>
                   <DetailsRow label="Name" value={item.adoption.name} />
-                  <DetailsRow label="Kind" value={item.adoption.kind.toUpperCase()} />
+                  <DetailsRow
+                    label="Kind"
+                    value={item.adoption.kind.toUpperCase()}
+                  />
                   <DetailsRow label="Age" value={item.adoption.age} />
                   <DetailsRow label="Notes" value={item.adoption.note} />
                   <DetailsRow label="Location" value={item.adoption.location} />
@@ -228,20 +249,21 @@ function DetailsModalInner({
             <button className="btn btn-accent px-4 py-2" type="button">
               Emergency Hotline
             </button>
-            {isAlert && (() => {
-              const link = getMapsLink(item.alert);
-              return link ? (
-                <a
-                  className="btn px-4 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open in Google Maps
-                </a>
-              ) : null;
-            })()}
+            {isAlert &&
+              (() => {
+                const link = getMapsLink(item.alert);
+                return link ? (
+                  <a
+                    className="btn px-4 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open in Google Maps
+                  </a>
+                ) : null;
+              })()}
           </div>
         </div>
       </div>

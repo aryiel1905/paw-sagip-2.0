@@ -374,7 +374,10 @@ export function ReportSection({
                     <div className="mt-2">
                       <div
                         className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
                       >
                         +
                       </div>
@@ -388,7 +391,7 @@ export function ReportSection({
                       alt="Selected photo preview"
                       className="h-full w-full object-cover rounded-xl"
                     />
-                    
+
                     <button
                       type="button"
                       aria-label="Remove photo"
@@ -435,7 +438,10 @@ export function ReportSection({
                     <div className="mt-2">
                       <div
                         className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                        style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
                       >
                         +
                       </div>
@@ -599,7 +605,10 @@ export function ReportSection({
                   <div className="mt-2">
                     <div
                       className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border-color)",
+                      }}
                     >
                       +
                     </div>
@@ -613,7 +622,7 @@ export function ReportSection({
                     alt="Selected photo preview"
                     className="h-full w-full object-cover rounded-xl"
                   />
-                  
+
                   <button
                     type="button"
                     aria-label="Remove photo"
@@ -658,7 +667,10 @@ export function ReportSection({
                   <div className="mt-2">
                     <div
                       className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{ background: "var(--white)", border: "1px solid var(--border-color)" }}
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border-color)",
+                      }}
                     >
                       +
                     </div>
