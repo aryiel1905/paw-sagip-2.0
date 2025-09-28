@@ -116,75 +116,93 @@ export function AlertsSection({
             ))}
           </div>
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredAlerts.length === 0 ? (
-            <article className="surface rounded-2xl p-4">
-              <div className="flex items-center justify-between">
-                <p className="ink-muted">No alerts yet. Check back soon.</p>
-              </div>
-            </article>
-          ) : (
-            filteredAlerts.map((alert) => (
-              <article key={alert.id} className="surface rounded-2xl p-4">
-                <div className="flex items-center justify-start">
-                  <div className="flex items-center gap-3">
-                    {alert.imageUrl ? (
-                      <img
-                        src={alert.imageUrl}
-                        alt="alert photo"
-                        className="h-25 w-25 rounded-xl object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="grid h-10 w-10 place-content-center rounded-xl text-xl"
-                        style={{
-                          background:
-                            "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                        }}
-                      >
-                        {alert.emoji}
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold ink-heading">
-                        {alert.title}
-                      </h3>
-                      <p className="text-sm ink-heading">
-                        {(() => shortArea(alert.area))()}
-                      </p>
-                      <p className="text-xs ink-muted">
-                        {timeAgoFromMinutes(alert.minutes)}
-                        {(() => {
-                          const d = kmDistance(
-                            myLat,
-                            myLng,
-                            (alert as any).latitude as number | null,
-                            (alert as any).longitude as number | null
-                          );
-                          if (d == null) return "";
-                          if (alert.type === "found") {
-                            return ` • ${d.toFixed(1)} km away`;
-                          }
-                          if (alert.type === "lost") {
-                            return ` • last seen ${d.toFixed(1)} km away`;
-                          }
-                          return "";
-                        })()}
-                      </p>
-                      <button
-                        className="pill px-3 py-1 text-xs mt-2"
-                        style={{ border: "1px solid var(--border-color)" }}
-                        type="button"
-                        onClick={() => setSelected(alert)}
-                      >
-                        More Details
-                      </button>
-                    </div>
-                  </div>
+        <div
+          className="mt-4 overflow-y-auto"
+          style={
+            {
+              "--alert-card-h": "128px",
+              "--grid-gap": "1rem",
+              maxHeight: "calc(var(--alert-card-h) * 2 + var(--grid-gap))",
+            } as React.CSSProperties
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredAlerts.length === 0 ? (
+              <article
+                className="surface rounded-2xl p-4"
+                style={{ height: "var(--alert-card-h)" }}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="ink-muted">No alerts yet. Check back soon.</p>
                 </div>
               </article>
-            ))
-          )}
+            ) : (
+              filteredAlerts.map((alert) => (
+                <article
+                  key={alert.id}
+                  className="surface rounded-2xl p-4"
+                  style={{ height: "var(--alert-card-h)" }}
+                >
+                  <div className="flex items-center justify-start">
+                    <div className="flex items-center gap-3">
+                      {alert.imageUrl ? (
+                        <img
+                          src={alert.imageUrl}
+                          alt="alert photo"
+                          className="h-25 w-25 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="grid h-10 w-10 place-content-center rounded-xl text-xl"
+                          style={{
+                            background:
+                              "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                          }}
+                        >
+                          {alert.emoji}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold ink-heading">
+                          {alert.title}
+                        </h3>
+                        <p className="text-sm ink-heading">
+                          {(() => shortArea(alert.area))()}
+                        </p>
+                        <p className="text-xs ink-muted">
+                          {timeAgoFromMinutes(alert.minutes)}
+                          {(() => {
+                            const d = kmDistance(
+                              myLat,
+                              myLng,
+                              (alert as any).latitude as number | null,
+                              (alert as any).longitude as number | null
+                            );
+                            if (d == null) return "";
+                            if (alert.type === "found") {
+                              return ` • ${d.toFixed(1)} km away`;
+                            }
+                            if (alert.type === "lost") {
+                              return ` • last seen ${d.toFixed(1)} km away`;
+                            }
+                            return "";
+                          })()}
+                        </p>
+                        <button
+                          className="pill px-3 py-1 text-xs mt-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          type="button"
+                          onClick={() => setSelected(alert)}
+                        >
+                          More Details
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
         </div>
       </div>
 

@@ -31,6 +31,8 @@ export default function MapPickerModal({
   const [address, setAddress] = useState<string>("");
   const [addressLoading, setAddressLoading] = useState(false);
   const [centerLoading, setCenterLoading] = useState(false);
+  // Track if we've auto-centered the camera for this modal open
+  const autoCenteredRef = useRef(false);
 
   // Philippines rough bounds (lng, lat) for stub fallback
   const PH_BOUNDS = useMemo(
@@ -351,7 +353,50 @@ export default function MapPickerModal({
       meMarkerRef.current = null;
       geolocateCtrlRef.current = null;
     };
-  }, [mode, open, placePinOnMap, drawMyMarker, pin]);
+  }, [mode, open, placePinOnMap, drawMyMarker]);
+
+  // Reset auto-center flag whenever modal open state changes
+  useEffect(() => {
+    if (!open) {
+      autoCenteredRef.current = false;
+    } else {
+      // On open, allow a fresh auto-center once map + pin are ready
+      autoCenteredRef.current = false;
+    }
+  }, [open]);
+
+  // Once map is ready and a pin exists, center the camera to the pin exactly once per open
+  useEffect(() => {
+    if (!open || mode !== "maplibre") return;
+    const map = mapRef.current;
+    if (!map || !pin) return;
+    if (autoCenteredRef.current) return;
+
+    const centerToPin = () => {
+      try {
+        map.easeTo({
+          center: [pin.lng, pin.lat],
+          zoom: Math.max(map.getZoom() ?? 0, 16),
+        });
+        // Ensure my marker is drawn if we already know my location
+        if (me && !meMarkerRef.current) {
+          drawMyMarker(me.lng, me.lat);
+        }
+      } catch {}
+      autoCenteredRef.current = true;
+    };
+
+    try {
+      const isLoaded = (map as any).isStyleLoaded?.() ?? true;
+      if (!isLoaded) {
+        map.once("load", centerToPin);
+        const t = setTimeout(centerToPin, 800); // fallback just in case
+        return () => clearTimeout(t);
+      }
+    } catch {}
+
+    centerToPin();
+  }, [open, mode, pin, me, drawMyMarker]);
 
   // Use my current location (works for both stub and maplibre modes)
   const getMyLocation = useCallback(() => {

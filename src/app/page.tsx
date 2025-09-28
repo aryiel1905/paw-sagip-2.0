@@ -986,7 +986,7 @@ export default function Home() {
                                           {searchAlerts.map((a) => (
                                             <li
                                               key={`s-a-${a.id}`}
-                                              className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
+                                              className="cursor-pointer px-3 py-2 hover:bg-[#545454] flex items-center gap-3"
                                               onClick={() => {
                                                 setModalItem({
                                                   kind: "alert",
@@ -1146,9 +1146,9 @@ export default function Home() {
                                               {a.area}
                                             </div>
                                           </div>
-                                          <div className="text-xs ink-subtle whitespace-nowrap ml-2">
-                                            View ?
-                                          </div>
+                                          <button className="btn btn-accent px-2 py-1 text-[12px]">
+                                            View
+                                          </button>
                                         </li>
                                       ))}
                                     </ul>
@@ -1269,7 +1269,7 @@ export default function Home() {
                               <p className="text-xs ink-muted">
                                 {timeAgoFromMinutes(alert.minutes)}
                                 {dist != null
-                                  ? ` � ${dist.toFixed(1)} km away`
+                                  ? ` • ${dist.toFixed(1)} km away`
                                   : ""}
                               </p>
                             </div>
