@@ -387,6 +387,7 @@ export default function MapPickerModal({
     };
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isLoaded = (map as any).isStyleLoaded?.() ?? true;
       if (!isLoaded) {
         map.once("load", centerToPin);

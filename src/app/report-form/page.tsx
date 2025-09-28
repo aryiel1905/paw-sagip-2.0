@@ -640,6 +640,7 @@ export default function ReportFormPage() {
                 >
                   <option value="found">Found</option>
                   <option value="lost">Lost</option>
+                  <option value="cruelty">Cruelty</option>
                 </select>
               </label>
               <label className="block text-sm">

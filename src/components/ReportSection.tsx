@@ -91,6 +91,9 @@ export function ReportSection({
   }>({ top: 0, left: 0, below: true, arrowLeft: 16 });
   const tipAnchorElRef = useRef<HTMLElement | null>(null);
 
+  // Derived flags
+  const isCruelty = reportType === "cruelty";
+
   const getTipContent = (key: "aggressive" | "friendly" | "anonymous") => {
     switch (key) {
       case "aggressive":
@@ -283,16 +286,16 @@ export function ReportSection({
     (e: FormEvent) => {
       e.preventDefault();
       // Show a friendly notice if required fields are missing
-      const formValid = Boolean(
-        reportType && qSpecies && reportLocation.trim() && qWhen.trim()
-      );
+      const formValid = isCruelty
+        ? Boolean(reportLocation.trim() && reportDescription.trim())
+        : Boolean(reportType && qSpecies && reportLocation.trim() && qWhen.trim());
       if (!formValid) {
         setShowQuickValidation(true);
         return;
       }
       // Optionally enrich the description with light context (species/contact/when)
       // without altering the API. We only do this if the description is empty.
-      if (!reportDescription.trim()) {
+      if (!reportDescription.trim() && !isCruelty) {
         const parts = [
           qSpecies ? `Species: ${qSpecies}` : "",
           qWhen ? `When: ${qWhen}` : "",
@@ -315,17 +318,22 @@ export function ReportSection({
       setReportDescription,
       reportLocation,
       reportType,
+      isCruelty,
     ]
   );
 
   // Disable submit until required fields are present
-  const isQuickFormValid = Boolean(
-    reportType && qSpecies && reportLocation.trim() && qWhen.trim()
-  );
+  const isQuickFormValid = isCruelty
+    ? Boolean(reportLocation.trim() && reportDescription.trim())
+    : Boolean(reportType && qSpecies && reportLocation.trim() && qWhen.trim());
 
   const missingFields = [] as string[];
   if (!reportLocation.trim()) missingFields.push("Location");
-  if (!qWhen.trim()) missingFields.push("When");
+  if (isCruelty) {
+    if (!reportDescription.trim()) missingFields.push("Description");
+  } else {
+    if (!qWhen.trim()) missingFields.push("When");
+  }
 
   return (
     <section
@@ -337,7 +345,7 @@ export function ReportSection({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-extrabold tracking-tight ink-heading">
-              Quick Report — Sighting
+              {isCruelty ? "Quick Report — Cruelty" : "Quick Report — Sighting"}
             </h2>
             <p className="ink-muted">
               Post a fast sighting now. You can add full details later.
@@ -477,22 +485,25 @@ export function ReportSection({
                 >
                   <option value="found">Found</option>
                   <option value="lost">Lost</option>
+                  <option value="cruelty">Cruelty</option>
                 </select>
               </label>
-              <label className="block text-sm">
-                Species
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={qSpecies}
-                  onChange={(e) => setQSpecies(e.target.value)}
-                  required
-                >
-                  <option>Dog</option>
-                  <option>Cat</option>
-                  <option>Other</option>
-                </select>
-              </label>
+              {!isCruelty && (
+                <label className="block text-sm">
+                  Species
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qSpecies}
+                    onChange={(e) => setQSpecies(e.target.value)}
+                    required
+                  >
+                    <option>Dog</option>
+                    <option>Cat</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+              )}
               <label className="block text-sm">
                 Location
                 <div className="mt-1 flex items-center gap-2">
@@ -520,51 +531,67 @@ export function ReportSection({
                   Use the pin to pick an exact location.
                 </p>
               </label>
-              <label className="block text-sm">
-                When
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={qWhen}
-                    onChange={(e) => setQWhen(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Set current date & time"
-                    onClick={() => {
-                      const now = new Date();
-                      const iso = new Date(
-                        now.getTime() - now.getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      setQWhen(iso);
-                    }}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    <Clock className="h-5 w-5" />
-                  </button>
-                </div>
-              </label>
+              {!isCruelty ? (
+                <label className="block text-sm">
+                  When
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl px-3 py-2"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={qWhen}
+                      onChange={(e) => setQWhen(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      aria-label="Set current date & time"
+                      onClick={() => {
+                        const now = new Date();
+                        const iso = new Date(
+                          now.getTime() - now.getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        setQWhen(iso);
+                      }}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                </label>
+              ) : null}
             </div>
 
-            {/* Group: Checkboxes / Features / Contact */}
+            {/* Group: Checkboxes / Features/Description / Contact */}
             <div className="space-y-3">
               {/* Flags moved to column 1 above */}
-              <label className="block text-sm">
-                Distinctive Features (optional)
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="e.g., blue collar"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportDescription}
-                  onChange={(e) => onQuickFeatureChange(e.target.value)}
-                />
-              </label>
+              {isCruelty ? (
+                <label className="block text-sm">
+                  Description
+                  <textarea
+                    rows={3}
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="What happened? When/where?"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                  />
+                </label>
+              ) : (
+                <label className="block text-sm">
+                  Distinctive Features (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="e.g., blue collar"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportDescription}
+                    onChange={(e) => onQuickFeatureChange(e.target.value)}
+                  />
+                </label>
+              )}
               <label className="block text-sm">
                 Phone / Email (optional)
                 <input
@@ -575,6 +602,39 @@ export function ReportSection({
                   onChange={(e) => setQContact(e.target.value)}
                 />
               </label>
+              {/* Submit anonymously checkbox (mobile) */}
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={qAnon}
+                  onChange={(e) => {
+                    setQAnon(e.target.checked);
+                    if (e.target.checked) showTipFor(e.target, "anonymous");
+                    else hideTip();
+                  }}
+                />
+                <span>Submit anonymously</span>
+              </label>
+              {isCruelty && (
+                <div
+                  className="rounded-xl p-4"
+                  style={{
+                    background: "var(--card-bg)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
+                  <p className="font-semibold ink-heading">Safety & Welfare</p>
+                  <ul
+                    className="ink-muted mt-2 space-y-1 pl-5"
+                    style={{ listStyle: "disc" }}
+                  >
+                    <li>Do not intervene if unsafe.</li>
+                    <li>Share exact location details.</li>
+                    <li>Upload clear evidence if possible.</li>
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 
@@ -691,27 +751,28 @@ export function ReportSection({
           </div>
 
           {/* Desktop layout */}
-          <div className="hidden gap-3 md:grid md:grid-cols-2">
-            {/* Column 1: Report Type + Location + Features */}
-            <div className="order-2 space-y-3 md:order-none">
-              <label className="block text-sm">
-                Report Type
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportType}
-                  onChange={(e) =>
-                    setReportType(e.target.value as Exclude<AlertType, "all">)
-                  }
-                  required
-                >
-                  <option value="found">Found</option>
-                  <option value="lost">Lost</option>
-                </select>
-              </label>
+            <div className="hidden gap-3 md:grid md:grid-cols-2">
+              {/* Column 1: Report Type + Location + Features */}
+              <div className="order-2 space-y-3 md:order-none">
+                <label className="block text-sm">
+                  Report Type
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportType}
+                    onChange={(e) =>
+                      setReportType(e.target.value as Exclude<AlertType, "all">)
+                    }
+                    required
+                  >
+                    <option value="found">Found</option>
+                    <option value="lost">Lost</option>
+                    <option value="cruelty">Cruelty</option>
+                  </select>
+                </label>
 
-              <label className="block text-sm">
-                Location
+                <label className="block text-sm">
+                  Location
                 <div className="mt-1 flex items-center gap-2">
                   <input
                     className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
@@ -738,68 +799,86 @@ export function ReportSection({
                 </p>
               </label>
 
-              <label className="block text-sm">
-                Distinctive Features (optional)
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="e.g., blue collar"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportDescription}
-                  onChange={(e) => onQuickFeatureChange(e.target.value)}
-                />
-              </label>
-              {/* flags removed on desktop */}
-            </div>
+                {isCruelty ? (
+                  <label className="block text-sm">
+                    Description
+                    <textarea
+                      rows={3}
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      placeholder="What happened? When/where?"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportDescription}
+                      onChange={(e) => setReportDescription(e.target.value)}
+                    />
+                  </label>
+                ) : (
+                  <label className="block text-sm">
+                    Distinctive Features (optional)
+                    <input
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      placeholder="e.g., blue collar"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportDescription}
+                      onChange={(e) => onQuickFeatureChange(e.target.value)}
+                    />
+                  </label>
+                )}
+                {/* flags removed on desktop */}
+              </div>
 
-            {/* Column 2: When + Contact + Flags */}
-            <div className="order-3 space-y-3 md:order-none">
-              <label className="block text-sm">
-                Species
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={qSpecies}
-                  onChange={(e) => setQSpecies(e.target.value)}
-                  required
-                >
-                  <option>Dog</option>
-                  <option>Cat</option>
-                  <option>Other</option>
-                </select>
-              </label>
-              <label className="block text-sm">
-                When
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={qWhen}
-                    onChange={(e) => setQWhen(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Set current date & time"
-                    onClick={() => {
-                      const now = new Date();
-                      const iso = new Date(
-                        now.getTime() - now.getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      setQWhen(iso);
-                    }}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    Auto
-                  </button>
-                </div>
-                <p className="mt-1 text-xs ink-muted">
-                  You can type a date/time or tap the auto to set now.
-                </p>
-              </label>
+              {/* Column 2: When + Contact + Flags */}
+              <div className="order-3 space-y-3 md:order-none">
+                {!isCruelty && (
+                  <>
+                    <label className="block text-sm">
+                      Species
+                      <select
+                        className="mt-1 w-full rounded-xl px-3 py-2"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        value={qSpecies}
+                        onChange={(e) => setQSpecies(e.target.value)}
+                        required
+                      >
+                        <option>Dog</option>
+                        <option>Cat</option>
+                        <option>Other</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      When
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="datetime-local"
+                          className="w-full rounded-xl px-3 py-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          value={qWhen}
+                          onChange={(e) => setQWhen(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          aria-label="Set current date & time"
+                          onClick={() => {
+                            const now = new Date();
+                            const iso = new Date(
+                              now.getTime() - now.getTimezoneOffset() * 60000
+                            )
+                              .toISOString()
+                              .slice(0, 16);
+                            setQWhen(iso);
+                          }}
+                          className="rounded-xl px-3 py-2 text-white"
+                          style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                        >
+                          Auto
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs ink-muted">
+                        You can type a date/time or tap the auto to set now.
+                      </p>
+                    </label>
+                  </>
+                )}
               <label className="block text-sm">
                 Phone / Email (optional)
                 <input
@@ -811,58 +890,66 @@ export function ReportSection({
                 />
               </label>
               <div className="mt-1 flex flex-wrap items-center gap-4">
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qAggressive ? { color: "var(--primary-orange)" } : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qAggressive}
-                    onChange={(e) => {
-                      onQuickAggressiveToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "aggressive");
-                      else hideTip();
-                    }}
-                    style={
-                      qAggressive
-                        ? ({
-                            accentColor: "var(--primary-orange)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>This pet may be aggressive</span>
-                </label>
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    qFriendly
-                      ? { color: "var(--primary-mintgreen)" }
-                      : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={qFriendly}
-                    onChange={(e) => {
-                      onQuickFriendlyToggle(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "friendly");
-                      else hideTip();
-                    }}
-                    style={
-                      qFriendly
-                        ? ({
-                            accentColor: "var(--primary-mintgreen)",
-                          } as React.CSSProperties)
-                        : undefined
-                    }
-                  />
-                  <span>Pet seems friendly</span>
-                </label>
+                {!isCruelty && (
+                  <>
+                    <label
+                      className="inline-flex items-center gap-2 text-sm"
+                      style={
+                        qAggressive
+                          ? { color: "var(--primary-orange)" }
+                          : undefined
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={qAggressive}
+                        onChange={(e) => {
+                          onQuickAggressiveToggle(e.target.checked);
+                          if (e.target.checked)
+                            showTipFor(e.target, "aggressive");
+                          else hideTip();
+                        }}
+                        style={
+                          qAggressive
+                            ? ({
+                                accentColor: "var(--primary-orange)",
+                              } as React.CSSProperties)
+                            : undefined
+                        }
+                      />
+                      <span>This pet may be aggressive</span>
+                    </label>
+                    <label
+                      className="inline-flex items-center gap-2 text-sm"
+                      style={
+                        qFriendly
+                          ? { color: "var(--primary-mintgreen)" }
+                          : undefined
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={qFriendly}
+                        onChange={(e) => {
+                          onQuickFriendlyToggle(e.target.checked);
+                          if (e.target.checked)
+                            showTipFor(e.target, "friendly");
+                          else hideTip();
+                        }}
+                        style={
+                          qFriendly
+                            ? ({
+                                accentColor: "var(--primary-mintgreen)",
+                              } as React.CSSProperties)
+                            : undefined
+                        }
+                      />
+                      <span>Pet seems friendly</span>
+                    </label>
+                  </>
+                )}
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -876,8 +963,27 @@ export function ReportSection({
                   />
                   <span>Submit anonymously</span>
                 </label>
+                {isCruelty && (
+                  <div
+                    className="basis-full rounded-xl p-4 mt-2"
+                    style={{
+                      background: "var(--card-bg)",
+                      border: "1px solid var(--border-color)",
+                    }}
+                  >
+                    <p className="font-semibold ink-heading">Safety & Welfare</p>
+                    <ul
+                      className="ink-muted mt-2 space-y-1 pl-5"
+                      style={{ listStyle: "disc" }}
+                    >
+                      <li>Do not intervene if unsafe.</li>
+                      <li>Share exact location details.</li>
+                      <li>Upload clear evidence if possible.</li>
+                    </ul>
+                  </div>
+                )}
               </div>
-            </div>
+          </div>
           </div>
 
           {/* Checkboxes moved into column 2 */}
@@ -885,21 +991,34 @@ export function ReportSection({
           <div className="flex flex-nowrap items-stretch gap-2 pt-2">
             <button
               type="submit"
-              className="btn btn-accent px-4 py-2 flex-1 min-w-0"
+              className={
+                isCruelty
+                  ? "btn px-4 py-2 flex-1 min-w-0 text-white"
+                  : "btn btn-accent px-4 py-2 flex-1 min-w-0"
+              }
+              style={
+                isCruelty
+                  ? ({ backgroundColor: "var(--primary-mintgreen)" } as React.CSSProperties)
+                  : undefined
+              }
               disabled={reportStatus === "submitting"}
             >
               {reportStatus === "submitting"
                 ? "Submitting…"
+                : isCruelty
+                ? "Submit Report"
                 : "Submit sighting"}
             </button>
-            <Link
-              href="/report-form"
-              className="btn px-4 py-2 flex-1 min-w-0 text-center"
-              style={{ border: "1px solid var(--border-color)" }}
-              onClick={persistDraftToSession}
-            >
-              Add more details…
-            </Link>
+            {!isCruelty && (
+              <Link
+                href="/report-form"
+                className="btn px-4 py-2 flex-1 min-w-0 text-center"
+                style={{ border: "1px solid var(--border-color)" }}
+                onClick={persistDraftToSession}
+              >
+                Add more details…
+              </Link>
+            )}
             {showQuickValidation && !isQuickFormValid && (
               <p
                 className="basis-full text-sm"

@@ -122,16 +122,13 @@ export function AlertsSection({
             {
               "--alert-card-h": "128px",
               "--grid-gap": "1rem",
-              maxHeight: "calc(var(--alert-card-h) * 2 + var(--grid-gap))",
+              height: "calc(var(--alert-card-h) * 2 + var(--grid-gap))",
             } as React.CSSProperties
           }
         >
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredAlerts.length === 0 ? (
-              <article
-                className="surface rounded-2xl p-4"
-                style={{ height: "var(--alert-card-h)" }}
-              >
+              <article className="surface rounded-2xl p-4">
                 <div className="flex items-center justify-between">
                   <p className="ink-muted">No alerts yet. Check back soon.</p>
                 </div>

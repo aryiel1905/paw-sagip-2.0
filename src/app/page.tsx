@@ -563,7 +563,10 @@ export default function Home() {
     };
   }, []);
 
-  const nearbyAlerts = useMemo(() => alerts, [alerts]);
+  const nearbyAlerts = useMemo(
+    () => alerts.filter((a) => a.type === "lost" || a.type === "found" || a.type === "cruelty"),
+    [alerts]
+  );
 
   // Human-friendly time formatter using minutes since creation
   const timeAgoFromMinutes = useCallback((minutes: number) => {
@@ -1210,7 +1213,7 @@ export default function Home() {
 
             <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
               <h2 className="px-1 text-2xl font-extrabold tracking-tight ink-heading">
-                Nearby Alerts
+                Reports Near You
               </h2>
               <div className="mt-3 flex-1 overflow-y-auto">
                 <ul className="space-y-3">
