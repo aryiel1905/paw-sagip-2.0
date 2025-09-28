@@ -28,6 +28,11 @@ export default function ReportFormPage() {
   const [reportDescription, setReportDescription] = useState("");
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
   const [species, setSpecies] = useState("Dog");
+  const [petName, setPetName] = useState("");
+  const [breed, setBreed] = useState("");
+  const [gender, setGender] = useState("Unknown");
+  const [ageSize, setAgeSize] = useState("Puppy/Kitten");
+  const [features, setFeatures] = useState("");
   const [contact, setContact] = useState("");
   const [anonymous, setAnonymous] = useState(false);
   const [when, setWhen] = useState("");
@@ -263,7 +268,7 @@ export default function ReportFormPage() {
       if (draft.type) setReportType(draft.type);
       if (draft.species) setSpecies(draft.species);
       if (draft.location) setReportLocation(draft.location);
-      if (draft.feature) setReportDescription(draft.feature);
+      if (draft.feature) setFeatures(draft.feature);
       if (draft.contact) setContact(draft.contact);
       if (typeof draft.anonymous === "boolean") setAnonymous(draft.anonymous);
       if (typeof draft.aggressive === "boolean" && draft.aggressive) {
@@ -335,6 +340,8 @@ export default function ReportFormPage() {
       uploadedLandmarkPaths = paths;
     }
 
+    const eventAtIso = when ? new Date(when).toISOString() : null;
+
     const payload = {
       type: reportType,
       description: reportDescription,
@@ -344,6 +351,20 @@ export default function ReportFormPage() {
       lng: reportLng,
       photoPath: uploadedPhotoPath,
       landmarkMediaPaths: uploadedLandmarkPaths,
+
+      // extended fields from the full form
+      petName: petName?.trim() ? petName.trim() : null,
+      species: species || null,
+      breed: breed?.trim() ? breed.trim() : null,
+      gender: gender || null,
+      ageSize: ageSize || null,
+      features: features?.trim() ? features.trim() : null,
+      eventAt: eventAtIso,
+      reporterName: reporterName?.trim() ? reporterName.trim() : null,
+      reporterContact: contact?.trim() ? contact.trim() : null,
+      isAggressive: aggressiveFlag,
+      isFriendly: friendly,
+      isAnonymous: anonymous,
     };
 
     try {
@@ -394,6 +415,18 @@ export default function ReportFormPage() {
     landmarkPreviewUrls,
     reportLat,
     reportLng,
+    petName,
+    species,
+    breed,
+    gender,
+    ageSize,
+    features,
+    reporterName,
+    contact,
+    anonymous,
+    aggressiveFlag,
+    friendly,
+    when,
   ]);
 
   const isFormValid = Boolean(
@@ -574,6 +607,8 @@ export default function ReportFormPage() {
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   placeholder="e.g., Buddy"
                   style={{ border: "1px solid var(--border-color)" }}
+                  value={petName}
+                  onChange={(e) => setPetName(e.target.value)}
                 />
               </label>
               <label className="block text-sm">
@@ -596,6 +631,8 @@ export default function ReportFormPage() {
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   placeholder="e.g., Aspin / Mix"
                   style={{ border: "1px solid var(--border-color)" }}
+                  value={breed}
+                  onChange={(e) => setBreed(e.target.value)}
                 />
               </label>
               <label className="block text-sm">
@@ -603,6 +640,8 @@ export default function ReportFormPage() {
                 <select
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
                 >
                   <option>Unknown</option>
                   <option>Male</option>
@@ -614,6 +653,8 @@ export default function ReportFormPage() {
                 <select
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
+                  value={ageSize}
+                  onChange={(e) => setAgeSize(e.target.value)}
                 >
                   <option>Puppy/Kitten</option>
                   <option>Adult</option>
@@ -664,8 +705,8 @@ export default function ReportFormPage() {
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   placeholder="Collar color, scars, markings, tag/microchip"
                   style={{ border: "1px solid var(--border-color)" }}
-                  value={reportDescription}
-                  onChange={(e) => setReportDescription(e.target.value)}
+                  value={features}
+                  onChange={(e) => setFeatures(e.target.value)}
                 />
               </label>
               <div className="mt-1 flex flex-wrap items-center gap-4 lg:col-span-2">

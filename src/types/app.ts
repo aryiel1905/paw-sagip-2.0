@@ -15,35 +15,47 @@ export type Alert = {
 
 export type AdoptionPet = {
   id: string;
-  kind: "dog" | "cat";
+  kind: "dog" | "cat" | "other";
   name: string;
   age: string;
   note: string;
   location: string;
   emoji: string;
+  imageUrl?: string | null;
+  createdAt?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type ReportStatus = "idle" | "submitting" | "success" | "error";
 
 export type AlertRow = {
   id: string;
-  title: string;
-  area: string;
-  type: Exclude<AlertType, "all">;
+  report_type: Exclude<AlertType, "all">;
+  location: string;
   created_at?: string | null;
   minutes?: number | string | null;
   photo_path?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   landmark_media_paths?: string[] | null;
+  pet_name?: string | null;
+  species?: string | null;
+  description?: string | null;
 };
 
 export type AdoptionRow = {
   id: string;
-  kind: "dog" | "cat";
-  name: string;
-  age: string | null;
-  note: string | null;
-  location: string | null;
-  emoji_code: string | null;
+  species?: string | null;
+  pet_name?: string | null;
+  age_size?: string | null;
+  features?: string | null;
+  location?: string | null;
+  emoji_code?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  photo_path?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  landmark_media_paths?: string[] | null;
 };

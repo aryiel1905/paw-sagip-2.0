@@ -209,14 +209,16 @@ export default function Home() {
         ].filter((t) => t.includes(qLower));
         const qSafe = q.replace(/[,]/g, " ");
         const alertOrParts = [
-          `title.ilike.%${qSafe}%`,
-          `area.ilike.%${qSafe}%`,
-          ...alertTypeMatches.map((t) => `type.eq.${t}`),
+          `location.ilike.%${qSafe}%`,
+          `description.ilike.%${qSafe}%`,
+          `pet_name.ilike.%${qSafe}%`,
+          `species.ilike.%${qSafe}%`,
+          ...alertTypeMatches.map((t) => `report_type.eq.${t}`),
         ];
         const { data: alertData, error: alertErr } = await supabase
           .from("alerts")
           .select(
-            "id,title,area,type,created_at,photo_path,latitude,longitude,landmark_media_paths"
+            "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
           )
           .or(alertOrParts.join(","))
           .limit(25);
@@ -241,12 +243,16 @@ export default function Home() {
                       .publicUrl
                 )
             : [];
+          const title =
+            (item.pet_name && item.pet_name.trim())
+              ? item.pet_name
+              : (item.species ? `${item.report_type.toUpperCase()} ${item.species}` : item.report_type.toUpperCase());
           return {
             id: item.id,
-            title: item.title,
-            area: item.area,
-            type: item.type,
-            emoji: mapEmoji(item.type),
+            title,
+            area: item.location,
+            type: item.report_type,
+            emoji: mapEmoji(item.report_type),
             minutes: resolveMinutes(item),
             imageUrl,
             latitude: item.latitude ?? null,
@@ -275,18 +281,18 @@ export default function Home() {
         // Adoption search via ILIKE across common text fields
         const kindMatches = ["dog", "cat"].filter((k) => k.includes(qLower));
         const adoptOrParts = [
-          `name.ilike.%${qSafe}%`,
+          `pet_name.ilike.%${qSafe}%`,
           `location.ilike.%${qSafe}%`,
-          `note.ilike.%${qSafe}%`,
-          `age.ilike.%${qSafe}%`,
-          ...kindMatches.map((k) => `kind.eq.${k}`),
+          `features.ilike.%${qSafe}%`,
+          `age_size.ilike.%${qSafe}%`,
+          ...kindMatches.map((k) => `species.ilike.%${k}%`),
         ];
         const { data: adoptData, error: adoptErr } = await supabase
           .from("adoption_pets")
           .select(
-            "id, kind, name, age, note, location, emoji_code, status, created_at"
+            "id, species, pet_name, age_size, features, location, emoji_code, status, created_at, photo_path, latitude, longitude"
           )
-          .eq("status", "available")
+          // .eq("status", "available") // temporary: show all for debugging
           .or(adoptOrParts.join(","))
           .limit(25);
 
@@ -295,15 +301,29 @@ export default function Home() {
         }
 
         let adoptList: AdoptionPet[] = Array.isArray(adoptData)
-          ? (adoptData as AdoptionRow[]).map((item) => ({
-              id: item.id,
-              kind: item.kind,
-              name: item.name,
-              age: item.age ?? "",
-              note: item.note ?? "",
-              location: item.location ?? "",
-              emoji: item.emoji_code ?? "P0",
-            }))
+          ? (adoptData as AdoptionRow[]).map((item) => {
+              const imageUrl = item.photo_path
+                ? supabase.storage
+                    .from(PET_MEDIA_BUCKET)
+                    .getPublicUrl(item.photo_path).data.publicUrl
+                : null;
+              const s = (item.species ?? "").toLowerCase();
+              const kind = s.startsWith("dog") ? "dog" : s.startsWith("cat") ? "cat" : "other";
+              const emoji = item.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+              return {
+                id: item.id,
+                kind,
+                name: item.pet_name ?? "",
+                age: item.age_size ?? "",
+                note: item.features ?? "",
+                location: item.location ?? "",
+                emoji,
+                imageUrl,
+                createdAt: item.created_at ?? null,
+                latitude: item.latitude ?? null,
+                longitude: item.longitude ?? null,
+              } as AdoptionPet;
+            })
           : [];
 
         adoptList = adoptList
@@ -349,12 +369,16 @@ export default function Home() {
                   .publicUrl
             )
         : [];
+      // Derive a display title from mirrored report fields
+      const displayTitle =
+        item.pet_name?.trim() ||
+        (item.species ? `${item.report_type.toUpperCase()} ${item.species}` : item.report_type.toUpperCase());
       return {
         id: item.id,
-        title: item.title,
-        area: item.area,
-        type: item.type,
-        emoji: mapEmoji(item.type),
+        title: displayTitle,
+        area: item.location,
+        type: item.report_type,
+        emoji: mapEmoji(item.report_type),
         minutes: resolveMinutes(item),
         imageUrl,
         latitude: item.latitude ?? null,
@@ -366,7 +390,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from("alerts")
       .select(
-        "id,title,area,type,created_at,photo_path,latitude,longitude,landmark_media_paths"
+        "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -378,7 +402,7 @@ export default function Home() {
       );
       const fallback = await supabase
         .from("alerts")
-        .select("id,title,area,type,created_at,photo_path")
+        .select("id,report_type,location,created_at,photo_path,pet_name,species,description")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -391,13 +415,100 @@ export default function Home() {
       }
 
       if (fallback.data && isMountedRef.current) {
-        setAlerts((fallback.data as AlertRow[]).map(toAlert));
+        const alertsFromAlerts = (fallback.data as AlertRow[]).map(toAlert);
+        // Also pull adoption_pets and project them into Alert cards (type = 'adoption')
+        const { data: adoptRows } = await supabase
+          .from("adoption_pets")
+          .select(
+            "id, species, pet_name, location, created_at, photo_path, latitude, longitude, landmark_media_paths, status"
+          );
+        const adoptionAsAlerts: Alert[] = Array.isArray(adoptRows)
+          ? (adoptRows as AdoptionRow[]).map((item) => {
+              const imageUrl = item.photo_path
+                ? supabase.storage
+                    .from(PET_MEDIA_BUCKET)
+                    .getPublicUrl(item.photo_path).data.publicUrl
+                : null;
+              const minutes = item.created_at
+                ? Math.max(
+                    0,
+                    Math.round(
+                      (Date.now() - new Date(item.created_at).getTime()) / 60000
+                    )
+                  )
+                : 0;
+              return {
+                id: item.id,
+                title:
+                  (item.pet_name && item.pet_name.trim()) ||
+                  (item.species
+                    ? `ADOPTION ${item.species}`
+                    : "ADOPTION"),
+                area: item.location ?? "",
+                type: "adoption",
+                emoji: mapEmoji("adoption"),
+                minutes,
+                imageUrl,
+                latitude: item.latitude ?? null,
+                longitude: item.longitude ?? null,
+                landmarkImageUrls: [],
+              };
+            })
+          : [];
+        const seen = new Set(alertsFromAlerts.map((a) => a.id));
+        const combined = alertsFromAlerts.concat(
+          adoptionAsAlerts.filter((a) => !seen.has(a.id))
+        );
+        setAlerts(combined);
       }
       return;
     }
 
     if (data && isMountedRef.current) {
-      setAlerts((data as AlertRow[]).map(toAlert));
+      const alertsFromAlerts = (data as AlertRow[]).map(toAlert);
+      const { data: adoptRows } = await supabase
+        .from("adoption_pets")
+        .select(
+          "id, species, pet_name, location, created_at, photo_path, latitude, longitude, landmark_media_paths, status"
+        );
+      const adoptionAsAlerts: Alert[] = Array.isArray(adoptRows)
+        ? (adoptRows as AdoptionRow[]).map((item) => {
+            const imageUrl = item.photo_path
+              ? supabase.storage
+                  .from(PET_MEDIA_BUCKET)
+                  .getPublicUrl(item.photo_path).data.publicUrl
+              : null;
+            const minutes = item.created_at
+              ? Math.max(
+                  0,
+                  Math.round(
+                    (Date.now() - new Date(item.created_at).getTime()) / 60000
+                  )
+                )
+              : 0;
+            return {
+              id: item.id,
+              title:
+                (item.pet_name && item.pet_name.trim()) ||
+                (item.species
+                  ? `ADOPTION ${item.species}`
+                  : "ADOPTION"),
+              area: item.location ?? "",
+              type: "adoption",
+              emoji: mapEmoji("adoption"),
+              minutes,
+              imageUrl,
+              latitude: item.latitude ?? null,
+              longitude: item.longitude ?? null,
+              landmarkImageUrls: [],
+            };
+          })
+        : [];
+      const seen = new Set(alertsFromAlerts.map((a) => a.id));
+      const combined = alertsFromAlerts.concat(
+        adoptionAsAlerts.filter((a) => !seen.has(a.id))
+      );
+      setAlerts(combined);
     }
   }, []);
 
@@ -521,15 +632,16 @@ export default function Home() {
   // Load adoption listings once and ignore late responses after unmount
   useEffect(() => {
     let ignore = false;
+    const supabaseRealtime = getSupabaseClient();
 
     async function loadAdoptions() {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from("adoption_pets")
         .select(
-          "id, kind, name, age, note, location, emoji_code, status, created_at"
+          "id, species, pet_name, age_size, features, location, emoji_code, status, created_at, photo_path, latitude, longitude"
         )
-        .eq("status", "available")
+        // .eq("status", "available") // temporary: show all for debugging
         .order("created_at", { ascending: false });
 
       if (ignore) {
@@ -543,28 +655,58 @@ export default function Home() {
 
       if (data && data.length > 0) {
         setAdoptions(
-          (data as AdoptionRow[]).map((item) => ({
-            id: item.id,
-            kind: item.kind,
-            name: item.name,
-            age: item.age ?? "",
-            note: item.note ?? "",
-            location: item.location ?? "",
-            emoji: item.emoji_code ?? "P0",
-          }))
+          (data as AdoptionRow[]).map((item) => {
+            const imageUrl = item.photo_path
+              ? supabase.storage
+                  .from(PET_MEDIA_BUCKET)
+                  .getPublicUrl(item.photo_path).data.publicUrl
+              : null;
+            const s = (item.species ?? "").toLowerCase();
+            const kind = s.startsWith("dog") ? "dog" : s.startsWith("cat") ? "cat" : "other";
+            const emoji = item.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+            return {
+              id: item.id,
+              kind,
+              name: item.pet_name ?? "",
+              age: item.age_size ?? "",
+              note: item.features ?? "",
+              location: item.location ?? "",
+              emoji,
+              imageUrl,
+              createdAt: item.created_at ?? null,
+              latitude: item.latitude ?? null,
+              longitude: item.longitude ?? null,
+            } as AdoptionPet;
+          })
         );
       }
     }
 
     loadAdoptions();
 
+    // Realtime: subscribe to adoption_pets inserts/updates/deletes
+    const channel = supabaseRealtime
+      .channel("public:adoption_pets")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "adoption_pets" },
+        () => {
+          if (!ignore) loadAdoptions();
+        }
+      )
+      .subscribe();
+
     return () => {
       ignore = true;
+      supabaseRealtime.removeChannel(channel);
     };
   }, []);
 
   const nearbyAlerts = useMemo(
-    () => alerts.filter((a) => a.type === "lost" || a.type === "found" || a.type === "cruelty"),
+    () =>
+      alerts.filter(
+        (a) => a.type === "lost" || a.type === "found" || a.type === "cruelty"
+      ),
     [alerts]
   );
 
@@ -1363,7 +1505,7 @@ export default function Home() {
           setAdoptionSort={setAdoptionSort}
         />
 
-        <CrueltySection />
+        {/*<CrueltySection />*/}
 
         <nav className="fixed inset-x-0 bottom-4 px-4 md:hidden">
           <div className="surface mx-auto grid max-w-md grid-cols-5 rounded-2xl text-center text-sm shadow-soft">

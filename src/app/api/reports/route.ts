@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const REPORT_TYPES = new Set(["lost", "found", "cruelty", "adoption"]);
 
 type ReportPayload = {
+  // existing
   type?: string;
   description?: string;
   condition?: string;
@@ -17,6 +18,20 @@ type ReportPayload = {
   lat?: number | null;
   lng?: number | null;
   landmarkMediaPaths?: string[] | null;
+
+  // newly supported, optional
+  petName?: string | null;
+  species?: string | null;
+  breed?: string | null;
+  gender?: string | null;
+  ageSize?: string | null;
+  features?: string | null;
+  eventAt?: string | null; // ISO or datetime-local from client
+  reporterName?: string | null;
+  reporterContact?: string | null;
+  isAggressive?: boolean | null;
+  isFriendly?: boolean | null;
+  isAnonymous?: boolean | null;
 };
 
 export async function POST(request: Request) {
@@ -56,6 +71,20 @@ export async function POST(request: Request) {
       landmark_media_paths: payload.landmarkMediaPaths ?? [],
       latitude,
       longitude,
+
+      // newly mapped fields
+      pet_name: payload.petName ?? null,
+      species: payload.species ?? null,
+      breed: payload.breed ?? null,
+      gender: payload.gender ?? null,
+      age_size: payload.ageSize ?? null,
+      features: payload.features ?? null,
+      event_at: payload.eventAt ? new Date(payload.eventAt).toISOString() : null,
+      reporter_name: payload.reporterName ?? null,
+      reporter_contact: payload.reporterContact ?? null,
+      is_aggressive: payload.isAggressive ?? null,
+      is_friendly: payload.isFriendly ?? null,
+      is_anonymous: payload.isAnonymous ?? null,
     },
   ]);
 
