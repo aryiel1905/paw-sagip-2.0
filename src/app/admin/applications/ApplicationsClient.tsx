@@ -22,23 +22,41 @@ export type ApplicationItem = {
 };
 
 const PET_MEDIA_BUCKET = "pet-media";
-const STATUSES = ["pending", "reviewing", "approved", "declined", "on_hold"] as const;
+const STATUSES = [
+  "pending",
+  "reviewing",
+  "approved",
+  "declined",
+  "on_hold",
+] as const;
 
-export default function ApplicationsClient({ items }: { items: ApplicationItem[] }) {
+export default function ApplicationsClient({
+  items,
+}: {
+  items: ApplicationItem[];
+}) {
   const [rows, setRows] = useState(items);
   const [openId, setOpenId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const supabase = getSupabaseClient();
 
-  const deriveName = (r: ApplicationItem) => r.applicant_name || [r.first_name, r.last_name].filter(Boolean).join(" ");
+  const deriveName = (r: ApplicationItem) =>
+    r.applicant_name || [r.first_name, r.last_name].filter(Boolean).join(" ");
 
-  const expanded = useMemo(() => rows.find((r) => r.id === openId) || null, [rows, openId]);
-
-  const publicUrls = (expanded?.home_photo_paths || []).map((p) =>
-    supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data.publicUrl
+  const expanded = useMemo(
+    () => rows.find((r) => r.id === openId) || null,
+    [rows, openId]
   );
 
-  const changeStatus = async (id: string, status: typeof STATUSES[number]) => {
+  const publicUrls = (expanded?.home_photo_paths || []).map(
+    (p) =>
+      supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data.publicUrl
+  );
+
+  const changeStatus = async (
+    id: string,
+    status: (typeof STATUSES)[number]
+  ) => {
     setBusyId(id);
     try {
       const res = await fetch(`/api/adoption-applications/${id}/status`, {
@@ -52,9 +70,10 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
       }
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       showToast("success", `Status set to ${status}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      showToast("error", e?.message || "Failed to update status");
+      const msg = e instanceof Error ? e.message : "Failed to update status";
+      showToast("error", msg);
     } finally {
       setBusyId(null);
     }
@@ -65,7 +84,9 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
       <div className="rounded-2xl p-4 surface shadow-soft">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold ink-heading">Adoption Applications</h2>
+            <h2 className="text-xl font-semibold ink-heading">
+              Adoption Applications
+            </h2>
             <p className="ink-subtle text-sm">Latest first</p>
           </div>
         </div>
@@ -86,11 +107,20 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t" style={{ borderColor: "var(--border-color)" }}>
-                  <td className="py-2 pr-3">{new Date(r.created_at).toLocaleString()}</td>
+                <tr
+                  key={r.id}
+                  className="border-t"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <td className="py-2 pr-3">
+                    {new Date(r.created_at).toLocaleString()}
+                  </td>
                   <td className="py-2 pr-3">{deriveName(r) || "—"}</td>
                   <td className="py-2 pr-3">{r.email || r.phone || "—"}</td>
-                  <td className="py-2 pr-3">{r.pet_name || "(pet)"} {r.pet_species ? `· ${r.pet_species}` : ""}</td>
+                  <td className="py-2 pr-3">
+                    {r.pet_name || "(pet)"}{" "}
+                    {r.pet_species ? `· ${r.pet_species}` : ""}
+                  </td>
                   <td className="py-2 pr-3">{r.adopt_what || "—"}</td>
                   <td className="py-2 pr-3">{r.status}</td>
                   <td className="py-2 pr-3">
@@ -98,19 +128,28 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
                       <button
                         className="pill px-2 py-1"
                         style={{ border: "1px solid var(--border-color)" }}
-                        onClick={() => setOpenId((id) => (id === r.id ? null : r.id))}
+                        onClick={() =>
+                          setOpenId((id) => (id === r.id ? null : r.id))
+                        }
                       >
                         {openId === r.id ? "Hide" : "View"}
                       </button>
                       <select
                         className="rounded-xl px-2 py-1"
                         value={r.status}
-                        onChange={(e) => changeStatus(r.id, e.target.value as any)}
+                        onChange={(e) =>
+                          changeStatus(
+                            r.id,
+                            e.target.value as (typeof STATUSES)[number]
+                          )
+                        }
                         disabled={busyId === r.id}
                         style={{ border: "1px solid var(--border-color)" }}
                       >
                         {STATUSES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -127,8 +166,12 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
         <div className="rounded-2xl p-4 surface shadow-soft">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="font-semibold ink-heading">Application Details</div>
-              <div className="ink-subtle text-sm">{new Date(expanded.created_at).toLocaleString()}</div>
+              <div className="font-semibold ink-heading">
+                Application Details
+              </div>
+              <div className="ink-subtle text-sm">
+                {new Date(expanded.created_at).toLocaleString()}
+              </div>
             </div>
             <button
               className="pill px-3 py-1"
@@ -147,7 +190,10 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
             </div>
             <div>
               <div className="ink-subtle text-xs">Pet</div>
-              <div className="text-sm">{expanded.pet_name || "(pet)"} {expanded.pet_species ? `· ${expanded.pet_species}` : ""}</div>
+              <div className="text-sm">
+                {expanded.pet_name || "(pet)"}{" "}
+                {expanded.pet_species ? `· ${expanded.pet_species}` : ""}
+              </div>
             </div>
           </div>
           {publicUrls.length > 0 && (
@@ -156,7 +202,12 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {publicUrls.map((u, i) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={u} alt={`home ${i+1}`} className="w-full h-32 object-cover rounded-xl" />
+                  <img
+                    key={i}
+                    src={u}
+                    alt={`home ${i + 1}`}
+                    className="w-full h-32 object-cover rounded-xl"
+                  />
                 ))}
               </div>
             </div>
@@ -166,4 +217,3 @@ export default function ApplicationsClient({ items }: { items: ApplicationItem[]
     </div>
   );
 }
-
