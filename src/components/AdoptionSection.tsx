@@ -1,4 +1,5 @@
 ﻿import { AdoptionPet } from "@/types/app";
+import Link from "next/link";
 
 type AdoptionSectionProps = {
   adoptionResults: AdoptionPet[];
@@ -108,13 +109,13 @@ export function AdoptionSection({
                       <p className="ink-subtle text-xs">{pet.location}</p>
                     </div>
                   </div>
-                  <button
-                    className="btn btn-primary mt-3 w-full"
+                  <Link
+                    href={`/adopt/${pet.id}`}
+                    className="btn btn-primary mt-3 w-full inline-block text-center"
                     style={{ border: "1px solid var(--border-color)" }}
-                    type="button"
                   >
                     Adopt {"->"}
-                  </button>
+                  </Link>
                 </div>
               </article>
             ))

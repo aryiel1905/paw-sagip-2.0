@@ -1,0 +1,573 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import { showToast } from "@/lib/toast";
+import StepQuestionnaire from "./StepQuestionnaire";
+import StepPhotos from "./StepPhotos";
+import StepApplicant from "./StepApplicant";
+
+const PET_MEDIA_BUCKET = "pet-media";
+
+type PetSummary = {
+  id: string;
+  name: string;
+  species: string;
+  location?: string | null;
+  imageUrl?: string | null;
+};
+
+type AdoptionApplicationPayload = {
+  petId: string;
+  applicantName: string;
+  email?: string;
+  phone?: string;
+  address: string;
+  city?: string;
+  occupation?: string;
+  age?: string;
+  homeType?: string;
+  ownsHome?: boolean;
+  adults?: number;
+  children?: number;
+  childrenAges?: string;
+  hasAllergies?: boolean;
+  hasPets?: boolean;
+  petsDescription?: string;
+  experienceLevel?: string;
+  vetClinic?: string;
+  hoursAlone?: string;
+  sleepingArea?: string;
+  primaryCaregiver?: string;
+  budget?: string;
+  reason?: string;
+  additionalNotes?: string;
+  termsAccepted: boolean;
+};
+
+export default function AdoptionApplicationPage() {
+  const params = useParams();
+  const router = useRouter();
+  const petId = useMemo(() => (params?.petId as string) || "", [params]);
+
+  const [pet, setPet] = useState<PetSummary | null>(null);
+  const [loadingPet, setLoadingPet] = useState(true);
+
+  // Wizard state (0=preface, 1=form, 2=questionnaire, 3=photos)
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
+  const [ackInfo, setAckInfo] = useState(false);
+
+  // Form state
+  const [applicantName, setApplicantName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [age, setAge] = useState("");
+  const [homeType, setHomeType] = useState("House");
+  const [ownsHome, setOwnsHome] = useState<boolean | undefined>(undefined);
+  const [adults, setAdults] = useState("");
+  const [children, setChildren] = useState("");
+  const [childrenAges, setChildrenAges] = useState("");
+  const [hasAllergies, setHasAllergies] = useState(false);
+  const [hasPets, setHasPets] = useState(false);
+  const [petsDescription, setPetsDescription] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("Beginner");
+  const [vetClinic, setVetClinic] = useState("");
+  const [sleepingArea, setSleepingArea] = useState("Indoors");
+  const [primaryCaregiver, setPrimaryCaregiver] = useState("");
+  const [budget, setBudget] = useState("");
+  const [reason, setReason] = useState("");
+  const [additionalNotes, setAdditionalNotes] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Applicant state (Step 1)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [company, setCompany] = useState("");
+  const [socialProfile, setSocialProfile] = useState("");
+  const [civilStatus, setCivilStatus] = useState<"single" | "married" | "others" | "">("");
+  const [pronouns, setPronouns] = useState<"she/her" | "he/him" | "they/them" | "">("");
+  const [adoptedBefore, setAdoptedBefore] = useState<boolean | null>(null);
+  const [promptedBy, setPromptedBy] = useState<string[]>([]);
+
+  // Questionnaire state (Step 2)
+  const [adoptWhat, setAdoptWhat] = useState<"cat" | "dog" | "both" | "not_decided" | "">("");
+  const [specificShelterAnimal, setSpecificShelterAnimal] = useState<boolean | null>(null);
+  const [idealPet, setIdealPet] = useState("");
+  const [homeTypeQ, setHomeTypeQ] = useState<"house" | "apartment" | "condo" | "other" | "">("");
+  const [rents, setRents] = useState<boolean | null>(null);
+  const [movePlan, setMovePlan] = useState("");
+  const [liveWith, setLiveWith] = useState<string[]>([]);
+  const [allergies, setAllergies] = useState<boolean | null>(null);
+  const [familySupports, setFamilySupports] = useState<boolean | null>(null);
+  const [dailyCareBy, setDailyCareBy] = useState("");
+  const [financialResponsible, setFinancialResponsible] = useState("");
+  const [vacationCaregiver, setVacationCaregiver] = useState("");
+  const [hoursAlone, setHoursAlone] = useState("");
+  const [introSteps, setIntroSteps] = useState("");
+  const [hasPetsNow, setHasPetsNow] = useState<boolean | null>(null);
+  const [hadPetsPast, setHadPetsPast] = useState<boolean | null>(null);
+
+  // Photos state (Step 3)
+  const [homePhotos, setHomePhotos] = useState<File[]>([]);
+  const [homePreviewUrls, setHomePreviewUrls] = useState<string[]>([]);
+  const homeInputRef = useRef<HTMLInputElement | null>(null);
+
+  const onSelectHomeFiles = (files: FileList | null) => {
+    const arr = Array.from(files ?? []);
+    if (arr.length === 0) return;
+    const toAdd = arr.slice(0, Math.max(0, 15 - homePhotos.length));
+    const over = toAdd.some((f) => f.size > 8 * 1024 * 1024);
+    if (over) {
+      showToast("error", "Each photo must be under 8 MB.");
+      return;
+    }
+    setHomePhotos((prev) => [...prev, ...toAdd]);
+    setHomePreviewUrls((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+  };
+  const removeHomeAt = (index: number) => {
+    setHomePhotos((prev) => prev.filter((_, i) => i !== index));
+    setHomePreviewUrls((prev) => {
+      const url = prev[index];
+      try { if (url) URL.revokeObjectURL(url); } catch {}
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+  const clearHomePhotos = () => {
+    try { homePreviewUrls.forEach((u) => URL.revokeObjectURL(u)); } catch {}
+    setHomePhotos([]);
+    setHomePreviewUrls([]);
+  };
+
+  const uploadHomePhotos = async (): Promise<string[]> => {
+    if (homePhotos.length === 0) return [];
+    const supabase = getSupabaseClient();
+    const folder = `adoption-applications/${crypto.randomUUID()}`;
+    const paths: string[] = [];
+    for (let i = 0; i < homePhotos.length; i++) {
+      const file = homePhotos[i];
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${folder}/home-${String(i + 1).padStart(2, "0")}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from(PET_MEDIA_BUCKET)
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (error) throw error;
+      paths.push(data?.path ?? path);
+    }
+    return paths;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      if (!petId) return;
+      try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+          .from("adoption_pets")
+          .select(
+            "id, pet_name, species, location, photo_path"
+          )
+          .eq("id", petId)
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (mounted && data) {
+          const imageUrl = data.photo_path
+            ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(data.photo_path)
+                .data.publicUrl
+            : null;
+          setPet({
+            id: data.id,
+            name: data.pet_name ?? "",
+            species: data.species ?? "",
+            location: data.location ?? null,
+            imageUrl,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        showToast("error", "Failed to load pet details");
+      } finally {
+        if (mounted) setLoadingPet(false);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [petId]);
+
+  const validate = () => {
+    if (!applicantName.trim()) {
+      showToast("error", "Please enter your full name.");
+      return false;
+    }
+    if (!address.trim()) {
+      showToast("error", "Please enter your address.");
+      return false;
+    }
+    if (!phone.trim() && !email.trim()) {
+      showToast("error", "Please provide a phone or email.");
+      return false;
+    }
+    if (!termsAccepted) {
+      showToast("error", "Please accept the adoption terms.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validate() || !petId) return;
+    setSubmitting(true);
+    try {
+      const payload: AdoptionApplicationPayload = {
+        petId,
+        applicantName: applicantName.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        address: address.trim(),
+        city: city.trim() || undefined,
+        occupation: occupation.trim() || undefined,
+        age: age.trim() || undefined,
+        homeType,
+        ownsHome,
+        adults: adults ? Number(adults) : undefined,
+        children: children ? Number(children) : undefined,
+        childrenAges: childrenAges.trim() || undefined,
+        hasAllergies,
+        hasPets,
+        petsDescription: petsDescription.trim() || undefined,
+        experienceLevel,
+        vetClinic: vetClinic.trim() || undefined,
+        hoursAlone,
+        sleepingArea,
+        primaryCaregiver: primaryCaregiver.trim() || undefined,
+        budget: budget.trim() || undefined,
+        reason: reason.trim() || undefined,
+        additionalNotes: additionalNotes.trim() || undefined,
+        termsAccepted,
+      };
+      const res = await fetch("/api/adoption-applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        throw new Error(body?.error || "Submission failed");
+      }
+      showToast("success", "Application submitted. We'll contact you soon.");
+      router.push("/#adoption");
+    } catch (e: any) {
+      console.error(e);
+      showToast("error", e?.message || "Failed to submit application");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto mt-8 max-w-3xl px-4 sm:px-6 lg:px-8">
+      <div className="surface rounded-2xl p-6 shadow-soft">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight ink-heading">
+              Adoption Application
+            </h1>
+            <p className="ink-muted text-sm">We'll contact you after review.</p>
+          </div>
+          <Link
+            href="/#adoption"
+            className="pill px-3 py-1 text-sm"
+            style={{ border: "1px solid var(--border-color)" }}
+          >
+            ← Back
+          </Link>
+        </div>
+
+        {/* Preface gate (Step 0) */}
+        {step === 0 && (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)" }}>
+              {loadingPet ? (
+                <p className="ink-subtle text-sm">Loading pet details…</p>
+              ) : pet ? (
+                <div className="flex items-center gap-3">
+                  {pet.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pet.imageUrl}
+                      alt={`${pet.name} photo`}
+                      className="h-20 w-20 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="h-20 w-20 rounded-lg grid place-content-center"
+                      style={{ background: "var(--soft-bg)" }}
+                    >
+                      🐾
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-semibold ink-heading">{pet.name || "Unnamed Pet"}</div>
+                    <div className="ink-muted text-sm">{pet.species || "Other"}</div>
+                    {pet.location ? (
+                      <div className="ink-subtle text-xs">{pet.location}</div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="ink-subtle text-sm">Pet not found.</p>
+              )}
+            </div>
+            <div className="rounded-2xl p-4" style={{ border: "1px solid var(--border-color)" }}>
+              <div className="font-semibold ink-heading">Important information</div>
+              <ul className="mt-2 text-sm">
+                <li>• Vaccinated: No/Unknown</li>
+                <li>• Spayed/Neutered: No/Unknown</li>
+                <li>• Dewormed: No/Unknown</li>
+              </ul>
+              <p className="mt-3 rounded-xl p-3 text-sm" style={{ border: "1px solid var(--border-color)" }}>
+                By continuing, you confirm you've read the pet's profile and understand their needs.
+              </p>
+              <label className="mt-3 inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={ackInfo} onChange={(e)=>setAckInfo(e.target.checked)} />
+                I acknowledge the important information above.
+              </label>
+              <div className="mt-4 flex gap-3">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  onClick={() => {
+                    if (!ackInfo) {
+                      showToast("error", "Please acknowledge the important information.");
+                      return;
+                    }
+                    setStep(1);
+                  }}
+                >
+                  Start Application
+                </button>
+                <Link href="/#adoption" className="pill px-3 py-2" style={{ border: "1px solid var(--border-color)" }}>
+                  Go back
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Applicant Form (Step 1) */}
+        {step === 1 && (
+        <>
+        {/* Pet summary */}
+        <div className="mt-4 rounded-2xl p-4" style={{ background: "var(--card-bg)" }}>
+          {loadingPet ? (
+            <p className="ink-subtle text-sm">Loading pet details…</p>
+          ) : pet ? (
+            <div className="flex items-center gap-3">
+              {pet.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={pet.imageUrl}
+                  alt={`${pet.name} photo`}
+                  className="h-16 w-16 rounded-lg object-cover"
+                />
+              ) : (
+                <div
+                  className="h-16 w-16 rounded-lg grid place-content-center"
+                  style={{ background: "var(--soft-bg)" }}
+                >
+                  🐾
+                </div>
+              )}
+              <div>
+                <div className="font-semibold ink-heading">{pet.name || "Unnamed"}</div>
+                <div className="ink-muted text-sm">{pet.species}</div>
+                {pet.location ? (
+                  <div className="ink-subtle text-xs">{pet.location}</div>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="ink-subtle text-sm">Pet not found.</p>
+          )}
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <StepApplicant
+            firstName={firstName}
+            setFirstName={setFirstName}
+            lastName={lastName}
+            setLastName={setLastName}
+            address={address}
+            setAddress={setAddress}
+            phone={phone}
+            setPhone={setPhone}
+            email={email}
+            setEmail={setEmail}
+            birthDate={birthDate}
+            setBirthDate={setBirthDate}
+            occupation={occupation}
+            setOccupation={setOccupation}
+            company={company}
+            setCompany={setCompany}
+            socialProfile={socialProfile}
+            setSocialProfile={setSocialProfile}
+            civilStatus={civilStatus}
+            setCivilStatus={setCivilStatus}
+            pronouns={pronouns}
+            setPronouns={setPronouns}
+            adoptedBefore={adoptedBefore}
+            setAdoptedBefore={setAdoptedBefore}
+            promptedBy={promptedBy}
+            setPromptedBy={setPromptedBy}
+          />
+          <div className="flex items-center justify-between">
+            <button type="button" className="pill px-3 py-2" style={{ border: "1px solid var(--border-color)" }} onClick={()=>setStep(0)}>Back</button>
+            <button type="button" className="btn btn-primary" style={{ border: "1px solid var(--border-color)" }} onClick={()=>{
+              if (!firstName.trim() || !lastName.trim() || !address.trim() || !phone.trim() || !email.trim() || !birthDate || !company.trim() || !civilStatus || !pronouns || adoptedBefore===null) {
+                showToast("error", "Please complete the required fields in this step.");
+                return;
+              }
+              setStep(2);
+            }}>Continue</button>
+          </div>
+        </div>
+        </>
+        )}
+
+        {/* Placeholder containers for Step 2 and 3 to be added next */}
+        {step === 2 && (
+          <div className="mt-6 grid gap-4">
+            <StepQuestionnaire
+              adoptWhat={adoptWhat as any}
+              setAdoptWhat={(v)=>setAdoptWhat(v)}
+              specificShelterAnimal={specificShelterAnimal}
+              setSpecificShelterAnimal={(v)=>setSpecificShelterAnimal(v)}
+              idealPet={idealPet}
+              setIdealPet={setIdealPet}
+              homeType={homeTypeQ as any}
+              setHomeType={(v)=>setHomeTypeQ(v)}
+              rents={rents}
+              setRents={(v)=>setRents(v)}
+              movePlan={movePlan}
+              setMovePlan={setMovePlan}
+              liveWith={liveWith}
+              setLiveWith={setLiveWith}
+              allergies={allergies}
+              setAllergies={(v)=>setAllergies(v)}
+              familySupports={familySupports}
+              setFamilySupports={(v)=>setFamilySupports(v)}
+              dailyCareBy={dailyCareBy}
+              setDailyCareBy={setDailyCareBy}
+              financialResponsible={financialResponsible}
+              setFinancialResponsible={setFinancialResponsible}
+              vacationCaregiver={vacationCaregiver}
+              setVacationCaregiver={setVacationCaregiver}
+              hoursAlone={hoursAlone}
+              setHoursAlone={setHoursAlone}
+              introSteps={introSteps}
+              setIntroSteps={setIntroSteps}
+              hasPetsNow={hasPetsNow}
+              setHasPetsNow={(v)=>setHasPetsNow(v)}
+              hadPetsPast={hadPetsPast}
+              setHadPetsPast={(v)=>setHadPetsPast(v)}
+            />
+            <div className="flex items-center justify-between">
+              <button type="button" className="pill px-3 py-2" style={{ border: "1px solid var(--border-color)" }} onClick={()=>setStep(1)}>Back</button>
+              <button type="button" className="btn btn-primary" style={{ border: "1px solid var(--border-color)" }} onClick={()=>{
+                // minimal per-step validation
+                if (!adoptWhat || specificShelterAnimal===null || !homeTypeQ || rents===null || liveWith.length===0 || allergies===null || familySupports===null || hasPetsNow===null || hadPetsPast===null) {
+                  showToast("error", "Please complete the required fields in this step.");
+                  return;
+                }
+                setStep(3);
+              }}>Continue</button>
+            </div>
+          </div>
+        )}
+        {step === 3 && (
+          <div className="mt-6 grid gap-4">
+            <StepPhotos
+              fileInputRef={homeInputRef}
+              onSelectFiles={onSelectHomeFiles}
+              previewUrls={homePreviewUrls}
+              onRemoveAt={removeHomeAt}
+              onClearAll={clearHomePhotos}
+            />
+            <div className="flex items-center justify-between">
+              <button type="button" className="pill px-3 py-2" style={{ border: "1px solid var(--border-color)" }} onClick={()=>setStep(2)}>Back</button>
+              <button type="button" className="btn btn-primary" style={{ border: "1px solid var(--border-color)" }} onClick={async ()=>{
+                if (homePhotos.length === 0) { showToast("error", "Please upload at least 1 home photo."); return; }
+                setSubmitting(true);
+                try {
+                  const homePaths = await uploadHomePhotos();
+                  const payload = {
+                    petId,
+                    applicantName: `${firstName} ${lastName}`.trim(),
+                    termsAccepted: ackInfo,
+                    // applicant
+                    firstName,
+                    lastName,
+                    address,
+                    phone,
+                    email,
+                    birthDate,
+                    occupation,
+                    company,
+                    socialProfile,
+                    civilStatus,
+                    pronouns,
+                    adoptedBefore,
+                    promptedBy,
+                    // questionnaire
+                    adoptWhat,
+                    specificShelterAnimal,
+                    idealPet,
+                    homeType: homeTypeQ,
+                    rents,
+                    movePlan,
+                    liveWith,
+                    allergies,
+                    familySupports,
+                    dailyCareBy,
+                    financialResponsible,
+                    vacationCaregiver,
+                    hoursAlone,
+                    introSteps,
+                    hasPetsNow,
+                    hadPetsPast,
+                    homePhotoPaths: homePaths,
+                  };
+                  const res = await fetch("/api/adoption-applications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                  if (!res.ok && res.status !== 202) {
+                    const body = await res.json().catch(()=>({}));
+                    throw new Error(body?.error || "Submission failed");
+                  }
+                  showToast("success", "Application submitted! We'll email next steps.");
+                  router.push("/#adoption");
+                } catch (e: any) {
+                  console.error(e);
+                  showToast("error", e?.message || "Failed to submit application");
+                } finally {
+                  setSubmitting(false);
+                }
+              }} disabled={submitting}>
+                {submitting ? "Submitting…" : "Submit Application"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
