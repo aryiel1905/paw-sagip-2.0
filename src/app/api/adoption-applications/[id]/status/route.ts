@@ -1,13 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["pending", "reviewing", "approved", "declined", "on_hold"]);
+const ALLOWED = new Set([
+  "pending",
+  "reviewing",
+  "approved",
+  "declined",
+  "on_hold",
+]);
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const id = params?.id;
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   let body: { status?: string };
@@ -32,4 +41,3 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
   return NextResponse.json({ success: true });
 }
-
