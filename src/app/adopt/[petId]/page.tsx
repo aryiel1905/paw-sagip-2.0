@@ -272,7 +272,7 @@ export default function AdoptionApplicationPage() {
               <div className="mt-4 flex gap-3">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary px-4 py-2 "
                   style={{ border: "1px solid var(--border-color)" }}
                   onClick={() => {
                     if (!ackInfo) {
@@ -289,7 +289,7 @@ export default function AdoptionApplicationPage() {
                 </button>
                 <Link
                   href="/#adoption"
-                  className="pill px-3 py-2"
+                  className="btn pill px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                 >
                   Go back
@@ -373,7 +373,7 @@ export default function AdoptionApplicationPage() {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="pill px-3 py-2"
+                  className="btn pill px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                   onClick={() => setStep(0)}
                 >
@@ -381,7 +381,7 @@ export default function AdoptionApplicationPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary px-4 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                   onClick={() => {
                     if (
@@ -391,7 +391,6 @@ export default function AdoptionApplicationPage() {
                       !phone.trim() ||
                       !email.trim() ||
                       !birthDate ||
-                      !company.trim() ||
                       !civilStatus ||
                       !pronouns ||
                       adoptedBefore === null
@@ -452,7 +451,7 @@ export default function AdoptionApplicationPage() {
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                className="pill px-3 py-2"
+                className="btn pill px-3 py-2"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={() => setStep(1)}
               >
@@ -460,7 +459,7 @@ export default function AdoptionApplicationPage() {
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary px-4 py-2"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={() => {
                   // minimal per-step validation
@@ -501,7 +500,7 @@ export default function AdoptionApplicationPage() {
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                className="pill px-3 py-2"
+                className="btn pill px-3 py-2"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={() => setStep(2)}
               >
@@ -509,7 +508,7 @@ export default function AdoptionApplicationPage() {
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary px-4 py-2"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={async () => {
                   if (homePhotos.length === 0) {

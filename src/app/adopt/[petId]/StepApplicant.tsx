@@ -143,15 +143,6 @@ export default function StepApplicant(props: Props) {
           />
         </label>
         <label className="block text-sm">
-          Company/Business Name (Type N/A if unemployed) *
-          <input
-            className="mt-1 w-full rounded-xl px-3 py-2"
-            style={{ border: "1px solid var(--border-color)" }}
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          />
-        </label>
-        <label className="block text-sm md:col-span-2">
           Social Media Profile (FB/Twitter/IG link or N/A)
           <input
             className="mt-1 w-full rounded-xl px-3 py-2"
@@ -160,6 +151,7 @@ export default function StepApplicant(props: Props) {
             onChange={(e) => setSocialProfile(e.target.value)}
           />
         </label>
+        <label className="block text-sm md:col-span-2"></label>
         <label className="block text-sm">
           Status *
           <div className="mt-1 flex flex-wrap gap-4">

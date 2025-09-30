@@ -84,13 +84,6 @@ export function Navbar({
 
           <div className="hidden items-center gap-2 md:flex">
             <button
-              className="pill px-3 py-2 text-sm text-white"
-              style={{ background: "var(--dark-gray)" }}
-              type="button"
-            >
-              EN
-            </button>
-            <button
               className="pill px-3 py-2 text-sm"
               style={{ border: "1px solid var(--border-color)" }}
               type="button"
@@ -136,13 +129,6 @@ export function Navbar({
               </button>
             ))}
             <div className="mt-2 flex items-center gap-2">
-              <button
-                className="flex-1 rounded-xl px-4 py-3 text-sm text-white"
-                style={{ background: "var(--dark-gray)" }}
-                type="button"
-              >
-                EN
-              </button>
               <button
                 className="flex-1 rounded-xl px-4 py-3 text-sm"
                 style={{ border: "1px solid var(--border-color)" }}
