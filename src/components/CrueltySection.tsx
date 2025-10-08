@@ -2,7 +2,7 @@
   return (
     <section
       id="cruelty"
-      className="mx-auto mt-12 max-w-7xl px-4 pb-24 sm:px-6 lg:px-8 scroll-mt-20"
+      className="mx-auto mt-12 max-w-screen-2xl px-4 pb-24 sm:px-6 lg:px-8 scroll-mt-20 snap-start"
     >
       <div className="surface rounded-2xl p-6 shadow-soft">
         <h2

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PawPrint, Menu, X } from "lucide-react";
+import { SearchBox } from "@/components/SearchBox";
 
 const NAV_LINKS = [
   { href: "#home", label: "Home" },
@@ -46,9 +47,10 @@ export function Navbar({
         className="glass dark:glass-dark border-b"
         style={{ borderColor: "var(--border-color)" }}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          {/* Logo */}
           <button
-            className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="flex shrink-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
             style={{ outlineColor: "var(--primary-mintgreen)" }}
             onClick={() => handleNavigate("#home")}
             type="button"
@@ -57,7 +59,7 @@ export function Navbar({
               className="rounded-xl p-2 shadow-soft"
               style={{ backgroundColor: "var(--primary-mintgreen)" }}
             >
-              <PawPrint className="h-5 w-5 text-white" />
+              <PawPrint className="h-6 w-6 text-white" />
             </div>
             <div className="leading-tight text-left">
               <p className="text-xl font-extrabold tracking-tight">PawSagip</p>
@@ -65,14 +67,15 @@ export function Navbar({
             </div>
           </button>
 
+          {/* Nav links */}
           <nav
-            className="hidden items-center gap-2 md:flex"
+            className="hidden md:flex flex-1 items-center justify-center gap-2"
             aria-label="Primary"
           >
             {NAV_LINKS.map((link) => (
               <button
                 key={link.href}
-                className="pill px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                className="h-10 pill px-3 py-2 text-[40vm] font-medium transition-colors hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 style={{ outlineColor: "var(--primary-green)" }}
                 onClick={() => handleNavigate(link.href)}
                 type="button"
@@ -82,10 +85,20 @@ export function Navbar({
             ))}
           </nav>
 
-          <div className="hidden items-center gap-2 md:flex">
+          {/* Right group: Search next to Sign in */}
+          <div className="hidden shrink-0 md:flex items-center gap-2">
+            <SearchBox
+              className="w-72 sm:w-96 lg:w-[21rem]"
+              inputClassName="h-10 py-3"
+            />
+
             <button
-              className="pill px-3 py-2 text-sm"
-              style={{ border: "1px solid var(--border-color)" }}
+              className=" pill px-3 py-2 text-sm"
+              style={{
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--primary-orange)",
+                color: "var(--white)",
+              }}
               type="button"
             >
               Sign in
@@ -114,7 +127,7 @@ export function Navbar({
           style={{ borderColor: "var(--border-color)" }}
         >
           <nav
-            className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4"
+            className="mx-auto flex max-w-screen-2xl flex-col gap-1 px-4 py-4"
             aria-label="Mobile"
           >
             {NAV_LINKS.map((link) => (

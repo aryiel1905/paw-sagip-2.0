@@ -59,3 +59,9 @@ export type AdoptionRow = {
   longitude?: number | null;
   landmark_media_paths?: string[] | null;
 };
+
+// Shared modal item type for DetailsModal and global search
+export type ModalItem =
+  | { kind: "alert"; alert: Alert }
+  | { kind: "adoption"; adoption: AdoptionPet }
+  | null;

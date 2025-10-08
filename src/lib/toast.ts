@@ -44,13 +44,30 @@ export function showToast(type: ToastType, message: string) {
   if (!el) return;
 
   // background colors from CSS vars with sensible fallbacks
-  let bg = getComputedStyle(document.documentElement).getPropertyValue("--success").trim();
+  let bg = getComputedStyle(document.documentElement)
+    .getPropertyValue("--success")
+    .trim();
   if (type === "success") {
-    bg = bg || getComputedStyle(document.documentElement).getPropertyValue("--primary-mintgreen").trim() || "#2a9d8f";
+    bg =
+      bg ||
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary-mintgreen")
+        .trim() ||
+      "#2a9d8f";
   } else if (type === "error") {
-    bg = getComputedStyle(document.documentElement).getPropertyValue("--error").trim() || getComputedStyle(document.documentElement).getPropertyValue("--primary-orange").trim() || "#f57c00";
+    bg =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--error")
+        .trim() ||
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary-orange")
+        .trim() ||
+      "#f57c00";
   } else {
-    bg = getComputedStyle(document.documentElement).getPropertyValue("--info").trim() || "#2563eb";
+    bg =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--info")
+        .trim() || "#2563eb";
   }
 
   el.textContent = message;
@@ -70,4 +87,3 @@ export function showToast(type: ToastType, message: string) {
     }, 160);
   }, 2000);
 }
-

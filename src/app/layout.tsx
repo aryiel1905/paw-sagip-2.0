@@ -1,4 +1,6 @@
 ﻿import { Navbar } from "@/components/Navbar";
+import { SearchProvider } from "@/contexts/SearchContext";
+import { GlobalDetailsModal } from "@/components/GlobalDetailsModal";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -30,12 +32,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        <Script
-          src="https://cdn.lordicon.com/xdjxvujz.js"
-          strategy="afterInteractive"
-        />
-        {children}
+        <SearchProvider>
+          <Navbar />
+          <Script
+            src="https://cdn.lordicon.com/xdjxvujz.js"
+            strategy="afterInteractive"
+          />
+          {children}
+          <GlobalDetailsModal />
+        </SearchProvider>
       </body>
     </html>
   );

@@ -22,7 +22,6 @@ import { ReportSection } from "@/components/ReportSection";
 import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
-import { DetailsModal } from "@/components/DetailsModal";
 import { showToast } from "@/lib/toast";
 import {
   HeartHandshake,
@@ -68,20 +67,12 @@ type ModalItem =
   | { kind: "adoption"; adoption: AdoptionPet }
   | null;
 
-// Map alert types to icon badges displayed in cards
-function mapEmoji(type: Exclude<AlertType, "all">) {
-  switch (type) {
-    case "lost":
-      return "??";
-    case "found":
-      return "??";
-    case "cruelty":
-      return "??";
-    case "adoption":
-      return "??";
-    default:
-      return "??";
-  }
+// Emoji fallback for missing photos based on species
+function speciesToEmoji(species?: string | null) {
+  const s = (species ?? "").toLowerCase();
+  if (s.includes("dog")) return "🐶";
+  if (s.includes("cat")) return "🐱";
+  return "🐾";
 }
 
 // Derive \"minutes ago\" fallback when Supabase does not return the computed field
@@ -244,15 +235,17 @@ export default function Home() {
                 )
             : [];
           const title =
-            (item.pet_name && item.pet_name.trim())
+            item.pet_name && item.pet_name.trim()
               ? item.pet_name
-              : (item.species ? `${item.report_type.toUpperCase()} ${item.species}` : item.report_type.toUpperCase());
+              : item.species
+              ? `${item.report_type.toUpperCase()} ${item.species}`
+              : item.report_type.toUpperCase();
           return {
             id: item.id,
             title,
             area: item.location,
             type: item.report_type,
-            emoji: mapEmoji(item.report_type),
+            emoji: speciesToEmoji(item.species),
             minutes: resolveMinutes(item),
             imageUrl,
             latitude: item.latitude ?? null,
@@ -308,8 +301,14 @@ export default function Home() {
                     .getPublicUrl(item.photo_path).data.publicUrl
                 : null;
               const s = (item.species ?? "").toLowerCase();
-              const kind = s.startsWith("dog") ? "dog" : s.startsWith("cat") ? "cat" : "other";
-              const emoji = item.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+              const kind = s.startsWith("dog")
+                ? "dog"
+                : s.startsWith("cat")
+                ? "cat"
+                : "other";
+              const emoji =
+                item.emoji_code ??
+                (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
               return {
                 id: item.id,
                 kind,
@@ -372,13 +371,15 @@ export default function Home() {
       // Derive a display title from mirrored report fields
       const displayTitle =
         item.pet_name?.trim() ||
-        (item.species ? `${item.report_type.toUpperCase()} ${item.species}` : item.report_type.toUpperCase());
+        (item.species
+          ? `${item.report_type.toUpperCase()} ${item.species}`
+          : item.report_type.toUpperCase());
       return {
         id: item.id,
         title: displayTitle,
         area: item.location,
         type: item.report_type,
-        emoji: mapEmoji(item.report_type),
+        emoji: speciesToEmoji(item.species),
         minutes: resolveMinutes(item),
         imageUrl,
         latitude: item.latitude ?? null,
@@ -402,7 +403,9 @@ export default function Home() {
       );
       const fallback = await supabase
         .from("alerts")
-        .select("id,report_type,location,created_at,photo_path,pet_name,species,description")
+        .select(
+          "id,report_type,location,created_at,photo_path,pet_name,species,description"
+        )
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -416,99 +419,14 @@ export default function Home() {
 
       if (fallback.data && isMountedRef.current) {
         const alertsFromAlerts = (fallback.data as AlertRow[]).map(toAlert);
-        // Also pull adoption_pets and project them into Alert cards (type = 'adoption')
-        const { data: adoptRows } = await supabase
-          .from("adoption_pets")
-          .select(
-            "id, species, pet_name, location, created_at, photo_path, latitude, longitude, landmark_media_paths, status"
-          );
-        const adoptionAsAlerts: Alert[] = Array.isArray(adoptRows)
-          ? (adoptRows as AdoptionRow[]).map((item) => {
-              const imageUrl = item.photo_path
-                ? supabase.storage
-                    .from(PET_MEDIA_BUCKET)
-                    .getPublicUrl(item.photo_path).data.publicUrl
-                : null;
-              const minutes = item.created_at
-                ? Math.max(
-                    0,
-                    Math.round(
-                      (Date.now() - new Date(item.created_at).getTime()) / 60000
-                    )
-                  )
-                : 0;
-              return {
-                id: item.id,
-                title:
-                  (item.pet_name && item.pet_name.trim()) ||
-                  (item.species
-                    ? `ADOPTION ${item.species}`
-                    : "ADOPTION"),
-                area: item.location ?? "",
-                type: "adoption",
-                emoji: mapEmoji("adoption"),
-                minutes,
-                imageUrl,
-                latitude: item.latitude ?? null,
-                longitude: item.longitude ?? null,
-                landmarkImageUrls: [],
-              };
-            })
-          : [];
-        const seen = new Set(alertsFromAlerts.map((a) => a.id));
-        const combined = alertsFromAlerts.concat(
-          adoptionAsAlerts.filter((a) => !seen.has(a.id))
-        );
-        setAlerts(combined);
+        setAlerts(alertsFromAlerts);
       }
       return;
     }
 
     if (data && isMountedRef.current) {
       const alertsFromAlerts = (data as AlertRow[]).map(toAlert);
-      const { data: adoptRows } = await supabase
-        .from("adoption_pets")
-        .select(
-          "id, species, pet_name, location, created_at, photo_path, latitude, longitude, landmark_media_paths, status"
-        );
-      const adoptionAsAlerts: Alert[] = Array.isArray(adoptRows)
-        ? (adoptRows as AdoptionRow[]).map((item) => {
-            const imageUrl = item.photo_path
-              ? supabase.storage
-                  .from(PET_MEDIA_BUCKET)
-                  .getPublicUrl(item.photo_path).data.publicUrl
-              : null;
-            const minutes = item.created_at
-              ? Math.max(
-                  0,
-                  Math.round(
-                    (Date.now() - new Date(item.created_at).getTime()) / 60000
-                  )
-                )
-              : 0;
-            return {
-              id: item.id,
-              title:
-                (item.pet_name && item.pet_name.trim()) ||
-                (item.species
-                  ? `ADOPTION ${item.species}`
-                  : "ADOPTION"),
-              area: item.location ?? "",
-              type: "adoption",
-              emoji: mapEmoji("adoption"),
-              minutes,
-              imageUrl,
-              latitude: item.latitude ?? null,
-              longitude: item.longitude ?? null,
-              landmarkImageUrls: [],
-            };
-          })
-        : [];
-      const seen = new Set(alertsFromAlerts.map((a) => a.id));
-      const combined = alertsFromAlerts.concat(
-        adoptionAsAlerts.filter((a) => !seen.has(a.id))
-      );
-      setAlerts(combined);
+      setAlerts(alertsFromAlerts);
     }
   }, []);
 
@@ -610,14 +528,14 @@ export default function Home() {
     };
   }, []);
 
-  // Listen for realtime alert inserts so the UI reflects new reports immediately
+  // Listen for realtime alert changes so the UI reflects updates/deletes too
   useEffect(() => {
     const supabase = getSupabaseClient();
     const channel = supabase
       .channel("public:alerts")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "alerts" },
+        { event: "*", schema: "public", table: "alerts" },
         () => {
           loadAlerts();
         }
@@ -662,8 +580,14 @@ export default function Home() {
                   .getPublicUrl(item.photo_path).data.publicUrl
               : null;
             const s = (item.species ?? "").toLowerCase();
-            const kind = s.startsWith("dog") ? "dog" : s.startsWith("cat") ? "cat" : "other";
-            const emoji = item.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+            const kind = s.startsWith("dog")
+              ? "dog"
+              : s.startsWith("cat")
+              ? "cat"
+              : "other";
+            const emoji =
+              item.emoji_code ??
+              (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
             return {
               id: item.id,
               kind,
@@ -845,7 +769,7 @@ export default function Home() {
     };
   }, [reportPhotoPreviewUrl]);
 
-  const handleSubmitReport = async () => {
+  const handleSubmitReport = async (speciesValue?: string) => {
     const supabase = getSupabaseClient();
     setReportStatus("submitting");
 
@@ -909,6 +833,7 @@ export default function Home() {
       lng: reportLng,
       photoPath: uploadedPhotoPath,
       landmarkMediaPaths: uploadedLandmarkPaths,
+      species: speciesValue || null,
     };
 
     try {
@@ -1038,10 +963,10 @@ export default function Home() {
         {/* Hero section with quick calls to action and nearby alerts */}
         <section
           id="home"
-          className="mx-auto mt-5 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-29"
+          className="mx-auto mt-5 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-29 snap-start"
         >
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col md:h-[520px] lg:h-[590px]">
               <h1 className="text-3xl font-extrabold tracking-tight ink-heading sm:text-4xl">
                 Find. <span style={{ color: "#2a9d8f" }}>Rescue.</span> Reunite.
               </h1>
@@ -1065,7 +990,7 @@ export default function Home() {
                   Adopt a Pet
                 </button>
               </div>
-              <div className="mt-6">
+              <div className="mt-6 md:hidden">
                 <label className="sr-only" htmlFor="pet-search">
                   Search pets
                 </label>
@@ -1353,7 +1278,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[420px]">
+            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[590px]">
               <h2 className="px-1 text-2xl font-extrabold tracking-tight ink-heading">
                 Reports Near You
               </h2>
@@ -1524,12 +1449,7 @@ export default function Home() {
           </div>
         </nav>
       </main>
-      <DetailsModal
-        item={modalItem}
-        onClose={() => setModalItem(null)}
-        timeAgoFromMinutes={timeAgoFromMinutes}
-        getMapsLink={getMapsLink}
-      />
+      {/* DetailsModal moved to global layout */}
     </>
   );
 }

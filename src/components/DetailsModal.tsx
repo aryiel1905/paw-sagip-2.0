@@ -1,13 +1,8 @@
 "use client";
 
-import { Alert, AdoptionPet } from "@/types/app";
+import { Alert, AdoptionPet, ModalItem } from "@/types/app";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-
-type ModalItem =
-  | { kind: "alert"; alert: Alert }
-  | { kind: "adoption"; adoption: AdoptionPet }
-  | null;
 
 type DetailsModalProps = {
   item: ModalItem;

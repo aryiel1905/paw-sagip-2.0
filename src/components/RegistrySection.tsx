@@ -12,7 +12,7 @@ export function RegistrySection({
   return (
     <section
       id="registry"
-      className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-23"
+      className="mx-auto mt-12 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="surface rounded-2xl p-6 shadow-soft">

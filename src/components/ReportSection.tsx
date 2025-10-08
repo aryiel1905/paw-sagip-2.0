@@ -31,7 +31,7 @@ type ReportSectionProps = {
   reportPhotoName: string;
   reportStatus: ReportStatus;
   handlePhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  handleSubmitReport: () => void;
+  handleSubmitReport: (species: string) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
   reportPhotoPreviewUrl: string | null;
   // Landmark photos (multiple)
@@ -288,7 +288,9 @@ export function ReportSection({
       // Show a friendly notice if required fields are missing
       const formValid = isCruelty
         ? Boolean(reportLocation.trim() && reportDescription.trim())
-        : Boolean(reportType && qSpecies && reportLocation.trim() && qWhen.trim());
+        : Boolean(
+            reportType && qSpecies && reportLocation.trim() && qWhen.trim()
+          );
       if (!formValid) {
         setShowQuickValidation(true);
         return;
@@ -306,7 +308,7 @@ export function ReportSection({
           setReportDescription(parts.join(" | "));
         }
       }
-      handleSubmitReport();
+      handleSubmitReport(qSpecies);
     },
     [
       handleSubmitReport,
@@ -338,7 +340,7 @@ export function ReportSection({
   return (
     <section
       id="report"
-      className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-23"
+      className="mx-auto mt-12 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
     >
       {/* Quick Report (EXPOSED) */}
       <div className="surface rounded-2xl p-6 shadow-soft">
@@ -751,28 +753,28 @@ export function ReportSection({
           </div>
 
           {/* Desktop layout */}
-            <div className="hidden gap-3 md:grid md:grid-cols-2">
-              {/* Column 1: Report Type + Location + Features */}
-              <div className="order-2 space-y-3 md:order-none">
-                <label className="block text-sm">
-                  Report Type
-                  <select
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={reportType}
-                    onChange={(e) =>
-                      setReportType(e.target.value as Exclude<AlertType, "all">)
-                    }
-                    required
-                  >
-                    <option value="found">Found</option>
-                    <option value="lost">Lost</option>
-                    <option value="cruelty">Cruelty</option>
-                  </select>
-                </label>
+          <div className="hidden gap-3 md:grid md:grid-cols-2">
+            {/* Column 1: Report Type + Location + Features */}
+            <div className="order-2 space-y-3 md:order-none">
+              <label className="block text-sm">
+                Report Type
+                <select
+                  className="mt-1 w-full rounded-xl px-3 py-2"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  value={reportType}
+                  onChange={(e) =>
+                    setReportType(e.target.value as Exclude<AlertType, "all">)
+                  }
+                  required
+                >
+                  <option value="found">Found</option>
+                  <option value="lost">Lost</option>
+                  <option value="cruelty">Cruelty</option>
+                </select>
+              </label>
 
-                <label className="block text-sm">
-                  Location
+              <label className="block text-sm">
+                Location
                 <div className="mt-1 flex items-center gap-2">
                   <input
                     className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
@@ -799,86 +801,86 @@ export function ReportSection({
                 </p>
               </label>
 
-                {isCruelty ? (
-                  <label className="block text-sm">
-                    Description
-                    <textarea
-                      rows={3}
-                      className="mt-1 w-full rounded-xl px-3 py-2"
-                      placeholder="What happened? When/where?"
-                      style={{ border: "1px solid var(--border-color)" }}
-                      value={reportDescription}
-                      onChange={(e) => setReportDescription(e.target.value)}
-                    />
-                  </label>
-                ) : (
-                  <label className="block text-sm">
-                    Distinctive Features (optional)
-                    <input
-                      className="mt-1 w-full rounded-xl px-3 py-2"
-                      placeholder="e.g., blue collar"
-                      style={{ border: "1px solid var(--border-color)" }}
-                      value={reportDescription}
-                      onChange={(e) => onQuickFeatureChange(e.target.value)}
-                    />
-                  </label>
-                )}
-                {/* flags removed on desktop */}
-              </div>
+              {isCruelty ? (
+                <label className="block text-sm">
+                  Description
+                  <textarea
+                    rows={3}
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="What happened? When/where?"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                  />
+                </label>
+              ) : (
+                <label className="block text-sm">
+                  Distinctive Features (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="e.g., blue collar"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportDescription}
+                    onChange={(e) => onQuickFeatureChange(e.target.value)}
+                  />
+                </label>
+              )}
+              {/* flags removed on desktop */}
+            </div>
 
-              {/* Column 2: When + Contact + Flags */}
-              <div className="order-3 space-y-3 md:order-none">
-                {!isCruelty && (
-                  <>
-                    <label className="block text-sm">
-                      Species
-                      <select
-                        className="mt-1 w-full rounded-xl px-3 py-2"
+            {/* Column 2: When + Contact + Flags */}
+            <div className="order-3 space-y-3 md:order-none">
+              {!isCruelty && (
+                <>
+                  <label className="block text-sm">
+                    Species
+                    <select
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={qSpecies}
+                      onChange={(e) => setQSpecies(e.target.value)}
+                      required
+                    >
+                      <option>Dog</option>
+                      <option>Cat</option>
+                      <option>Other</option>
+                    </select>
+                  </label>
+                  <label className="block text-sm">
+                    When
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="datetime-local"
+                        className="w-full rounded-xl px-3 py-2"
                         style={{ border: "1px solid var(--border-color)" }}
-                        value={qSpecies}
-                        onChange={(e) => setQSpecies(e.target.value)}
+                        value={qWhen}
+                        onChange={(e) => setQWhen(e.target.value)}
                         required
+                      />
+                      <button
+                        type="button"
+                        aria-label="Set current date & time"
+                        onClick={() => {
+                          const now = new Date();
+                          const iso = new Date(
+                            now.getTime() - now.getTimezoneOffset() * 60000
+                          )
+                            .toISOString()
+                            .slice(0, 16);
+                          setQWhen(iso);
+                        }}
+                        className="rounded-xl px-3 py-2 text-white"
+                        style={{ backgroundColor: "var(--primary-mintgreen)" }}
                       >
-                        <option>Dog</option>
-                        <option>Cat</option>
-                        <option>Other</option>
-                      </select>
-                    </label>
-                    <label className="block text-sm">
-                      When
-                      <div className="mt-1 flex items-center gap-2">
-                        <input
-                          type="datetime-local"
-                          className="w-full rounded-xl px-3 py-2"
-                          style={{ border: "1px solid var(--border-color)" }}
-                          value={qWhen}
-                          onChange={(e) => setQWhen(e.target.value)}
-                          required
-                        />
-                        <button
-                          type="button"
-                          aria-label="Set current date & time"
-                          onClick={() => {
-                            const now = new Date();
-                            const iso = new Date(
-                              now.getTime() - now.getTimezoneOffset() * 60000
-                            )
-                              .toISOString()
-                              .slice(0, 16);
-                            setQWhen(iso);
-                          }}
-                          className="rounded-xl px-3 py-2 text-white"
-                          style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                        >
-                          Auto
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs ink-muted">
-                        You can type a date/time or tap the auto to set now.
-                      </p>
-                    </label>
-                  </>
-                )}
+                        Auto
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs ink-muted">
+                      You can type a date/time or tap the auto to set now.
+                    </p>
+                  </label>
+                </>
+              )}
               <label className="block text-sm">
                 Phone / Email (optional)
                 <input
@@ -971,7 +973,9 @@ export function ReportSection({
                       border: "1px solid var(--border-color)",
                     }}
                   >
-                    <p className="font-semibold ink-heading">Safety & Welfare</p>
+                    <p className="font-semibold ink-heading">
+                      Safety & Welfare
+                    </p>
                     <ul
                       className="ink-muted mt-2 space-y-1 pl-5"
                       style={{ listStyle: "disc" }}
@@ -983,7 +987,7 @@ export function ReportSection({
                   </div>
                 )}
               </div>
-          </div>
+            </div>
           </div>
 
           {/* Checkboxes moved into column 2 */}
@@ -998,7 +1002,9 @@ export function ReportSection({
               }
               style={
                 isCruelty
-                  ? ({ backgroundColor: "var(--primary-mintgreen)" } as React.CSSProperties)
+                  ? ({
+                      backgroundColor: "var(--primary-mintgreen)",
+                    } as React.CSSProperties)
                   : undefined
               }
               disabled={reportStatus === "submitting"}

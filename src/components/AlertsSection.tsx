@@ -93,7 +93,7 @@ export function AlertsSection({
   return (
     <section
       id="alerts"
-      className="mx-auto mt-10 max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-23"
+      className="mx-auto mt-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
     >
       <div className="surface rounded-2xl p-6 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
