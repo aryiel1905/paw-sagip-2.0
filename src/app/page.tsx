@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Image from "next/image";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
   AlertType,
@@ -963,27 +964,32 @@ export default function Home() {
         {/* Hero section with quick calls to action and nearby alerts */}
         <section
           id="home"
-          className="mx-auto mt-5 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-29 snap-start"
+          className="mx-auto mt-5  max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-29 snap-start"
         >
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col md:h-[520px] lg:h-[590px]">
-              <h1 className="text-3xl font-extrabold tracking-tight ink-heading sm:text-4xl">
-                Find. <span style={{ color: "#2a9d8f" }}>Rescue.</span> Reunite.
+          <div className="max-w-6xl mx-auto pb-15 px-4 pt-8 md:pt-10 grid md:grid-cols-2 gap-10 items-center">
+            <div>
+              <h1 className="hero-title">
+                Find.
+                <br />
+                <span className="hero-title--accent">Rescue.</span>
+                <br />
+                Reunite.
               </h1>
-              <p className="ink-muted mt-2">
+
+              <p className="hero-sub mt-2">
                 Report lost or found pets, receive nearby alerts, and help
                 coordinate safe rescues in your barangay.
               </p>
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <button
-                  className="px-5 py-3 rounded-2xl font-semibold bg-orange-400 hover:bg-orange-500 text-white transition-colors shadow-lg"
+                  className="btn btn-accent btn-xl shadow-soft"
                   onClick={() => scrollToTarget("#report")}
                   type="button"
                 >
                   Quick Report
                 </button>
                 <button
-                  className="px-5 py-2.5 rounded-2xl font-semibold border-2 border-[#2a9d8f] text-[#2a9d8f] bg-white hover:bg-[#2a9d8f] hover:text-white transition-colors shadow-lg"
+                  className="btn btn-xl btn-xl--outline shadow-soft"
                   onClick={() => scrollToTarget("#adoption")}
                   type="button"
                 >
@@ -1278,103 +1284,16 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="surface rounded-2xl p-6 shadow-soft flex flex-col h-[590px]">
-              <h2 className="px-1 text-2xl font-extrabold tracking-tight ink-heading">
-                Reports Near You
-              </h2>
-              <div className="mt-3 flex-1 overflow-y-auto">
-                <ul className="space-y-3">
-                  {alertsLoading && (
-                    <li
-                      className="rounded-xl p-3"
-                      style={{ border: "1px solid var(--border-color)" }}
-                    >
-                      Loading alerts...
-                    </li>
-                  )}
-                  {!alertsLoading && nearbyAlerts.length === 0 && (
-                    <li
-                      className="rounded-xl p-3 ink-muted"
-                      style={{ border: "1px solid var(--border-color)" }}
-                    >
-                      No alerts available yet.
-                    </li>
-                  )}
-                  {nearbyAlerts.map((alert) => {
-                    const dist = kmDistance(
-                      myLat,
-                      myLng,
-                      alert.latitude,
-                      alert.longitude
-                    );
-                    return (
-                      <li key={alert.id} className="surface rounded-2xl p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {alert.imageUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={alert.imageUrl}
-                                alt="alert photo"
-                                className="h-15 w-15 rounded-xl object-cover"
-                              />
-                            ) : (
-                              <div
-                                className="grid h-15 w-15 place-content-center rounded-xl text-xl"
-                                style={{
-                                  background:
-                                    "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                                }}
-                              >
-                                {alert.emoji}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium ink-heading">
-                                {alert.title}
-                              </p>
-                              <p className="text-sm ink-heading">
-                                {shortArea(alert.area)}
-                              </p>
-                              <p className="text-xs ink-muted">
-                                {timeAgoFromMinutes(alert.minutes)}
-                                {dist != null
-                                  ? ` • ${dist.toFixed(1)} km away`
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-                          {(() => {
-                            const link = getMapsLink(alert);
-                            return link ? (
-                              <a
-                                className="btn btn-primary px-4 py-2 text-[12px]"
-                                style={{
-                                  border: "1px solid var(--border-color)",
-                                }}
-                                href={link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Open Google Maps
-                              </a>
-                            ) : null;
-                          })()}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-              {/*<div className="mt-4">
-                <a
-                  className="hover:underline"
-                  href="#alerts"
-                  style={{ color: "var(--primary-green)" }}
-                >
-                  View all alerts {"->"}
-                </a>
-              </div>*/}
+            <div className="w-full relative">
+              <div className="hero-ellipse-shadow" aria-hidden="true"></div>
+              <Image
+                src="/LandingPage_PawSagip.svg"
+                alt="Illustration of rescuing pets"
+                width={700}
+                height={520}
+                priority
+                className="relative z-10 w-full h-auto max-w-[640px] mx-auto"
+              />
             </div>
           </div>
         </section>

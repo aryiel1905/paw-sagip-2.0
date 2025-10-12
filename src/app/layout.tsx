@@ -28,19 +28,62 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Preload background images so the composed tile appears without flash */}
+        <link rel="preload" as="image" href="/HeaderBackground.png" />
+        <link rel="preload" as="image" href="/Continuation.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SearchProvider>
-          <Navbar />
-          <Script
-            src="https://cdn.lordicon.com/xdjxvujz.js"
-            strategy="afterInteractive"
-          />
-          {children}
-          <GlobalDetailsModal />
-        </SearchProvider>
+        <div className="app-content">
+          <SearchProvider>
+            <Navbar />
+            <Script
+              src="https://cdn.lordicon.com/xdjxvujz.js"
+              strategy="afterInteractive"
+            />
+            {/* Compose a single tile from HeaderBackground.png + Continuation.png and set as CSS var */}
+            <Script id="bg-pair-tile" strategy="beforeInteractive">
+              {`
+              (function(){
+                function composePairTile(header, cont){
+                  var w = Math.max(header.naturalWidth || 0, cont.naturalWidth || 0);
+                  if(!w) return null;
+                  var h1 = Math.round((header.naturalHeight || 0) * (w / (header.naturalWidth || w)));
+                  var h2 = Math.round((cont.naturalHeight || 0) * (w / (cont.naturalWidth || w)));
+                  var canvas = document.createElement('canvas');
+                  canvas.width = w; canvas.height = h1 + h2;
+                  var ctx = canvas.getContext('2d');
+                  if(!ctx) return null;
+                  ctx.drawImage(header, 0, 0, w, h1);
+                  ctx.drawImage(cont, 0, h1, w, h2);
+                  return 'url(' + canvas.toDataURL('image/png') + ')';
+                }
+                try {
+                  var a = new Image();
+                  var b = new Image();
+                  var ready = 0;
+                  function done(){
+                    ready++;
+                    if(ready < 2) return;
+                    var url = composePairTile(a,b);
+                    if(url){
+                      document.documentElement.style.setProperty('--bg-pattern-url', url);
+                    }
+                  }
+                  a.onload = done; b.onload = done;
+                  a.src = '/HeaderBackground.png';
+                  b.src = '/Continuation.png';
+                } catch (e) { /* no-op */ }
+              })();
+            `}
+            </Script>
+            {children}
+            <GlobalDetailsModal />
+          </SearchProvider>
+        </div>
       </body>
     </html>
   );

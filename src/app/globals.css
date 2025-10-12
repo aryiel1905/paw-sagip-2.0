@@ -18,6 +18,11 @@
   --card-bg: #fafafa; /* for card sections */
   --border-color: #e0e0e0; /* card borders / separators */
   --white: #ffffff; /* always useful for buttons/cards */
+
+  /* Background layout controls */
+  --header-bg-height: clamp(240px, 35vw, 520px);
+  /* Continuation slice is ~79/375 of the viewBox height */
+  --cont-tile-height: calc(100vw * (79 / 375));
 }
 
 @theme inline {
@@ -35,10 +40,37 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   scroll-snap-type: y mandatory;
+  position: relative;
+
+  /* Seamless infinite pair pattern built at runtime into --bg-pattern-url */
+  background-image: var(--bg-pattern-url, url("/HeaderBackground.png"));
+  background-repeat: repeat-y;
+  background-attachment: scroll;
+  background-size: 100% auto;
+  background-position: center top;
+}
+
+/* Frosted overlay above the background pattern, below content */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px) saturate(180%);
+  -webkit-backdrop-filter: blur(6px) saturate(180%);
+  z-index: 0;
+}
+
+/* Ensure app content paints above the frosted overlay */
+.app-content {
+  position: relative;
+  z-index: 1;
 }
 
 .surface {
@@ -78,7 +110,8 @@ body {
 
 .btn {
   border-radius: 1rem;
-  transition: filter 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease,
+    border-color 0.25s ease, filter 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary {
@@ -96,10 +129,55 @@ body {
 }
 
 .btn-accent:hover {
-  filter: brightness(0.95);
+  background-color: var(--secondary-orange);
 }
 
 .active-tab {
   background: var(--dark-gray);
   color: #ffffff;
+}
+
+/* Hero typography and buttons to match design */
+.hero-title {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    Segoe UI, Roboto, Helvetica, Arial;
+  font-weight: 900;
+  font-size: clamp(40px, 9vw, 120px);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  color: #111111;
+}
+
+.hero-title--accent {
+  color: var(--primary-mintgreen);
+}
+
+.hero-sub {
+  color: var(--mid-gray);
+  font-size: 18px;
+  line-height: 1.6;
+  max-width: 56ch;
+}
+
+.btn-xl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  padding: 0 24px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 16px;
+}
+
+.btn-xl--outline {
+  background: #ffffff;
+  color: var(--primary-mintgreen);
+  border: 2px solid var(--primary-mintgreen);
+}
+
+.btn-xl--outline:hover {
+  background: var(--primary-mintgreen);
+  color: var(--white);
 }
