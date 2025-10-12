@@ -1,7 +1,16 @@
 {
   "folders": [
-	{
-		"path": "."
-	}
-]
+    {
+      "name": "paw-sagip_admin",
+      "path": "../paw-sagip_admin"
+    },
+    {
+      "name": "paw-sagip_2.0",
+      "path": "."
+    },
+    {
+      "name": "paw-sagip",
+      "path": "../paw-sagip"
+    }
+  ]
 }
