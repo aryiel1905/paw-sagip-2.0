@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200" role="img" aria-label="Placeholder image (3:4)">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e5e7eb"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0H0V60" fill="none" stroke="#ffffff" stroke-opacity="0.6"/>
+    </pattern>
+  </defs>
+  <rect width="900" height="1200" fill="url(#g)"/>
+  <rect width="900" height="1200" fill="url(#grid)"/>
+  <g opacity="0.5">
+    <circle cx="760" cy="160" r="140" fill="#94a3b8"/>
+    <circle cx="140" cy="1040" r="110" fill="#94a3b8"/>
+  </g>
+  <g>
+    <!-- Mock form card in center -->
+    <rect x="150" y="420" width="600" height="360" rx="20" fill="#ffffff" opacity="0.4"/>
+    <rect x="190" y="470" width="520" height="44" rx="10" fill="#ffffff" opacity="0.7"/>
+    <rect x="190" y="530" width="520" height="44" rx="10" fill="#ffffff" opacity="0.7"/>
+    <rect x="190" y="590" width="200" height="44" rx="10" fill="#ffffff" opacity="0.9"/>
+  </g>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#475569">
+    3:4 Placeholder
+  </text>
+</svg>

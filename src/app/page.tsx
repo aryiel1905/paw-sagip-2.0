@@ -9,6 +9,7 @@ import {
   useState,
   startTransition,
 } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
@@ -34,13 +35,7 @@ import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
 import { showToast } from "@/lib/toast";
-import {
-  HeartHandshake,
-  BellRing,
-  ClipboardList,
-  IdCard,
-  House,
-} from "lucide-react";
+import { HeartHandshake, BellRing, ClipboardList, House, User } from "lucide-react";
 
 // Storage bucket name used when uploading report photos (centralized)
 // Imported from data module for consistency across the app.
@@ -50,7 +45,6 @@ const MOBILE_NAV_LINKS = [
   { href: "#home", label: "Home", icon: House },
   { href: "#alerts", label: "Alerts", icon: BellRing },
   { href: "#report", label: "Report", icon: ClipboardList },
-  { href: "#registry", label: "Registry", icon: IdCard },
   { href: "#adoption", label: "Adoption", icon: HeartHandshake },
 ];
 
@@ -59,7 +53,6 @@ const MOBILE_NAV_OFFSETS: Record<string, number> = {
   "#home": 88,
   "#alerts": 88,
   "#report": 88,
-  "#registry": 88,
   "#adoption": 88,
 };
 
@@ -97,6 +90,7 @@ function resolveMinutes(item: AlertRow) {
 }
 
 export default function Home() {
+  const router = useRouter();
   // Reactive state hooks grouped by feature (alerts, adoption, report wizard, UI helpers)
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
@@ -133,6 +127,8 @@ export default function Home() {
   // Landmark photos (multiple)
   const [landmarkPhotos, setLandmarkPhotos] = useState<File[]>([]);
   const [landmarkPreviewUrls, setLandmarkPreviewUrls] = useState<string[]>([]);
+  const [isReadyAuth, setIsReadyAuth] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -304,6 +300,25 @@ export default function Home() {
       const cleanPath = `${window.location.pathname}${window.location.search}`;
       window.history.replaceState(null, "", cleanPath);
       window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, []);
+
+  // Lightweight auth-state for mobile bottom nav
+  useEffect(() => {
+    try {
+      const supabase = getSupabaseClient();
+      supabase.auth.getUser().then(({ data }) => {
+        setIsLoggedIn(!!data.user);
+        setIsReadyAuth(true);
+      });
+      const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+        setIsLoggedIn(!!session?.user);
+      });
+      return () => {
+        try { data.subscription.unsubscribe(); } catch {}
+      };
+    } catch {
+      setIsReadyAuth(true);
     }
   }, []);
 
@@ -1108,14 +1123,18 @@ export default function Home() {
         {/*<CrueltySection />*/}
 
         <nav className="fixed inset-x-0 bottom-4 px-4 md:hidden">
-          <div className="surface mx-auto grid max-w-md grid-cols-5 rounded-2xl text-center text-sm shadow-soft">
-            {MOBILE_NAV_LINKS.map((link) => (
+          <div className="surface mx-auto grid max-w-md grid-flow-col auto-cols-fr rounded-2xl text-center text-sm shadow-soft">
+            {(isReadyAuth ? [...MOBILE_NAV_LINKS, ...(isLoggedIn ? [{ href: "/account", label: "My Account", icon: User }] : [])] : MOBILE_NAV_LINKS).map((link) => (
               <a
                 key={link.href}
                 className="py-3"
-                onClick={() =>
-                  scrollToTarget(link.href, MOBILE_NAV_OFFSETS[link.href] ?? 0)
-                }
+                onClick={() => {
+                  if (link.href.startsWith("/")) {
+                    router.push(link.href);
+                  } else {
+                    scrollToTarget(link.href, MOBILE_NAV_OFFSETS[link.href] ?? 0);
+                  }
+                }}
               >
                 <link.icon className="mx-auto mb-1 h-5 w-5" />
                 <div className="text-[11px]">{link.label}</div>

@@ -1,6 +1,7 @@
 ﻿import { Navbar } from "@/components/Navbar";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { GlobalDetailsModal } from "@/components/GlobalDetailsModal";
+import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -82,6 +83,7 @@ export default function RootLayout({
             </Script>
             {children}
             <GlobalDetailsModal />
+            <GlobalAuthModal />
           </SearchProvider>
         </div>
       </body>
