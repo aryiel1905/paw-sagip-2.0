@@ -1,5 +1,10 @@
 import AdoptionBrowse from "@/components/AdoptionBrowse";
+import { Suspense } from "react";
 
 export default function AdoptIndex() {
-  return <AdoptionBrowse />;
+  return (
+    <Suspense fallback={null}>
+      <AdoptionBrowse />
+    </Suspense>
+  );
 }
