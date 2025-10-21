@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { PawPrint, Menu, X } from "lucide-react";
 import { SearchBox } from "@/components/SearchBox";
 
@@ -18,18 +19,26 @@ export function Navbar({
   onNavigate?: (target: string) => void;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const handleNavigate = useCallback(
     (target: string) => {
       setIsMenuOpen(false);
       onNavigate?.(target);
+      const section = target.startsWith("#") ? target.slice(1) : target;
+      if (pathname !== "/") {
+        // Navigate to home with a query param the landing page can consume to scroll.
+        router.push(`/?goto=${encodeURIComponent(section)}`);
+        return;
+      }
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("app:navigate", { detail: { target } })
         );
       }
     },
-    [onNavigate]
+    [onNavigate, pathname, router]
   );
 
   useEffect(() => {
@@ -44,7 +53,7 @@ export function Navbar({
   return (
     <header className="sticky top-0 z-50">
       <div
-        className="glass dark:glass-dark border-b"
+        className="bg-[#ffffff]"
         style={{ borderColor: "var(--border-color)" }}
       >
         <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">

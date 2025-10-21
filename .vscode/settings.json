@@ -3,6 +3,7 @@
     "addressdetails",
     "geolocate",
     "housenumber",
+    "ilike",
     "jsonv",
     "Komoot",
     "LOCATIONIQ",
@@ -11,6 +12,7 @@
     "mintgreen",
     "neighbourhood",
     "Nominatim",
-    "NOMINATIM"
+    "NOMINATIM",
+    "Sagip"
   ]
 }

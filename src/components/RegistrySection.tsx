@@ -12,10 +12,11 @@ export function RegistrySection({
   return (
     <section
       id="registry"
-      className="mx-auto mt-12 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
+      className="mx-auto mt-21 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
+      style={{ scrollMarginTop: 92 }}
     >
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="surface rounded-2xl p-6 shadow-soft">
+      <div className="mb-30 grid gap-6 lg:grid-cols-2">
+        <div className=" surface rounded-2xl p-6 shadow-soft h-[83vh]">
           <h2 className="text-2xl font-extrabold tracking-tight ink-heading">
             Pet Registry
           </h2>

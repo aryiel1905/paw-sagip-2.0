@@ -8,7 +8,7 @@ function ensureStyle() {
   const style = document.createElement("style");
   style.id = "app-toast-style";
   style.textContent = `
-    @keyframes ps-fade-in { from { opacity: 0; transform: translateY(4px);} to { opacity: 1; transform: translateY(0);} }
+    @keyframes ps-fade-in { from { opacity: 0; } to { opacity: 1; } }
     @keyframes ps-fade-out { from { opacity: 1;} to { opacity: 0;} }
   `;
   document.head.appendChild(style);
@@ -24,13 +24,16 @@ function ensureToastEl(): HTMLDivElement | null {
     el.setAttribute("role", "status");
     el.setAttribute("aria-live", "polite");
     el.style.position = "fixed";
-    el.style.right = "1rem";
-    el.style.bottom = "1rem";
+    // True center position
+    el.style.left = "50%";
+    el.style.top = "50%";
+    el.style.transform = "translate(-50%, -50%)";
     el.style.minWidth = "260px";
     el.style.maxWidth = "340px";
     el.style.padding = ".75rem 1rem";
     el.style.borderRadius = "1rem";
     el.style.color = "#fff";
+    el.style.textAlign = "center";
     el.style.display = "none";
     el.style.zIndex = "10000";
     el.style.boxShadow = "0 10px 25px -10px rgba(0,0,0,.2)";
@@ -72,6 +75,13 @@ export function showToast(type: ToastType, message: string) {
 
   el.textContent = message;
   el.style.background = bg || "#333";
+  // Ensure centered position in case element was created before style change or by HMR
+  el.style.left = "50%";
+  el.style.top = "50%";
+  el.style.right = "";
+  el.style.bottom = "";
+  el.style.transform = "translate(-50%, -50%)";
+  el.style.textAlign = "center";
   el.style.display = "block";
   el.style.animation = "ps-fade-in .2s ease-out both";
 

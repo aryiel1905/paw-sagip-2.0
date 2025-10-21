@@ -57,13 +57,18 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
   }, [alerts]);
 
   return (
-    <section id="alerts" className="mt-5 scroll-mt-23 snap-start w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch h-[83vh]">
+    <section
+      id="alerts"
+      className="relative  scroll-mt-23 snap-start w-full "
+      style={{ scrollMarginTop: 63 }}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch h-[91vh]">
         {(
           [
             {
               key: "found" as const,
               title: "FOUND",
+              description: "View reports of rescued or sighted pets.",
               base: "#2A9D8F",
               items: grouped.found,
               icon: MapPin,
@@ -71,6 +76,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             {
               key: "lost" as const,
               title: "LOST",
+              description: "See all active missing pet reports.",
               base: "#6B6B6B",
               items: grouped.lost,
               icon: Search,
@@ -78,6 +84,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             {
               key: "cruelty" as const,
               title: "CRUELTY",
+              description: "Check submitted animal cruelty cases.",
               base: "#F57C00",
               items: grouped.cruelty,
               icon: AlertTriangle,
@@ -91,41 +98,35 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
               background: `radial-gradient(circle at 50% 55%, color-mix(in srgb, ${col.base} 60%, white 85%) 0%, color-mix(in srgb, ${col.base} 80%, white 45%) 35%, ${col.base} 65%, color-mix(in srgb, ${col.base} 95%, black 10%) 100%)`,
             }}
           >
-            <div className="px-6 pt-6 pb-4 text-white">
+            <div className="px-6 pt-12 pb-4 text-white">
               <div className="flex items-center gap-3">
                 {(() => {
                   const Icon = col.icon;
                   return (
-                    <Icon size={26} strokeWidth={2.5} className="shrink-0" />
+                    <Icon size={45} strokeWidth={2.5} className="shrink-0" />
                   );
                 })()}
-                <h3 className="text-3xl font-extrabold tracking-wide">
-                  {col.title}
-                </h3>
+                <div>
+                  <h3 className="text-3xl font-extrabold tracking-wide">
+                    {col.title}
+                  </h3>
+                  <p className="opacity-90">{col.description}</p>
+                </div>
               </div>
             </div>
-            <div className="px-6 pb-6 flex-1 flex flex-col">
+            <div className="px-6 py-2 flex-1 flex flex-col">
               {col.items.length === 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-white/80 border border-dashed shadow-soft"
+                      className="rounded-2xl bg-white/20 border border-dashed shadow-soft"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-28">
-                          <div className="absolute inset-0" style={{ background: `color-mix(in srgb, ${col.base} 12%, white)` }} />
-                          <div
-                            className="absolute inset-0 animate-shimmer"
-                            style={{
-                              backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)',
-                              backgroundSize: '200% 100%',
-                            }}
-                          />
-                        </div>
+                        <div className="relative rounded-xl overflow-hidden mb-2 h-28"></div>
                         <div className="font-semibold text-sm truncate text-black/50">
                           &nbsp;
                         </div>
@@ -142,7 +143,12 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                     <button
                       key={alert.id}
                       type="button"
-                      onClick={() => setSelected(alert)}
+                      onClick={() => {
+                        if (typeof document !== "undefined") {
+                          document.body.classList.add("modal-open");
+                        }
+                        setSelected(alert);
+                      }}
                       className="text-left rounded-2xl bg-white shadow-soft hover:shadow-lg hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2"
                       style={{
                         border: `1px solid color-mix(in srgb, ${col.base} 25%, white)`,
@@ -153,11 +159,13 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                         <div className="rounded-xl overflow-hidden mb-2">
                           {alert.imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={alert.imageUrl}
-                              alt="alert"
-                              className="w-full h-28 object-cover"
-                            />
+                          <img
+                            src={alert.imageUrl}
+                            alt="alert"
+                            className="w-full h-28 object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                           ) : (
                             <div
                               className="grid place-content-center h-28 text-3xl"
@@ -184,22 +192,13 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-white/80 border border-dashed shadow-soft"
+                      className="rounded-2xl bg-[white/80] border border-dashed shadow-soft"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-28">
-                          <div className="absolute inset-0" style={{ background: `color-mix(in srgb, ${col.base} 12%, white)` }} />
-                          <div
-                            className="absolute inset-0 animate-shimmer"
-                            style={{
-                              backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)',
-                              backgroundSize: '200% 100%',
-                            }}
-                          />
-                        </div>
+                        <div className="relative rounded-xl overflow-hidden mb-2 h-28"></div>
                         <div className="font-semibold text-sm truncate text-black/50">
                           &nbsp;
                         </div>
@@ -211,16 +210,14 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   ))}
                 </div>
               )}
-              <div className="mt-auto pt-6">
+              <div className="mt-5">
                 <a
                   href={`/alerts?type=${col.key}`}
-                  className="btn w-full py-3 text-center block font-semibold rounded-full transition-colors hover:opacity-90"
+                  className="btn w-full py-3 text-center block font-semibold rounded-full transition-colors duration-300 ease-in-out bg-white text-[var(--btn-accent)] border-2 border-[var(--btn-accent)] hover:bg-[var(--btn-accent)] hover:text-white hover:border-white focus-visible:bg-[var(--btn-accent)] focus-visible:text-white focus-visible:border-white"
                   style={{
-                    background: `#fff`,
-                    color: col.base,
-                    border: `2px solid ${col.base}`,
+                    ["--btn-accent" as any]: col.base,
                     boxShadow: `0 10px 18px -12px color-mix(in srgb, ${col.base} 55%, transparent)`,
-                  }}
+                  } as React.CSSProperties}
                 >
                   View More
                 </a>

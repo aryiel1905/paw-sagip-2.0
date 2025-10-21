@@ -7,9 +7,19 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
 } from "react";
 import Image from "next/image";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import {
+  fetchAlerts,
+  fetchAdoptionPets,
+  searchAlerts as searchAlertsApi,
+  searchAdoptionPets as searchAdoptionPetsApi,
+  PET_MEDIA_BUCKET,
+  subscribeToAlertsIncremental,
+  subscribeToAdoptionsIncremental,
+} from "@/data/supabaseApi";
 import {
   AlertType,
   Alert,
@@ -32,8 +42,8 @@ import {
   House,
 } from "lucide-react";
 
-// Storage bucket name used when uploading report photos
-const PET_MEDIA_BUCKET = "pet-media";
+// Storage bucket name used when uploading report photos (centralized)
+// Imported from data module for consistency across the app.
 
 // Links backing the fixed mobile bottom navigation
 const MOBILE_NAV_LINKS = [
@@ -53,14 +63,7 @@ const MOBILE_NAV_OFFSETS: Record<string, number> = {
   "#adoption": 88,
 };
 
-// Tabs used to filter the alert feed client-side
-const ALERT_FILTERS: AlertType[] = [
-  "all",
-  "lost",
-  "found",
-  "cruelty",
-  "adoption",
-];
+// Alerts section now shows three grouped panels (Found, Lost, Cruelty) without chips.
 
 // Union type for search modal selection
 type ModalItem =
@@ -98,7 +101,6 @@ export default function Home() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [adoptions, setAdoptions] = useState<AdoptionPet[]>([]);
-  const [alertFilter, setAlertFilter] = useState<AlertType>("all");
   const [showPetProfile, setShowPetProfile] = useState(false);
   const [adoptionFilter, setAdoptionFilter] = useState<"all" | "dog" | "cat">(
     "all"
@@ -141,6 +143,7 @@ export default function Home() {
   const [modalItem, setModalItem] = useState<ModalItem>(null);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const searchDebounceRef = useRef<number | null>(null);
+  const searchControllerRef = useRef<AbortController | null>(null);
 
   // Guard against state updates when the component unmounts while async work is in flight
   useEffect(() => {
@@ -189,75 +192,19 @@ export default function Home() {
       setSearchLoading(true);
 
       try {
-        const supabase = getSupabaseClient();
+        // Abort previous search
+        try {
+          searchControllerRef.current?.abort();
+        } catch {}
+        const controller = new AbortController();
+        searchControllerRef.current = controller;
 
-        // Alerts search via ILIKE across common text fields
-        const qLower = q.toLowerCase();
-        const alertTypeMatches = [
-          "lost",
-          "found",
-          "cruelty",
-          "adoption",
-        ].filter((t) => t.includes(qLower));
-        const qSafe = q.replace(/[,]/g, " ");
-        const alertOrParts = [
-          `location.ilike.%${qSafe}%`,
-          `description.ilike.%${qSafe}%`,
-          `pet_name.ilike.%${qSafe}%`,
-          `species.ilike.%${qSafe}%`,
-          ...alertTypeMatches.map((t) => `report_type.eq.${t}`),
-        ];
-        const { data: alertData, error: alertErr } = await supabase
-          .from("alerts")
-          .select(
-            "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
-          )
-          .or(alertOrParts.join(","))
-          .limit(25);
-
-        if (alertErr) {
-          console.error("Search alerts failed", alertErr.message ?? alertErr);
-        }
-
-        const toAlert = (item: AlertRow): Alert => {
-          const supabase = getSupabaseClient();
-          const imageUrl = item.photo_path
-            ? supabase.storage
-                .from(PET_MEDIA_BUCKET)
-                .getPublicUrl(item.photo_path).data.publicUrl
-            : null;
-          const landmarkImageUrls = Array.isArray(item.landmark_media_paths)
-            ? item.landmark_media_paths
-                .filter(Boolean)
-                .map(
-                  (p) =>
-                    supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
-                      .publicUrl
-                )
-            : [];
-          const title =
-            item.pet_name && item.pet_name.trim()
-              ? item.pet_name
-              : item.species
-              ? `${item.report_type.toUpperCase()} ${item.species}`
-              : item.report_type.toUpperCase();
-          return {
-            id: item.id,
-            title,
-            area: item.location,
-            type: item.report_type,
-            emoji: speciesToEmoji(item.species),
-            minutes: resolveMinutes(item),
-            imageUrl,
-            latitude: item.latitude ?? null,
-            longitude: item.longitude ?? null,
-            landmarkImageUrls,
-          };
-        };
-
-        let alertsList: Alert[] = Array.isArray(alertData)
-          ? (alertData as AlertRow[]).map(toAlert)
-          : [];
+        // Parallelize searches
+        const [alertsListRaw, adoptListRaw] = await Promise.all([
+          searchAlertsApi(q, 25, { signal: controller.signal }),
+          searchAdoptionPetsApi(q, 25, { signal: controller.signal }),
+        ]);
+        let alertsList: Alert[] = alertsListRaw;
 
         // Rank alerts by best text match
         alertsList = alertsList
@@ -273,58 +220,7 @@ export default function Home() {
           .map((x) => x.a);
 
         // Adoption search via ILIKE across common text fields
-        const kindMatches = ["dog", "cat"].filter((k) => k.includes(qLower));
-        const adoptOrParts = [
-          `pet_name.ilike.%${qSafe}%`,
-          `location.ilike.%${qSafe}%`,
-          `features.ilike.%${qSafe}%`,
-          `age_size.ilike.%${qSafe}%`,
-          ...kindMatches.map((k) => `species.ilike.%${k}%`),
-        ];
-        const { data: adoptData, error: adoptErr } = await supabase
-          .from("adoption_pets")
-          .select(
-            "id, species, pet_name, age_size, features, location, emoji_code, status, created_at, photo_path, latitude, longitude"
-          )
-          // .eq("status", "available") // temporary: show all for debugging
-          .or(adoptOrParts.join(","))
-          .limit(25);
-
-        if (adoptErr) {
-          console.error("Search adoption failed", adoptErr.message ?? adoptErr);
-        }
-
-        let adoptList: AdoptionPet[] = Array.isArray(adoptData)
-          ? (adoptData as AdoptionRow[]).map((item) => {
-              const imageUrl = item.photo_path
-                ? supabase.storage
-                    .from(PET_MEDIA_BUCKET)
-                    .getPublicUrl(item.photo_path).data.publicUrl
-                : null;
-              const s = (item.species ?? "").toLowerCase();
-              const kind = s.startsWith("dog")
-                ? "dog"
-                : s.startsWith("cat")
-                ? "cat"
-                : "other";
-              const emoji =
-                item.emoji_code ??
-                (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
-              return {
-                id: item.id,
-                kind,
-                name: item.pet_name ?? "",
-                age: item.age_size ?? "",
-                note: item.features ?? "",
-                location: item.location ?? "",
-                emoji,
-                imageUrl,
-                createdAt: item.created_at ?? null,
-                latitude: item.latitude ?? null,
-                longitude: item.longitude ?? null,
-              } as AdoptionPet;
-            })
-          : [];
+        let adoptList: AdoptionPet[] = adoptListRaw;
 
         adoptList = adoptList
           .map((p) => {
@@ -341,10 +237,14 @@ export default function Home() {
           .map((x) => x.p);
 
         if (isMountedRef.current) {
-          setSearchAlerts(alertsList);
-          setSearchAdoptions(adoptList);
+          startTransition(() => {
+            setSearchAlerts(alertsList);
+            setSearchAdoptions(adoptList);
+          });
         }
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (e instanceof Error && e.name === "AbortError") return;
         console.error("Search failed", e);
       } finally {
         if (isMountedRef.current) setSearchLoading(false);
@@ -354,81 +254,8 @@ export default function Home() {
   );
 
   const loadAlerts = useCallback(async () => {
-    const supabase = getSupabaseClient();
-    const toAlert = (item: AlertRow): Alert => {
-      const imageUrl = item.photo_path
-        ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(item.photo_path)
-            .data.publicUrl
-        : null;
-      const landmarkImageUrls = Array.isArray(item.landmark_media_paths)
-        ? item.landmark_media_paths
-            .filter(Boolean)
-            .map(
-              (p) =>
-                supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
-                  .publicUrl
-            )
-        : [];
-      // Derive a display title from mirrored report fields
-      const displayTitle =
-        item.pet_name?.trim() ||
-        (item.species
-          ? `${item.report_type.toUpperCase()} ${item.species}`
-          : item.report_type.toUpperCase());
-      return {
-        id: item.id,
-        title: displayTitle,
-        area: item.location,
-        type: item.report_type,
-        emoji: speciesToEmoji(item.species),
-        minutes: resolveMinutes(item),
-        imageUrl,
-        latitude: item.latitude ?? null,
-        longitude: item.longitude ?? null,
-        landmarkImageUrls,
-      };
-    };
-
-    const { data, error } = await supabase
-      .from("alerts")
-      .select(
-        "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
-      )
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) {
-      console.warn(
-        "Falling back to client-side minutes",
-        error.message ?? error
-      );
-      const fallback = await supabase
-        .from("alerts")
-        .select(
-          "id,report_type,location,created_at,photo_path,pet_name,species,description"
-        )
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (fallback.error) {
-        console.error(
-          "Failed to load alerts",
-          fallback.error.message ?? fallback.error
-        );
-        return;
-      }
-
-      if (fallback.data && isMountedRef.current) {
-        const alertsFromAlerts = (fallback.data as AlertRow[]).map(toAlert);
-        setAlerts(alertsFromAlerts);
-      }
-      return;
-    }
-
-    if (data && isMountedRef.current) {
-      const alertsFromAlerts = (data as AlertRow[]).map(toAlert);
-      setAlerts(alertsFromAlerts);
-    }
+    const data = await fetchAlerts(50);
+    if (isMountedRef.current) setAlerts(data);
   }, []);
 
   const scrollToTarget = useCallback((target: string, offset?: number) => {
@@ -478,6 +305,21 @@ export default function Home() {
       window.history.replaceState(null, "", cleanPath);
       window.scrollTo({ top: 0, behavior: "auto" });
     }
+  }, []);
+
+  // If navigated to home with ?goto=section, scroll to that section once mounted
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const goto = (url.searchParams.get("goto") || "").trim();
+    if (!goto) return;
+    const target = goto.startsWith("#") ? goto : `#${goto}`;
+    // Use same helper to perform smooth scroll with offset
+    scrollToTarget(target);
+    // Clean up the query param to keep the URL tidy
+    url.searchParams.delete("goto");
+    window.history.replaceState(null, "", url.toString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close suggestions only when empty; keep them "sticky" if there is input
@@ -531,99 +373,33 @@ export default function Home() {
 
   // Listen for realtime alert changes so the UI reflects updates/deletes too
   useEffect(() => {
-    const supabase = getSupabaseClient();
-    const channel = supabase
-      .channel("public:alerts")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "alerts" },
-        () => {
-          loadAlerts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadAlerts]);
+    // Incremental realtime updates to avoid reload flicker
+    const unsubscribe = subscribeToAlertsIncremental({
+      onInsert: (a) => setAlerts((prev) => [a, ...prev].slice(0, 50)),
+      onUpdate: (a) =>
+        setAlerts((prev) => prev.map((x) => (x.id === a.id ? a : x))),
+      onDelete: (id) => setAlerts((prev) => prev.filter((x) => x.id !== id)),
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Load adoption listings once and ignore late responses after unmount
   useEffect(() => {
     let ignore = false;
-    const supabaseRealtime = getSupabaseClient();
-
-    async function loadAdoptions() {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from("adoption_pets")
-        .select(
-          "id, species, pet_name, age_size, features, location, emoji_code, status, created_at, photo_path, latitude, longitude"
-        )
-        // .eq("status", "available") // temporary: show all for debugging
-        .order("created_at", { ascending: false });
-
-      if (ignore) {
-        return;
-      }
-
-      if (error) {
-        console.error("Failed to load adoption pets", error.message ?? error);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setAdoptions(
-          (data as AdoptionRow[]).map((item) => {
-            const imageUrl = item.photo_path
-              ? supabase.storage
-                  .from(PET_MEDIA_BUCKET)
-                  .getPublicUrl(item.photo_path).data.publicUrl
-              : null;
-            const s = (item.species ?? "").toLowerCase();
-            const kind = s.startsWith("dog")
-              ? "dog"
-              : s.startsWith("cat")
-              ? "cat"
-              : "other";
-            const emoji =
-              item.emoji_code ??
-              (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
-            return {
-              id: item.id,
-              kind,
-              name: item.pet_name ?? "",
-              age: item.age_size ?? "",
-              note: item.features ?? "",
-              location: item.location ?? "",
-              emoji,
-              imageUrl,
-              createdAt: item.created_at ?? null,
-              latitude: item.latitude ?? null,
-              longitude: item.longitude ?? null,
-            } as AdoptionPet;
-          })
-        );
-      }
+    async function loadAdoptionsOnce() {
+      const data = await fetchAdoptionPets(50);
+      if (!ignore) setAdoptions(data);
     }
-
-    loadAdoptions();
-
-    // Realtime: subscribe to adoption_pets inserts/updates/deletes
-    const channel = supabaseRealtime
-      .channel("public:adoption_pets")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "adoption_pets" },
-        () => {
-          if (!ignore) loadAdoptions();
-        }
-      )
-      .subscribe();
-
+    loadAdoptionsOnce();
+    const unsubscribe = subscribeToAdoptionsIncremental({
+      onInsert: (p) => setAdoptions((prev) => [p, ...prev].slice(0, 50)),
+      onUpdate: (p) =>
+        setAdoptions((prev) => prev.map((x) => (x.id === p.id ? p : x))),
+      onDelete: (id) => setAdoptions((prev) => prev.filter((x) => x.id !== id)),
+    });
     return () => {
       ignore = true;
-      supabaseRealtime.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 
@@ -711,12 +487,7 @@ export default function Home() {
     []
   );
 
-  const filteredAlerts = useMemo(() => {
-    if (alertFilter === "all") {
-      return alerts;
-    }
-    return alerts.filter((alert) => alert.type === alertFilter);
-  }, [alerts, alertFilter]);
+  // Alerts are grouped by type within AlertsSection; no local filtering here.
 
   const adoptionResults = useMemo(() => {
     let pets = adoptions;
@@ -729,20 +500,11 @@ export default function Home() {
     return pets;
   }, [adoptions, adoptionFilter, adoptionSort]);
 
-  // Keep report type and alert filter in sync for lost/found
-  const handleAlertFilterChange = useCallback((filter: AlertType) => {
-    setAlertFilter(filter);
-    if (filter === "lost" || filter === "found") {
-      setReportType(filter);
-    }
-  }, []);
+  // Alert filter chips removed; keep report type independent.
 
   const handleReportTypeChange = useCallback(
     (type: Exclude<AlertType, "all">) => {
       setReportType(type);
-      if (type === "lost" || type === "found") {
-        setAlertFilter(type);
-      }
     },
     []
   );
@@ -960,13 +722,14 @@ export default function Home() {
 
   return (
     <>
-      <main className="pb-24">
+      <main className="pt-5 ">
         {/* Hero section with quick calls to action and nearby alerts */}
         <section
           id="home"
-          className="mx-auto mt-5  max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-29 snap-start"
+          className="mb-11.5 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-30 "
+          style={{ scrollMarginTop: 91 }}
         >
-          <div className="max-w-6xl mx-auto pb-15 px-4 pt-8 md:pt-10 grid md:grid-cols-2 gap-10 items-center">
+          <div className="mb-3 max-w-7xl mx-auto pb-15 px-4  grid md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] gap-10 items-center">
             <div>
               <h1 className="hero-title">
                 Find.
@@ -980,16 +743,16 @@ export default function Home() {
                 Report lost or found pets, receive nearby alerts, and help
                 coordinate safe rescues in your barangay.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className=" mt-4 flex flex-wrap gap-3">
                 <button
-                  className="btn btn-accent btn-xl shadow-soft"
+                  className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl"
                   onClick={() => scrollToTarget("#report")}
                   type="button"
                 >
                   Quick Report
                 </button>
                 <button
-                  className="btn btn-xl btn-xl--outline shadow-soft"
+                  className="flex flex-1 btn btn-xl btn-xl--outline shadow-2xl"
                   onClick={() => scrollToTarget("#adoption")}
                   type="button"
                 >
@@ -1292,20 +1055,13 @@ export default function Home() {
                 width={700}
                 height={520}
                 priority
-                className="relative z-10 w-full h-auto max-w-[640px] mx-auto"
+                className="relative z-10 w-full h-auto max-w-none mx-auto"
               />
             </div>
           </div>
         </section>
 
-        <AlertsSection
-          filters={ALERT_FILTERS}
-          activeFilter={alertFilter}
-          onFilterChange={handleAlertFilterChange}
-          filteredAlerts={filteredAlerts}
-          myLat={myLat}
-          myLng={myLng}
-        />
+        <AlertsSection alerts={alerts} />
 
         <ReportSection
           reportType={reportType}
@@ -1336,10 +1092,10 @@ export default function Home() {
           landmarkInputMobileRef={landmarkInputMobileRef}
         />
 
-        <RegistrySection
+        {/*<RegistrySection
           showPetProfile={showPetProfile}
           setShowPetProfile={setShowPetProfile}
-        />
+        />*/}
 
         <AdoptionSection
           adoptionResults={adoptionResults}

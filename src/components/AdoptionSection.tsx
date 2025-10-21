@@ -14,10 +14,10 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
   return (
     <section
       id="adoption"
-      className="mx-auto mt-30 mb-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
+      className="mx-auto mt-23 mb-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start overflow-hidden"
     >
       <div
-        className="surface rounded-2xl p-6 shadow-soft h-[80vh]"
+        className=" rounded-2xl p-2 shadow-soft h-[80vh]"
         style={{
           background:
             "radial-gradient(circle at 50% 55%, color-mix(in srgb, #F57C00 60%, white 85%) 0%, color-mix(in srgb, #F57C00 80%, white 45%) 35%, #F57C00 65%, color-mix(in srgb, #F57C00 95%, black 10%) 100%)",
@@ -29,21 +29,24 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
             <div className="px-6 pt-4 pb-6 text-white">
               <div className="flex items-center gap-3">
                 <HeartHandshake
-                  size={35}
+                  size={45}
                   strokeWidth={2.5}
                   className="shrink-0"
                 />
-                <h2 className="text-3xl font-extrabold tracking-wide">
-                  ADOPTION
-                </h2>
+                <div>
+                  <h2 className="text-3xl font-extrabold tracking-wide">
+                    ADOPTION
+                  </h2>
+
+                  <p className="opacity-90">
+                    Browse rescued animals looking for a home.
+                  </p>
+                </div>
               </div>
-              <p className="mt-2 opacity-90">
-                Browse rescued animals looking for a home.
-              </p>
             </div>
-            <div className="px-6 pb-6 flex-1 flex flex-col">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {adoptionResults.slice(0, 7).map((pet) => (
+            <div className="px-6  flex-1 flex flex-col">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
+                {adoptionResults.slice(0, 9).map((pet) => (
                   <Link
                     key={pet.id}
                     href={`/adopt/${pet.id}`}
@@ -61,6 +64,8 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                             src={pet.imageUrl}
                             alt={`${pet.name} photo`}
                             className="w-full h-32 object-cover"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <div
@@ -84,34 +89,19 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                   </Link>
                 ))}
 
-                {/* Fillers if fewer than 7 */}
+                {/* Fillers if fewer than 9 */}
                 {Array.from({
-                  length: Math.max(0, 7 - Math.min(7, adoptionResults.length)),
+                  length: Math.max(0, 9 - Math.min(9, adoptionResults.length)),
                 }).map((_, idx) => (
                   <div
                     key={`ph-${idx}`}
-                    className="rounded-2xl bg-white/80 border border-dashed shadow-soft"
+                    className="rounded-2xl bg-white/20 border border-dashed shadow-soft"
                     style={{
                       borderColor: `color-mix(in srgb, #F57C00 35%, white)`,
                     }}
                   >
                     <div className="p-3">
-                      <div className="relative rounded-xl overflow-hidden mb-2 h-32">
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background: `color-mix(in srgb, #F57C00 12%, white)`,
-                          }}
-                        />
-                        <div
-                          className="absolute inset-0 animate-shimmer"
-                          style={{
-                            backgroundImage:
-                              "linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)",
-                            backgroundSize: "200% 100%",
-                          }}
-                        />
-                      </div>
+                      <div className="relative rounded-xl overflow-hidden mb-2 h-32"></div>
                       <div className="font-semibold text-sm truncate text-black/50">
                         &nbsp;
                       </div>
@@ -145,17 +135,13 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
           </div>
 
           {/* Right: hero illustration */}
-          <div className="hidden lg:block">
-            <div className="h-full w-full grid place-items-center">
-              <div className="w-[88%] h-[88%]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/Adopt Illustration.svg"
-                  alt="Adoption illustration"
-                  className="max-w-[85%] h-auto"
-                />
-              </div>
-            </div>
+          <div className="hidden lg:block items-center justify-end pl-7">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/Adopt Illustration.svg"
+              alt="Adoption illustration"
+              className="p-2 max-w-[90%] h-auto"
+            />
           </div>
         </div>
       </div>

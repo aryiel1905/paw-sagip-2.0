@@ -113,44 +113,80 @@ export function ReportSection({
     switch (key) {
       case "aggressive":
         return (
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5">
-              <img src="/DoNotApproach.svg" alt="Do not approach icon" />
+          <div className="grid grid-cols-3 items-center gap-3 w-full">
+            <div className="col-span-1 flex items-center justify-center">
+              <img
+                src="/DoNotApproach.svg"
+                alt=""
+                className="w-full h-auto object-contain"
+              />
             </div>
-            <div>
-              <p className="font-semibold leading-snug">
+            <div className="col-span-2">
+              <p className="text-lg font-semibold">
                 Aggressive / Fearful - Safety First
               </p>
-              <p className="mt-1 text-sm leading-snug">
+              <p className="mt-1 text-lg">
                 Do not approach. Keep 3-5 meters away. Avoid eye contact and
                 sudden moves. Observe from a distance and include a clear
                 photo/video if possible.
               </p>
+              <div className="mt-5  text-left">
+                <button
+                  type="button"
+                  className="pill px-3 py-1 text-white transition hover:opacity-90  "
+                  style={{
+                    background: "var(--primary-orange)",
+                    border: "1px solid var(--primary-orange)",
+                  }}
+                  onClick={closeFlagModal}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         );
       case "friendly":
         return (
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5">
-              <img src="/SafeApprove.svg" alt="Friendly approach icon" />
+          <div className="grid grid-cols-3 items-center gap-3">
+            <div className=" col-span-1 ">
+              <img
+                src="/SafeApprove.svg"
+                alt=""
+                className="w-full h-auto object-contain"
+              />
             </div>
-            <div>
-              <p className="font-semibold leading-snug">Seems Friendly - Approach Slowly</p>
-              <p className="mt-1 text-sm leading-snug">
+            <div className="col-span-2">
+              <p className="text-lg font-semibold">
+                Seems Friendly - Approach Slowly
+              </p>
+              <p className="mt-1 text-lg">
                 Speak softly and crouch to appear smaller. Check for a collar or
                 tag. Offer water; avoid chasing.
               </p>
+              <div className="mt-5  text-left">
+                <button
+                  type="button"
+                  className="pill px-3 py-1 text-white transition hover:opacity-90  "
+                  style={{
+                    background: "var(--primary-mintgreen)",
+                    border: "1px solid var(--primary-mintgreen)",
+                  }}
+                  onClick={closeFlagModal}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         );
       case "anonymous":
         return (
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5"></div>
+          <div className="flex items-start gap-2">
+            <div className="text-xl"></div>
             <div>
-              <p className="font-semibold leading-snug">Submit Anonymously</p>
-              <p className="mt-1 text-sm leading-snug">
+              <p className="font-semibold">Submit Anonymously</p>
+              <p className="mt-1 text-sm">
                 Your name won’t be shown. If safe, add a phone or email so
                 responders can coordinate follow‑ups.
               </p>
@@ -1422,27 +1458,11 @@ export function ReportSection({
                 className="absolute inset-0 bg-black/40"
                 onClick={closeFlagModal}
               />
-              <div className="relative w-full max-w-md rounded-2xl shadow-soft surface p-5">
-                <div className="mb-3 text-lg font-semibold ink-heading">
-                  Safety Tip
-                </div>
-                <div className="ink-muted">
+              <div className="relative w-full max-w-[700px] rounded-2xl shadow-soft surface p-5">
+                <div className="relative ">
                   {flagKey === "aggressive"
                     ? getTipContent("aggressive")
                     : getTipContent("friendly")}
-                </div>
-                <div className="mt-5 text-right">
-                  <button
-                    type="button"
-                    className="pill px-3 py-1 text-white transition hover:opacity-90"
-                    style={{
-                      background: "var(--primary-mintgreen)",
-                      border: "1px solid var(--primary-mintgreen)",
-                    }}
-                    onClick={closeFlagModal}
-                  >
-                    Got it
-                  </button>
                 </div>
               </div>
             </div>,

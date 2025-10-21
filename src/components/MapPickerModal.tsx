@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
+import { createPortal } from "react-dom";
 import { MapPin } from "lucide-react";
 import { reverseGeocodePH } from "@/lib/reverseGeocode";
 
@@ -476,18 +484,36 @@ export default function MapPickerModal({
     };
   }, [getMyLocation, open]);
 
+  // Match DetailsModal: lock body scroll and freeze position while open
+  useLayoutEffect(() => {
+    if (!open) return;
+    const y = typeof window !== "undefined" ? window.scrollY : 0;
+    const body = document.body;
+    body.classList.add("modal-open");
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    return () => {
+      body.classList.remove("modal-open");
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      if (typeof window !== "undefined") window.scrollTo(0, y);
+    };
+  }, [open]);
+
   if (!open) return null;
 
-  return (
+  const node = (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/50"
+      className="fixed inset-0 z-[60] grid place-items-center p-4"
       role="dialog"
       aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-soft overflow-hidden">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-3xl rounded-2xl shadow-soft surface overflow-hidden">
         <div
           className="flex items-center justify-between border-b p-4"
           style={{ borderColor: "var(--border-color)" }}
@@ -613,4 +639,8 @@ export default function MapPickerModal({
       </div>
     </div>
   );
+  if (typeof document !== "undefined") {
+    return createPortal(node, document.body);
+  }
+  return node;
 }

@@ -26,3 +26,5 @@ export function getSupabaseClient(): SupabaseClient {
   });
   return cachedClient;
 }
+
+export const STORAGE_BUCKET = "public";

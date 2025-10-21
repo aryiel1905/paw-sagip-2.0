@@ -1,8 +1,15 @@
 "use client";
 
 import { Alert, AdoptionPet, ModalItem } from "@/types/app";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import {
+  fetchLandmarkImageUrlsByAlertImage,
+  fetchReportDetailsForAlert,
+  type ReportDetails,
+} from "@/data/supabaseApi";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type DetailsModalProps = {
   item: ModalItem;
@@ -38,6 +45,13 @@ function DetailsModalInner({
     () => (lmCount ? lmUrls[Math.min(lmIndex, lmCount - 1)] : null),
     [lmUrls, lmIndex, lmCount]
   );
+  const [reportDetails, setReportDetails] = useState<ReportDetails | null>(
+    null
+  );
+  const [viewer, setViewer] = useState<{
+    urls: string[];
+    index: number;
+  } | null>(null);
 
   // Keep local urls in sync if modal item changes
   useEffect(() => {
@@ -45,11 +59,12 @@ function DetailsModalInner({
     setLmIndex(0);
   }, [item, initialLm]);
 
-  // Prevent page scroll + snap while modal is open so it appears anchored
-  useEffect(() => {
+  // Prevent scroll snapping and freeze the page while modal is open
+  useLayoutEffect(() => {
     const y = typeof window !== "undefined" ? window.scrollY : 0;
     const body = document.body;
     body.classList.add("modal-open");
+    // Freeze body position to avoid subtle jumps under the modal
     body.style.position = "fixed";
     body.style.top = `-${y}px`;
     body.style.left = "0";
@@ -72,36 +87,46 @@ function DetailsModalInner({
     if (lmUrls.length > 0) return;
     const imageUrl = item.alert.imageUrl;
     if (!imageUrl) return;
-    const marker = "/storage/v1/object/public/";
-    const idx = imageUrl.indexOf(marker);
-    if (idx === -1) return;
-    const rest = imageUrl.slice(idx + marker.length); // <bucket>/<path>
-    const slash = rest.indexOf("/");
-    if (slash === -1) return;
-    const bucket = rest.slice(0, slash);
-    const path = rest.slice(slash + 1);
-    if (!path) return;
-
-    const supabase = getSupabaseClient();
-    supabase
-      .from("reports")
-      .select("landmark_media_paths")
-      .eq("photo_path", path)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) return;
-        const arr = (data?.landmark_media_paths ?? []) as string[];
-        if (Array.isArray(arr) && arr.length > 0) {
-          const urls = arr
-            .filter(Boolean)
-            .map(
-              (p) =>
-                supabase.storage.from(bucket).getPublicUrl(p).data.publicUrl
-            );
-          setLmUrls(urls);
-        }
-      });
+    fetchLandmarkImageUrlsByAlertImage(imageUrl).then((urls) => {
+      if (Array.isArray(urls) && urls.length > 0) setLmUrls(urls);
+    });
   }, [isAlert, lmUrls.length, item]);
+
+  // Load richer details from the reports table using the alert linkage
+  useEffect(() => {
+    if (!item || !isAlert) return;
+    setReportDetails(null);
+    fetchReportDetailsForAlert(item.alert.id)
+      .then((d) => {
+        if (d?.landmarkUrls?.length) {
+          setLmUrls((prev) => (prev.length ? prev : d.landmarkUrls));
+        }
+        setReportDetails(d);
+      })
+      .catch(() => {});
+  }, [isAlert, item]);
+
+  // Keyboard support for fullscreen viewer
+  useEffect(() => {
+    if (!viewer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setViewer(null);
+      } else if (e.key === "ArrowLeft" && viewer.urls.length > 1) {
+        e.preventDefault();
+        setViewer((v) =>
+          v ? { ...v, index: (v.index - 1 + v.urls.length) % v.urls.length } : v
+        );
+      } else if (e.key === "ArrowRight" && viewer.urls.length > 1) {
+        e.preventDefault();
+        setViewer((v) =>
+          v ? { ...v, index: (v.index + 1) % v.urls.length } : v
+        );
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [viewer]);
 
   if (!item) return null;
 
@@ -147,7 +172,16 @@ function DetailsModalInner({
                   <img
                     src={item.alert.imageUrl}
                     alt="alert"
-                    className="h-32 w-full max-w-[180px] rounded-xl object-cover"
+                    className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewer({
+                        urls: [item.alert.imageUrl as string],
+                        index: 0,
+                      });
+                    }}
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div
@@ -160,6 +194,41 @@ function DetailsModalInner({
                     {item.alert.emoji}
                   </div>
                 )
+              ) : item.adoption.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.adoption.imageUrl}
+                  alt="adoption"
+                  className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (item.adoption.imageUrl) {
+                      window.open(
+                        item.adoption.imageUrl as string,
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
+                    }
+                  }}
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : item.adoption.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.adoption.imageUrl}
+                  alt="adoption"
+                  className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewer({
+                      urls: [item.adoption.imageUrl as string],
+                      index: 0,
+                    });
+                  }}
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div
                   className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
@@ -183,7 +252,16 @@ function DetailsModalInner({
                         lmIndex + 1,
                         lmCount
                       )} of ${lmCount}`}
-                      className="h-full w-full object-cover rounded-xl"
+                      className="h-full w-full object-cover rounded-xl cursor-zoom-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewer({
+                          urls: lmUrls,
+                          index: Math.min(lmIndex, lmCount - 1),
+                        });
+                      }}
+                      loading="lazy"
+                      decoding="async"
                     />
                   )}
                   {lmCount > 1 && (
@@ -191,7 +269,7 @@ function DetailsModalInner({
                       <button
                         type="button"
                         aria-label="Previous landmark"
-                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
                         style={{
                           background: "var(--white)",
                           border: "1px solid var(--border-color)",
@@ -200,19 +278,19 @@ function DetailsModalInner({
                           setLmIndex((i) => (i - 1 + lmCount) % lmCount)
                         }
                       >
-                        ◀
+                        <ChevronLeft />
                       </button>
                       <button
                         type="button"
                         aria-label="Next landmark"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-xs shadow-soft"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
                         style={{
                           background: "var(--white)",
                           border: "1px solid var(--border-color)",
                         }}
                         onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
                       >
-                        ▶
+                        <ChevronRight />
                       </button>
                     </>
                   )}
@@ -229,11 +307,28 @@ function DetailsModalInner({
             <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {isAlert ? (
                 <>
-                  <DetailsRow label="Species / Breed" value="-" />
-                  <DetailsRow label="Gender / Age" value="-" />
+                  <DetailsRow
+                    label="Species / Breed"
+                    value={
+                      [reportDetails?.species, reportDetails?.breed]
+                        .filter(Boolean)
+                        .join(" / ") || "-"
+                    }
+                  />
+                  <DetailsRow
+                    label="Gender / Age"
+                    value={
+                      [reportDetails?.gender, reportDetails?.age_size]
+                        .filter(Boolean)
+                        .join(" / ") || "-"
+                    }
+                  />
 
                   <DetailsRow label="Status" value={item.alert.type} />
-                  <DetailsRow label="Distinctive Features" value="-" />
+                  <DetailsRow
+                    label="Distinctive Features"
+                    value={reportDetails?.features || "-"}
+                  />
 
                   <DetailsRow label="Location" value={item.alert.area} />
                   <DetailsRow
@@ -241,7 +336,10 @@ function DetailsModalInner({
                     value={timeAgoFromMinutes(item.alert.minutes)}
                   />
 
-                  <DetailsRow label="Reporter Notes" value="-" />
+                  <DetailsRow
+                    label="Reporter Notes"
+                    value={reportDetails?.description || "-"}
+                  />
                   <DetailsRow label="Rescue Status" value="-" />
                 </>
               ) : (
@@ -258,6 +356,7 @@ function DetailsModalInner({
               )}
             </div>
           </div>
+          {/*
           <div className="mt-5 flex flex-wrap gap-2">
             <button className="btn btn-primary px-4 py-2" type="button">
               Contact Reporter
@@ -281,8 +380,75 @@ function DetailsModalInner({
                 ) : null;
               })()}
           </div>
+
+          */}
         </div>
       </div>
+      {viewer && (
+        <div
+          className="fixed inset-0 z-[80]"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setViewer(null)}
+        >
+          <div className="absolute inset-0 bg-black/80" />
+          <button
+            type="button"
+            className="absolute left-4 top-4 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out flex items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewer(null);
+            }}
+          >
+            <ChevronLeft />
+            Back
+          </button>
+          {viewer.urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous image"
+                className="absolute left-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setViewer((v) =>
+                    v
+                      ? {
+                          ...v,
+                          index: (v.index - 1 + v.urls.length) % v.urls.length,
+                        }
+                      : v
+                  );
+                }}
+              >
+                <ChevronLeft />
+              </button>
+              <button
+                type="button"
+                aria-label="Next image"
+                className="absolute right-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setViewer((v) =>
+                    v ? { ...v, index: (v.index + 1) % v.urls.length } : v
+                  );
+                }}
+              >
+                <ChevronRight />
+              </button>
+            </>
+          )}
+          <div className="relative z-[81] grid place-items-center w-full h-full p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
+              alt="Full size"
+              className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -294,7 +460,7 @@ export function DetailsModal({
   getMapsLink,
 }: DetailsModalProps) {
   if (!item) return null;
-  return (
+  const node = (
     <DetailsModalInner
       item={item}
       onClose={onClose}
@@ -302,4 +468,8 @@ export function DetailsModal({
       getMapsLink={getMapsLink}
     />
   );
+  if (typeof document !== "undefined") {
+    return createPortal(node, document.body);
+  }
+  return node;
 }
