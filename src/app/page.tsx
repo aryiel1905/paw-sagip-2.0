@@ -35,7 +35,13 @@ import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
 import { showToast } from "@/lib/toast";
-import { HeartHandshake, BellRing, ClipboardList, House, User } from "lucide-react";
+import {
+  HeartHandshake,
+  BellRing,
+  ClipboardList,
+  House,
+  User,
+} from "lucide-react";
 
 // Storage bucket name used when uploading report photos (centralized)
 // Imported from data module for consistency across the app.
@@ -315,7 +321,9 @@ export default function Home() {
         setIsLoggedIn(!!session?.user);
       });
       return () => {
-        try { data.subscription.unsubscribe(); } catch {}
+        try {
+          data.subscription.unsubscribe();
+        } catch {}
       };
     } catch {
       setIsReadyAuth(true);
@@ -334,7 +342,7 @@ export default function Home() {
     // Clean up the query param to keep the URL tidy
     url.searchParams.delete("goto");
     window.history.replaceState(null, "", url.toString());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close suggestions only when empty; keep them "sticky" if there is input
@@ -1107,11 +1115,6 @@ export default function Home() {
           landmarkInputMobileRef={landmarkInputMobileRef}
         />
 
-        {/*<RegistrySection
-          showPetProfile={showPetProfile}
-          setShowPetProfile={setShowPetProfile}
-        />*/}
-
         <AdoptionSection
           adoptionResults={adoptionResults}
           adoptionFilter={adoptionFilter}
@@ -1120,11 +1123,17 @@ export default function Home() {
           setAdoptionSort={setAdoptionSort}
         />
 
-        {/*<CrueltySection />*/}
-
         <nav className="fixed inset-x-0 bottom-4 px-4 md:hidden">
           <div className="surface mx-auto grid max-w-md grid-flow-col auto-cols-fr rounded-2xl text-center text-sm shadow-soft">
-            {(isReadyAuth ? [...MOBILE_NAV_LINKS, ...(isLoggedIn ? [{ href: "/account", label: "My Account", icon: User }] : [])] : MOBILE_NAV_LINKS).map((link) => (
+            {(isReadyAuth
+              ? [
+                  ...MOBILE_NAV_LINKS,
+                  ...(isLoggedIn
+                    ? [{ href: "/account", label: "My Account", icon: User }]
+                    : []),
+                ]
+              : MOBILE_NAV_LINKS
+            ).map((link) => (
               <a
                 key={link.href}
                 className="py-3"
@@ -1132,7 +1141,10 @@ export default function Home() {
                   if (link.href.startsWith("/")) {
                     router.push(link.href);
                   } else {
-                    scrollToTarget(link.href, MOBILE_NAV_OFFSETS[link.href] ?? 0);
+                    scrollToTarget(
+                      link.href,
+                      MOBILE_NAV_OFFSETS[link.href] ?? 0
+                    );
                   }
                 }}
               >
