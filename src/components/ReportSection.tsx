@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ChangeEvent,
@@ -8,8 +8,16 @@ import {
   FormEvent,
   useRef,
 } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import {
+  Clock,
+  PawPrint,
+  MapPinHouse,
+  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { AlertType, ReportStatus } from "@/types/app";
 import { useEffect } from "react";
@@ -91,6 +99,13 @@ export function ReportSection({
   }>({ top: 0, left: 0, below: true, arrowLeft: 16 });
   const tipAnchorElRef = useRef<HTMLElement | null>(null);
 
+  // Full-screen modal for Aggressive/Friendly safety tips
+  const [flagKey, setFlagKey] = useState<"aggressive" | "friendly" | null>(
+    null
+  );
+  const openFlagModal = (k: "aggressive" | "friendly") => setFlagKey(k);
+  const closeFlagModal = () => setFlagKey(null);
+
   // Derived flags
   const isCruelty = reportType === "cruelty";
 
@@ -98,14 +113,16 @@ export function ReportSection({
     switch (key) {
       case "aggressive":
         return (
-          <div className="flex items-start gap-2">
-            <div className="text-xl">🚫</div>
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
+              <img src="/DoNotApproach.svg" alt="Do not approach icon" />
+            </div>
             <div>
-              <p className="font-semibold">
-                Aggressive / Fearful — Safety First
+              <p className="font-semibold leading-snug">
+                Aggressive / Fearful - Safety First
               </p>
-              <p className="mt-1 text-sm">
-                Do not approach. Keep 3–5 meters away. Avoid eye contact and
+              <p className="mt-1 text-sm leading-snug">
+                Do not approach. Keep 3-5 meters away. Avoid eye contact and
                 sudden moves. Observe from a distance and include a clear
                 photo/video if possible.
               </p>
@@ -114,11 +131,13 @@ export function ReportSection({
         );
       case "friendly":
         return (
-          <div className="flex items-start gap-2">
-            <div className="text-xl">😊</div>
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
+              <img src="/SafeApprove.svg" alt="Friendly approach icon" />
+            </div>
             <div>
-              <p className="font-semibold">Seems Friendly — Approach Slowly</p>
-              <p className="mt-1 text-sm">
+              <p className="font-semibold leading-snug">Seems Friendly - Approach Slowly</p>
+              <p className="mt-1 text-sm leading-snug">
                 Speak softly and crouch to appear smaller. Check for a collar or
                 tag. Offer water; avoid chasing.
               </p>
@@ -127,13 +146,13 @@ export function ReportSection({
         );
       case "anonymous":
         return (
-          <div className="flex items-start gap-2">
-            <div className="text-xl">🕶️</div>
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5"></div>
             <div>
-              <p className="font-semibold">Submit Anonymously</p>
-              <p className="mt-1 text-sm">
-                Your name wonâ€™t be shown. If safe, add a phone or email so
-                responders can coordinate followâ€‘ups.
+              <p className="font-semibold leading-snug">Submit Anonymously</p>
+              <p className="mt-1 text-sm leading-snug">
+                Your name won’t be shown. If safe, add a phone or email so
+                responders can coordinate follow‑ups.
               </p>
             </div>
           </div>
@@ -194,6 +213,36 @@ export function ReportSection({
       window.removeEventListener("resize", onWin);
     };
   }, [tipOpen]);
+
+  // Lock scroll and add ESC close when the flag modal is open
+  useEffect(() => {
+    if (!flagKey) return;
+    const y = typeof window !== "undefined" ? window.scrollY : 0;
+    const body = document.body;
+    body.classList.add("modal-open");
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeFlagModal();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      body.classList.remove("modal-open");
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      if (typeof window !== "undefined") {
+        window.scrollTo(0, y);
+      }
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [flagKey]);
 
   // Derive a lightweight helper for quick report: we map the "Feature" input
   // directly to the shared reportDescription so the existing submit flow works.
@@ -340,21 +389,11 @@ export function ReportSection({
   return (
     <section
       id="report"
-      className="mx-auto mt-12 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start"
+      className="relative mt-12 px-4 pt-8 pb-8 sm:px-6 lg:px-8 snap-start w-full "
     >
-      {/* Quick Report (EXPOSED) */}
-      <div className="surface rounded-2xl p-6 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight ink-heading">
-              {isCruelty ? "Quick Report — Cruelty" : "Quick Report — Sighting"}
-            </h2>
-            <p className="ink-muted">
-              Post a fast sighting now. You can add full details later.
-            </p>
-          </div>
-        </div>
+      {/* Quick Report content (header and white background removed) */}
 
+      <div className="mx-auto max-w-screen-2xl">
         <form className="mt-5 space-y-3" onSubmit={quickSubmit}>
           {/* Mobile layout */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
@@ -375,7 +414,14 @@ export function ReportSection({
                 />
                 {!reportPhotoPreviewUrl ? (
                   <>
-                    <span className="block text-3xl">📷</span>
+                    <PawPrint
+                      size={30}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
@@ -441,7 +487,14 @@ export function ReportSection({
                 />
                 {landmarkPreviewUrls.length === 0 ? (
                   <>
-                    <span className="block text-3xl">🗺️</span>
+                    <MapPinHouse
+                      size={30}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       Upload landmark photos (up to 5)
                     </span>
@@ -490,22 +543,20 @@ export function ReportSection({
                   <option value="cruelty">Cruelty</option>
                 </select>
               </label>
-              {!isCruelty && (
-                <label className="block text-sm">
-                  Species
-                  <select
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={qSpecies}
-                    onChange={(e) => setQSpecies(e.target.value)}
-                    required
-                  >
-                    <option>Dog</option>
-                    <option>Cat</option>
-                    <option>Other</option>
-                  </select>
-                </label>
-              )}
+              <label className="block text-sm">
+                Species
+                <select
+                  className="mt-1 w-full rounded-xl px-3 py-2"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  value={qSpecies}
+                  onChange={(e) => setQSpecies(e.target.value)}
+                  required
+                >
+                  <option>Dog</option>
+                  <option>Cat</option>
+                  <option>Other</option>
+                </select>
+              </label>
               <label className="block text-sm">
                 Location
                 <div className="mt-1 flex items-center gap-2">
@@ -533,38 +584,36 @@ export function ReportSection({
                   Use the pin to pick an exact location.
                 </p>
               </label>
-              {!isCruelty ? (
-                <label className="block text-sm">
-                  When
-                  <div className="mt-1 flex items-center gap-2">
-                    <input
-                      type="datetime-local"
-                      className="w-full rounded-xl px-3 py-2"
-                      style={{ border: "1px solid var(--border-color)" }}
-                      value={qWhen}
-                      onChange={(e) => setQWhen(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      aria-label="Set current date & time"
-                      onClick={() => {
-                        const now = new Date();
-                        const iso = new Date(
-                          now.getTime() - now.getTimezoneOffset() * 60000
-                        )
-                          .toISOString()
-                          .slice(0, 16);
-                        setQWhen(iso);
-                      }}
-                      className="rounded-xl px-3 py-2 text-white"
-                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                    >
-                      <Clock className="h-5 w-5" />
-                    </button>
-                  </div>
-                </label>
-              ) : null}
+              <label className="block text-sm">
+                When
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qWhen}
+                    onChange={(e) => setQWhen(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    aria-label="Set current date & time"
+                    onClick={() => {
+                      const now = new Date();
+                      const iso = new Date(
+                        now.getTime() - now.getTimezoneOffset() * 60000
+                      )
+                        .toISOString()
+                        .slice(0, 16);
+                      setQWhen(iso);
+                    }}
+                    className="rounded-xl px-3 py-2 text-white"
+                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                  >
+                    <Clock className="h-5 w-5" />
+                  </button>
+                </div>
+              </label>
             </div>
 
             {/* Group: Checkboxes / Features/Description / Contact */}
@@ -641,119 +690,400 @@ export function ReportSection({
           </div>
 
           {/* Desktop: centered photo placeholders above columns */}
-          <div className="hidden md:flex justify-center gap-6 mb-4">
-            {/* Report Photo */}
-            <label
-              className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-              htmlFor="report-photo"
-              style={{ border: "2px dashed var(--border-color)" }}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="report-photo"
-                onChange={handlePhotoChange}
-                ref={reportPhotoInputRef}
+
+          {/* Desktop layout (new 3-column design) */}
+          <div className="hidden md:grid grid-cols-13 gap-6 mb-4 ">
+            {/* Left column: Illustration */}
+            <div className="col-span-4 rounded-[24px] ">
+              <img
+                src="/Report%20Illustration.svg"
+                alt="Rescuer with cat illustration"
+                className="w-full h-full relative object-contain object-left"
               />
-              {!reportPhotoPreviewUrl ? (
-                <>
-                  <span className="block text-3xl">📷</span>
-                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                    {reportPhotoName
-                      ? `Selected: ${reportPhotoName}`
-                      : "Upload one or more photos"}
-                  </span>
-                  <div className="mt-2">
-                    <div
-                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
+            </div>
+            {/* Right columns: green gradient panel */}
+            <div
+              className="col-span-9 rounded-[24px]  md:p-6 shadow-soft "
+              style={{
+                background:
+                  "radial-gradient(circle at 50% 55%, color-mix(in srgb, #2A9D8F 60%, white 85%) 0%, color-mix(in srgb, #2A9D8F 80%, white 45%) 35%, #2A9D8F 65%, color-mix(in srgb, #2A9D8F 95%, black 10%) 100%), linear-gradient(180deg, #2A9D8F 0%, #36B4A8 100%)",
+              }}
+            >
+              <div className="flex items-center gap-3 text-white mb-4">
+                <ClipboardList />
+                <h3 className="text-2xl font-extrabold tracking-wide">
+                  iREPORT
+                </h3>
+              </div>
+              <div
+                className="bg-white rounded-[16px] p-4 md:p-5"
+                style={{ border: "1px solid var(--border-color)" }}
+              >
+                <div className="grid grid-cols-4 gap-3">
+                  {/* Stacked upload tiles reuse mobile/desktop handlers below. */}
+                  <div className="space-y-4">
+                    {/* Main photo tile */}
+                    <label
+                      className="relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                      htmlFor="report-photo"
+                      style={{ border: "2px dashed var(--border-color)" }}
                     >
-                      +
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id="report-photo"
+                        onChange={handlePhotoChange}
+                        ref={reportPhotoInputRef}
+                      />
+                      {!reportPhotoPreviewUrl ? (
+                        <>
+                          <PawPrint
+                            size={36}
+                            strokeWidth={2}
+                            style={{
+                              color: "var(--primary-mintgreen)",
+                              opacity: 0.8,
+                            }}
+                          />
+                          <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                            {reportPhotoName
+                              ? `Selected: ${reportPhotoName}`
+                              : "Upload photo of the pet"}
+                          </span>
+                          <div className="mt-2">
+                            <div
+                              className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                              style={{
+                                background: "var(--white)",
+                                border: "1px solid var(--border-color)",
+                              }}
+                            >
+                              +
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="relative h-full w-full">
+                          <img
+                            src={reportPhotoPreviewUrl!}
+                            alt="Selected photo preview"
+                            className="h-full w-full object-cover rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            aria-label="Remove photo"
+                            className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                            style={{
+                              background: "var(--white)",
+                              border: "1px solid var(--border-color)",
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              clearMainPhoto();
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </label>
+                    {/* Landmarks tile */}
+                    <label
+                      className="relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                      htmlFor="report-landmarks"
+                      style={{ border: "2px dashed var(--border-color)" }}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        id="report-landmarks"
+                        onChange={handleLandmarkPhotosChange}
+                        ref={landmarkInputRef}
+                      />
+                      {landmarkPreviewUrls.length === 0 ? (
+                        <>
+                          <MapPinHouse
+                            size={36}
+                            strokeWidth={2}
+                            style={{
+                              color: "var(--primary-mintgreen)",
+                              opacity: 0.8,
+                            }}
+                          />
+                          <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                            Upload landmark photos (up to 5)
+                          </span>
+                          <div className="mt-2">
+                            <div
+                              className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                              style={{
+                                background: "var(--white)",
+                                border: "1px solid var(--border-color)",
+                              }}
+                            >
+                              +
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="relative h-full w-full">
+                          <LandmarkCarousel
+                            urls={landmarkPreviewUrls}
+                            onRemove={(idx) => removeLandmarkAt(idx)}
+                            onClearAll={() => clearLandmarkPhotos()}
+                            onAdd={() => landmarkInputRef.current?.click()}
+                          />
+                        </div>
+                      )}
+                    </label>
+                    {/* Extra tile removed */}
+                  </div>
+                  {/* Right: form fields */}
+                  <div className="col-span-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-sm">
+                        Report Type
+                        <select
+                          className="mt-1 w-full rounded-xl px-3 py-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          value={reportType}
+                          onChange={(e) =>
+                            setReportType(
+                              e.target.value as Exclude<AlertType, "all">
+                            )
+                          }
+                          required
+                        >
+                          <option value="found">Found</option>
+                          <option value="lost">Lost</option>
+                          <option value="cruelty">Cruelty</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm">
+                        Species
+                        <select
+                          className="mt-1 w-full rounded-xl px-3 py-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          value={qSpecies}
+                          onChange={(e) => setQSpecies(e.target.value)}
+                          required={!isCruelty}
+                        >
+                          <option>Dog</option>
+                          <option>Cat</option>
+                          <option>Other</option>
+                        </select>
+                      </label>
+                    </div>
+                    {/* Species field moved into the 2-column header row */}
+                    <label className="block text-sm">
+                      Location
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
+                          placeholder="Use the pin to pick location"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          value={reportLocation}
+                          readOnly
+                          aria-readonly
+                          disabled
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="pill px-3 py-2"
+                          style={{
+                            border: "1px solid var(--border-color)",
+                            background: "var(--primary-mintgreen)",
+                            color: "var(--white)",
+                          }}
+                          onClick={() => setShowMapPicker(true)}
+                        >
+                          Pin
+                        </button>
+                      </div>
+                      <div className="mt-1 text-xs ink-subtle">
+                        Use the pin to pick an exact location.
+                      </div>
+                    </label>
+                    <label className="block text-sm">
+                      {isCruelty
+                        ? "Description"
+                        : "Distinctive Features (optional)"}
+                      <input
+                        className="mt-1 w-full rounded-xl px-3 py-2"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        placeholder={
+                          isCruelty
+                            ? "Describe the situation"
+                            : "e.g., blue collar"
+                        }
+                        value={reportDescription}
+                        onChange={(e) => onQuickFeatureChange(e.target.value)}
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-sm">
+                        When
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            type="datetime-local"
+                            className="w-full rounded-xl px-3 py-2"
+                            style={{
+                              border: "1px solid var(--border-color)",
+                            }}
+                            value={qWhen}
+                            onChange={(e) => setQWhen(e.target.value)}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="pill px-3 py-2"
+                            style={{
+                              border: "1px solid var(--border-color)",
+                              background: "var(--primary-mintgreen)",
+                              color: "var(--white)",
+                            }}
+                            onClick={() => {
+                              const now = new Date();
+                              const iso = new Date(
+                                now.getTime() - now.getTimezoneOffset() * 60000
+                              )
+                                .toISOString()
+                                .slice(0, 16);
+                              setQWhen(iso);
+                            }}
+                          >
+                            Auto
+                          </button>
+                        </div>
+                        <div className="mt-1 text-xs ink-subtle">
+                          You can type a date/time or tap the auto to set now.
+                        </div>
+                      </label>
+
+                      <label className="block text-sm">
+                        Phone / Email (optional)
+                        <input
+                          className="mt-1 w-full rounded-xl px-3 py-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          placeholder="0900 000 0000 / you@example.com"
+                          value={qContact}
+                          onChange={(e) => setQContact(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    {/* Desktop: flags visible in Quick Submit */}
+                    <div className="hidden md:flex mt-2 flex-wrap items-center gap-4">
+                      <label
+                        className="inline-flex items-center gap-2 text-sm"
+                        style={
+                          qAggressive
+                            ? { color: "var(--primary-orange)" }
+                            : undefined
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={qAggressive}
+                          onChange={(e) => {
+                            onQuickAggressiveToggle(e.target.checked);
+                            if (e.target.checked) openFlagModal("aggressive");
+                          }}
+                          style={
+                            qAggressive
+                              ? ({
+                                  accentColor: "var(--primary-orange)",
+                                } as React.CSSProperties)
+                              : undefined
+                          }
+                        />
+                        <span>Aggressive</span>
+                      </label>
+                      <label
+                        className="inline-flex items-center gap-2 text-sm"
+                        style={
+                          qFriendly
+                            ? { color: "var(--primary-mintgreen)" }
+                            : undefined
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={qFriendly}
+                          onChange={(e) => {
+                            onQuickFriendlyToggle(e.target.checked);
+                            if (e.target.checked) openFlagModal("friendly");
+                          }}
+                          style={
+                            qFriendly
+                              ? ({
+                                  accentColor: "var(--primary-mintgreen)",
+                                } as React.CSSProperties)
+                              : undefined
+                          }
+                        />
+                        <span>Friendly</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={qAnon}
+                          onChange={(e) => {
+                            setQAnon(e.target.checked);
+                            if (e.target.checked)
+                              showTipFor(e.target, "anonymous");
+                            else hideTip();
+                          }}
+                        />
+                        <span>Submit anonymously</span>
+                      </label>
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="relative h-full w-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={reportPhotoPreviewUrl!}
-                    alt="Selected photo preview"
-                    className="h-full w-full object-cover rounded-xl"
-                  />
+                </div>
 
+                <div className="mt-4 flex flex-nowrap items-stretch gap-2 pt-2">
                   <button
-                    type="button"
-                    aria-label="Remove photo"
-                    className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                    style={{
-                      background: "var(--white)",
-                      border: "1px solid var(--border-color)",
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      clearMainPhoto();
-                    }}
+                    type="submit"
+                    className={
+                      isCruelty
+                        ? "btn px-4 py-2 flex-1 min-w-0 text-white"
+                        : "btn btn-accent px-4 py-2 flex-1 min-w-0"
+                    }
+                    style={
+                      isCruelty
+                        ? ({
+                            backgroundColor: "var(--primary-mintgreen)",
+                          } as React.CSSProperties)
+                        : undefined
+                    }
+                    disabled={reportStatus === "submitting"}
                   >
-                    Remove
+                    {reportStatus === "submitting"
+                      ? "Submitting."
+                      : isCruelty
+                      ? "Submit Report"
+                      : "Submit"}
                   </button>
+                  <a
+                    href="/report-form"
+                    className="btn px-4 py-2 flex-1 min-w-0 text-center bg-white"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    onClick={persistDraftToSession}
+                  >
+                    More Detailed Form
+                  </a>
                 </div>
-              )}
-            </label>
-
-            {/* Landmark Photos (multiple) */}
-            <label
-              className="mt-2 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-              htmlFor="report-landmarks"
-              style={{ border: "2px dashed var(--border-color)" }}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                id="report-landmarks"
-                onChange={handleLandmarkPhotosChange}
-                ref={landmarkInputRef}
-              />
-              {landmarkPreviewUrls.length === 0 ? (
-                <>
-                  <span className="block text-3xl">🗺️</span>
-                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                    Upload landmark photos (up to 5)
-                  </span>
-                  <div className="mt-2">
-                    <div
-                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                    >
-                      +
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative h-full w-full">
-                  <LandmarkCarousel
-                    urls={landmarkPreviewUrls}
-                    onRemove={(idx) => removeLandmarkAt(idx)}
-                    onClearAll={() => clearLandmarkPhotos()}
-                    onAdd={() => landmarkInputRef.current?.click()}
-                  />
-                </div>
-              )}
-              {/* When photos exist, the inner carousel shows its own add button. */}
-            </label>
+              </div>
+            </div>
           </div>
-
-          {/* Desktop layout */}
-          <div className="hidden gap-3 md:grid md:grid-cols-2">
+          <div className="hidden md:hidden">
             {/* Column 1: Report Type + Location + Features */}
             <div className="order-2 space-y-3 md:order-none">
               <label className="block text-sm">
@@ -830,57 +1160,55 @@ export function ReportSection({
 
             {/* Column 2: When + Contact + Flags */}
             <div className="order-3 space-y-3 md:order-none">
-              {!isCruelty && (
-                <>
-                  <label className="block text-sm">
-                    Species
-                    <select
-                      className="mt-1 w-full rounded-xl px-3 py-2"
+              <>
+                <label className="block text-sm">
+                  Species
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qSpecies}
+                    onChange={(e) => setQSpecies(e.target.value)}
+                    required
+                  >
+                    <option>Dog</option>
+                    <option>Cat</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  When
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl px-3 py-2"
                       style={{ border: "1px solid var(--border-color)" }}
-                      value={qSpecies}
-                      onChange={(e) => setQSpecies(e.target.value)}
+                      value={qWhen}
+                      onChange={(e) => setQWhen(e.target.value)}
                       required
+                    />
+                    <button
+                      type="button"
+                      aria-label="Set current date & time"
+                      onClick={() => {
+                        const now = new Date();
+                        const iso = new Date(
+                          now.getTime() - now.getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        setQWhen(iso);
+                      }}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
                     >
-                      <option>Dog</option>
-                      <option>Cat</option>
-                      <option>Other</option>
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    When
-                    <div className="mt-1 flex items-center gap-2">
-                      <input
-                        type="datetime-local"
-                        className="w-full rounded-xl px-3 py-2"
-                        style={{ border: "1px solid var(--border-color)" }}
-                        value={qWhen}
-                        onChange={(e) => setQWhen(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        aria-label="Set current date & time"
-                        onClick={() => {
-                          const now = new Date();
-                          const iso = new Date(
-                            now.getTime() - now.getTimezoneOffset() * 60000
-                          )
-                            .toISOString()
-                            .slice(0, 16);
-                          setQWhen(iso);
-                        }}
-                        className="rounded-xl px-3 py-2 text-white"
-                        style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                      >
-                        Auto
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs ink-muted">
-                      You can type a date/time or tap the auto to set now.
-                    </p>
-                  </label>
-                </>
-              )}
+                      Auto
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs ink-muted">
+                    You can type a date/time or tap the auto to set now.
+                  </p>
+                </label>
+              </>
               <label className="block text-sm">
                 Phone / Email (optional)
                 <input
@@ -892,66 +1220,60 @@ export function ReportSection({
                 />
               </label>
               <div className="mt-1 flex flex-wrap items-center gap-4">
-                {!isCruelty && (
-                  <>
-                    <label
-                      className="inline-flex items-center gap-2 text-sm"
+                <>
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      qAggressive
+                        ? { color: "var(--primary-orange)" }
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={qAggressive}
+                      onChange={(e) => {
+                        onQuickAggressiveToggle(e.target.checked);
+                        if (e.target.checked) openFlagModal("aggressive");
+                      }}
                       style={
                         qAggressive
-                          ? { color: "var(--primary-orange)" }
+                          ? ({
+                              accentColor: "var(--primary-orange)",
+                            } as React.CSSProperties)
                           : undefined
                       }
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={qAggressive}
-                        onChange={(e) => {
-                          onQuickAggressiveToggle(e.target.checked);
-                          if (e.target.checked)
-                            showTipFor(e.target, "aggressive");
-                          else hideTip();
-                        }}
-                        style={
-                          qAggressive
-                            ? ({
-                                accentColor: "var(--primary-orange)",
-                              } as React.CSSProperties)
-                            : undefined
-                        }
-                      />
-                      <span>This pet may be aggressive</span>
-                    </label>
-                    <label
-                      className="inline-flex items-center gap-2 text-sm"
+                    />
+                    <span>This pet may be aggressive</span>
+                  </label>
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      qFriendly
+                        ? { color: "var(--primary-mintgreen)" }
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={qFriendly}
+                      onChange={(e) => {
+                        onQuickFriendlyToggle(e.target.checked);
+                        if (e.target.checked) openFlagModal("friendly");
+                      }}
                       style={
                         qFriendly
-                          ? { color: "var(--primary-mintgreen)" }
+                          ? ({
+                              accentColor: "var(--primary-mintgreen)",
+                            } as React.CSSProperties)
                           : undefined
                       }
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={qFriendly}
-                        onChange={(e) => {
-                          onQuickFriendlyToggle(e.target.checked);
-                          if (e.target.checked)
-                            showTipFor(e.target, "friendly");
-                          else hideTip();
-                        }}
-                        style={
-                          qFriendly
-                            ? ({
-                                accentColor: "var(--primary-mintgreen)",
-                              } as React.CSSProperties)
-                            : undefined
-                        }
-                      />
-                      <span>Pet seems friendly</span>
-                    </label>
-                  </>
-                )}
+                    />
+                    <span>Pet seems friendly</span>
+                  </label>
+                </>
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -992,7 +1314,7 @@ export function ReportSection({
 
           {/* Checkboxes moved into column 2 */}
 
-          <div className="flex flex-nowrap items-stretch gap-2 pt-2">
+          <div className="flex flex-nowrap items-stretch gap-2 pt-2 md:hidden">
             <button
               type="submit"
               className={
@@ -1010,24 +1332,22 @@ export function ReportSection({
               disabled={reportStatus === "submitting"}
             >
               {reportStatus === "submitting"
-                ? "Submitting…"
+                ? "Submitting..."
                 : isCruelty
                 ? "Submit Report"
                 : "Submit sighting"}
             </button>
-            {!isCruelty && (
-              <Link
-                href="/report-form"
-                className="btn px-4 py-2 flex-1 min-w-0 text-center"
-                style={{ border: "1px solid var(--border-color)" }}
-                onClick={persistDraftToSession}
-              >
-                Add more details…
-              </Link>
-            )}
+            <Link
+              href="/report-form"
+              className="btn px-4 py-2 flex-1 min-w-0 text-center"
+              style={{ border: "1px solid var(--border-color)" }}
+              onClick={persistDraftToSession}
+            >
+              Add more details...
+            </Link>
             {showQuickValidation && !isQuickFormValid && (
               <p
-                className="basis-full text-sm"
+                className="mt-2 text-sm"
                 style={{ color: "var(--primary-orange)" }}
                 aria-live="polite"
               >
@@ -1094,6 +1414,41 @@ export function ReportSection({
           setShowMapPicker(false);
         }}
       />
+      {/* Aggressive/Friendly info modal (DetailsModal-style) */}
+      {flagKey && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-[70] grid place-items-center p-4">
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={closeFlagModal}
+              />
+              <div className="relative w-full max-w-md rounded-2xl shadow-soft surface p-5">
+                <div className="mb-3 text-lg font-semibold ink-heading">
+                  Safety Tip
+                </div>
+                <div className="ink-muted">
+                  {flagKey === "aggressive"
+                    ? getTipContent("aggressive")
+                    : getTipContent("friendly")}
+                </div>
+                <div className="mt-5 text-right">
+                  <button
+                    type="button"
+                    className="pill px-3 py-1 text-white transition hover:opacity-90"
+                    style={{
+                      background: "var(--primary-mintgreen)",
+                      border: "1px solid var(--primary-mintgreen)",
+                    }}
+                    onClick={closeFlagModal}
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </section>
   );
 }
@@ -1155,7 +1510,7 @@ function LandmarkCarousel({
               setIndex((i) => (i - 1 + count) % count);
             }}
           >
-            ◀
+            <ChevronLeft size={16} />
           </button>
           <button
             type="button"
@@ -1171,7 +1526,7 @@ function LandmarkCarousel({
               setIndex((i) => (i + 1) % count);
             }}
           >
-            ▶
+            <ChevronRight size={16} />
           </button>
         </>
       )}

@@ -45,6 +45,27 @@ function DetailsModalInner({
     setLmIndex(0);
   }, [item, initialLm]);
 
+  // Prevent page scroll + snap while modal is open so it appears anchored
+  useEffect(() => {
+    const y = typeof window !== "undefined" ? window.scrollY : 0;
+    const body = document.body;
+    body.classList.add("modal-open");
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    return () => {
+      body.classList.remove("modal-open");
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      if (typeof window !== "undefined") {
+        window.scrollTo(0, y);
+      }
+    };
+  }, []);
+
   // Fallback: if landmark urls are missing on alerts, look up the matching report by photo_path
   useEffect(() => {
     if (!item || !isAlert) return;
@@ -85,7 +106,7 @@ function DetailsModalInner({
   if (!item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+    <div className="fixed inset-0 z-[60] grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-2xl rounded-2xl shadow-soft surface">
         <div

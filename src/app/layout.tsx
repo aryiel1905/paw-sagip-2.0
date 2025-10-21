@@ -80,6 +80,26 @@ export default function RootLayout({
               })();
             `}
             </Script>
+            {/* Measure sticky navbar height and set --snap-top for precise snap/anchor offset */}
+            <Script id="measure-navbar-height" strategy="afterInteractive">
+              {`
+              (function(){
+                function setSnapTop(){
+                  try {
+                    var header = document.querySelector('header.sticky');
+                    if(!header) return;
+                    var h = Math.round(header.getBoundingClientRect().height);
+                    if(h && Number.isFinite(h)){
+                      document.documentElement.style.setProperty('--snap-top', h + 'px');
+                    }
+                  } catch (e) { /* no-op */ }
+                }
+                setSnapTop();
+                window.addEventListener('resize', setSnapTop, { passive: true });
+                window.addEventListener('orientationchange', setSnapTop, { passive: true });
+              })();
+            `}
+            </Script>
             {children}
             <GlobalDetailsModal />
           </SearchProvider>

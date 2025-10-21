@@ -23,6 +23,8 @@
   --header-bg-height: clamp(240px, 35vw, 520px);
   /* Continuation slice is ~79/375 of the viewBox height */
   --cont-tile-height: calc(100vw * (79 / 375));
+  /* Global offset used for snapping/anchors; updated at runtime to navbar height */
+  --snap-top: 88px;
 }
 
 @theme inline {
@@ -45,6 +47,8 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   scroll-snap-type: y mandatory;
+  /* Ensure snap and anchor positions account for sticky navbar */
+  scroll-padding-top: var(--snap-top);
   position: relative;
 
   /* Seamless infinite pair pattern built at runtime into --bg-pattern-url */
@@ -55,16 +59,33 @@ body {
   background-position: center top;
 }
 
+/* Disable snapping + page scroll while a modal is open */
+body.modal-open {
+  scroll-snap-type: none !important;
+  overflow: hidden;
+}
+
+/* Make all top-level sections snap to the same position as nav links */
+section[id] {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  /* Align anchor jumps and manual scroll with the sticky header */
+  scroll-margin-top: var(--snap-top);
+}
+
 /* Frosted overlay above the background pattern, below content */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(6px) saturate(180%);
-  -webkit-backdrop-filter: blur(6px) saturate(180%);
-  z-index: 0;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.blurry {
+  backdrop-filter: saturate(180%) blur(0px);
+  background-color: rgba(255, 255, 255, 0);
+  background-size: 100% auto;
 }
 
 /* Ensure app content paints above the frosted overlay */
@@ -103,7 +124,6 @@ body::before {
 .shadow-soft {
   box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.2);
 }
-
 .pill {
   border-radius: 9999px;
 }
@@ -180,4 +200,18 @@ body::before {
 .btn-xl--outline:hover {
   background: var(--primary-mintgreen);
   color: var(--white);
+}
+
+/* Skeleton shimmer utility */
+@keyframes shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.4s linear infinite;
 }
