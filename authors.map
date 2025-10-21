@@ -1,0 +1,12 @@
+# Mailmap for rewriting commit authors to your account
+# Use with: git filter-repo --mailmap authors.map --force
+
+# Primary mapping (your canonical identity)
+AryielJoshua <aryieljoshua1905@gmail.com> <your-email@example.com>
+
+# Common aliases for the old author you mentioned
+# These entries are safe even if they don't match any commit.
+AryielJoshua <aryieljoshua1905@gmail.com> renoschubert
+AryielJoshua <aryieljoshua1905@gmail.com> Reno Schubert
+AryielJoshua <aryieljoshua1905@gmail.com> <renoschubert@users.noreply.github.com>
+
