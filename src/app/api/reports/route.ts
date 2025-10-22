@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
 // Ensure this route always runs on the Node.js runtime (not Edge)
@@ -32,6 +33,11 @@ type ReportPayload = {
   isAggressive?: boolean | null;
   isFriendly?: boolean | null;
   isAnonymous?: boolean | null;
+
+  // server-preferred user context (client may omit; server derives from cookies)
+  userId?: string | null;
+  userEmail?: string | null;
+  userFullName?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -51,6 +57,38 @@ export async function POST(request: Request) {
 
   const supabase = createServerSupabaseClient();
 
+  // Resolve user from Supabase auth cookies securely (no client trust needed)
+  let currentUserId: string | null = null;
+  let currentUserEmail: string | null = null;
+  let currentUserName: string | null = null;
+  try {
+    const jar = cookies();
+    const accessToken =
+      jar.get("sb-access-token")?.value ||
+      // Some setups store a JSON array token under this name; try to parse
+      (() => {
+        try {
+          const raw = jar.get("supabase-auth-token")?.value;
+          if (!raw) return null;
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) && arr[0]?.access_token ? arr[0].access_token : null;
+        } catch {
+          return null;
+        }
+      })();
+    if (accessToken) {
+      const { data } = await supabase.auth.getUser(accessToken);
+      if (data?.user) {
+        currentUserId = data.user.id ?? null;
+        currentUserEmail = (data.user.email as string | null) ?? null;
+        currentUserName =
+          ((data.user.user_metadata?.full_name as string | undefined) ?? null) || null;
+      }
+    }
+  } catch {
+    // ignore and keep nulls
+  }
+
   // Normalize coordinates if provided
   let latitude: number | null = null;
   let longitude: number | null = null;
@@ -60,6 +98,8 @@ export async function POST(request: Request) {
   if (typeof payload.lng === "number" && !Number.isNaN(payload.lng)) {
     longitude = Math.max(-180, Math.min(180, payload.lng));
   }
+
+  const anonymous = !!payload.isAnonymous;
 
   const { error } = await supabase.from("reports").insert([
     {
@@ -80,8 +120,15 @@ export async function POST(request: Request) {
       age_size: payload.ageSize ?? null,
       features: payload.features ?? null,
       event_at: payload.eventAt ? new Date(payload.eventAt).toISOString() : null,
-      reporter_name: payload.reporterName ?? null,
-      reporter_contact: payload.reporterContact ?? null,
+      // Always attach user_id (ownership) when available so the report shows under "My Reports"
+      // but drop reporter name/contact when anonymous so it remains private publicly.
+      user_id: currentUserId ?? payload.userId ?? null,
+      reporter_name: anonymous
+        ? null
+        : payload.reporterName ?? payload.userFullName ?? currentUserName,
+      reporter_contact: anonymous
+        ? null
+        : payload.reporterContact ?? payload.userEmail ?? currentUserEmail,
       is_aggressive: payload.isAggressive ?? null,
       is_friendly: payload.isFriendly ?? null,
       is_anonymous: payload.isAnonymous ?? null,

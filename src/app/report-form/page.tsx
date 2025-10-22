@@ -8,8 +8,18 @@ import {
   useMemo,
   ChangeEvent,
 } from "react";
-import Link from "next/link";
-import { Clock, ArrowLeft, AlertTriangle, Smile, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Clock,
+  ArrowLeft,
+  AlertTriangle,
+  Smile,
+  EyeOff,
+  MapPinHouse,
+  PawPrint,
+  ChevronLeft,
+} from "lucide-react";
+import { createPortal } from "react-dom";
 import MapPickerModal from "@/components/MapPickerModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { AlertType, ReportStatus } from "@/types/app";
@@ -38,6 +48,8 @@ export default function ReportFormPage() {
   const [when, setWhen] = useState("");
   const [showValidation, setShowValidation] = useState(false);
 
+  const router = useRouter();
+
   const [reportPhoto, setReportPhoto] = useState<File | null>(null);
   const [reportPhotoName, setReportPhotoName] = useState("");
   const [reportPhotoPreviewUrl, setReportPhotoPreviewUrl] = useState<
@@ -54,6 +66,9 @@ export default function ReportFormPage() {
   const [reporterName, setReporterName] = useState("");
   const [friendly, setFriendly] = useState(false);
   const [aggressiveFlag, setAggressiveFlag] = useState(false);
+  // Auth-derived identity for autofill
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   // Tip popover state for the three checkboxes (aggressive/friendly/anonymous)
   const [tipOpen, setTipOpen] = useState(false);
   const [tipKey, setTipKey] = useState<
@@ -66,34 +81,56 @@ export default function ReportFormPage() {
     arrowLeft: number;
   }>({ top: 0, left: 0, below: true, arrowLeft: 16 });
   const tipAnchorRef = useRef<HTMLElement | null>(null);
+  // Full-screen safety modal state (parity with iREPORT)
+  const [flagKey, setFlagKey] = useState<"aggressive" | "friendly" | null>(
+    null
+  );
+  const openFlagModal = (k: "aggressive" | "friendly") => setFlagKey(k);
+  const closeFlagModal = () => setFlagKey(null);
+
+  const isCruelty = reportType === "cruelty";
 
   const getTipContent = (key: "aggressive" | "friendly" | "anonymous") => {
     switch (key) {
       case "aggressive":
         return (
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-[var(--primary-orange)]" />
-            <div>
-              <p className="font-semibold">
+          <div className="grid grid-cols-3 items-center gap-3 w-full">
+            <div className="col-span-1 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/DoNotApproach.svg"
+                alt=""
+                className="w-full h-auto object-contain"
+              />
+            </div>
+            <div className="col-span-2">
+              <p className="text-lg font-semibold">
                 Aggressive / Fearful - Safety First
               </p>
-              <p className="mt-1 text-sm">
+              <p className="mt-1 text-lg">
                 Do not approach. Keep 3-5 meters away. Avoid eye contact and
-                sudden moves. Observe from a distance and add a clear
-                photo/video.
+                sudden moves. Observe from a distance and include a clear
+                photo/video if possible.
               </p>
             </div>
           </div>
         );
       case "friendly":
         return (
-          <div className="flex items-start gap-2">
-            <Smile className="mt-0.5 h-5 w-5 text-[var(--primary-mintgreen)]" />
-            <div>
-              <p className="font-semibold">Seems Friendly - Approach Slowly</p>
-              <p className="mt-1 text-sm">
-                Speak softly, avoid chasing, and check for a collar tag. Offer
-                water if you can.
+          <div className="grid grid-cols-3 items-center gap-3 w-full">
+            <div className="col-span-1 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/SafeApprove.svg"
+                alt=""
+                className="w-full h-auto object-contain"
+              />
+            </div>
+            <div className="col-span-2">
+              <p className="text-lg font-semibold">Seems Friendly - Approach Slowly</p>
+              <p className="mt-1 text-lg">
+                Speak softly and crouch to appear smaller. Check for a collar or
+                tag. Offer water; avoid chasing.
               </p>
             </div>
           </div>
@@ -164,6 +201,34 @@ export default function ReportFormPage() {
       window.removeEventListener("resize", handler);
     };
   }, [tipOpen]);
+
+  // Lock scroll and enable ESC close when safety modal is open
+  useEffect(() => {
+    if (!flagKey) return;
+    const y = typeof window !== "undefined" ? window.scrollY : 0;
+    const body = document.body;
+    body.classList.add("modal-open");
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeFlagModal();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      body.classList.remove("modal-open");
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      if (typeof window !== "undefined") window.scrollTo(0, y);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [flagKey]);
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -285,10 +350,46 @@ export default function ReportFormPage() {
     }
   }, []);
 
-  // When toggling anonymous, clear and disable the name input
+  // When toggling anonymous, clear name and contact for privacy
   useEffect(() => {
-    if (anonymous) setReporterName("");
+    if (anonymous) {
+      setReporterName("");
+      setContact("");
+    }
   }, [anonymous]);
+
+  // Load current auth user (email + display name) for autofill
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let unsub: (() => void) | null = null;
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user;
+      setUserEmail(u?.email ?? null);
+      const fullName = (u?.user_metadata?.full_name as string | undefined) ?? null;
+      setUserName(fullName);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserEmail(session?.user?.email ?? null);
+      const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+      setUserName(fullName);
+    });
+    unsub = () => {
+      try {
+        data.subscription.unsubscribe();
+      } catch {}
+    };
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
+  // Autofill name and contact when not anonymous and fields are empty
+  useEffect(() => {
+    if (!anonymous) {
+      if (!reporterName && userName) setReporterName(userName);
+      if (!contact && userEmail) setContact(userEmail);
+    }
+  }, [anonymous, reporterName, contact, userName, userEmail]);
 
   const handleSubmitReport = useCallback(async () => {
     const supabase = getSupabaseClient();
@@ -429,14 +530,18 @@ export default function ReportFormPage() {
     when,
   ]);
 
-  const isFormValid = Boolean(
-    reportType && species && reportLocation.trim() && when.trim()
-  );
+  const isFormValid = isCruelty
+    ? Boolean(reportLocation.trim() && reportDescription.trim())
+    : Boolean(reportType && species && reportLocation.trim() && when.trim());
 
   const missingFields: string[] = [];
   if (!reportLocation.trim()) missingFields.push("Location");
-  if (!when.trim()) missingFields.push("When");
-  if (!species) missingFields.push("Species");
+  if (isCruelty) {
+    if (!reportDescription.trim()) missingFields.push("Description");
+  } else {
+    if (!when.trim()) missingFields.push("When");
+    if (!species) missingFields.push("Species");
+  }
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -448,257 +553,407 @@ export default function ReportFormPage() {
   };
 
   return (
-    <main className="mx-auto mt-12 max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-      <div className="mb-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 hover:underline"
-          style={{ color: "var(--primary-mintgreen)" }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Link>
-      </div>
-      <div className="surface rounded-2xl shadow-soft">
-        <div
-          className="border-b p-5"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold ink-heading">
-                Report Form - Lost / Found Pet
-              </h1>
-              <p className="text-sm ink-muted">
-                Provide full details to notify volunteers and barangay partners.
-              </p>
+    <main className=" bg-black/80 overflow-auto">
+      <div className="mx-auto mt-5  mb-12 max-w-screen-lg px-4 sm:px-6 lg:px-8">
+        <div className="mb-1  py-5">
+          <button
+            onClick={() => router.push("/")}
+            className="inline-flex items-center py-2 pl-2 pr-3 gap-2 pill  text-white/90 border bg-[var(--primary-mintgreen)] hover:bg-[#7e7e7e] hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+            style={{ color: "" }}
+          >
+            <ChevronLeft className="h-4 w-4 " />
+            Back to Home
+          </button>
+        </div>
+        <div className="surface rounded-2xl shadow-soft">
+          <div
+            className="border-b p-5"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-extrabold ">
+                  Report Form - Lost / Found Pet
+                </h1>
+                <p className="text-sm ink-muted">
+                  Provide full details to notify volunteers and barangay
+                  partners.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <form className="p-6" onSubmit={onSubmit}>
-          <div className="hidden md:flex justify-center gap-6 mb-4">
-            <label
-              className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-              htmlFor="report-photo"
-              style={{ border: "2px dashed var(--border-color)" }}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="report-photo"
-                onChange={handlePhotoChange}
-                ref={reportPhotoInputRef}
-              />
-              {!reportPhotoPreviewUrl ? (
-                <>
-                  <span className="block text-3xl">📷</span>
-                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                    {reportPhotoName
-                      ? `Selected: ${reportPhotoName}`
-                      : "Upload one or more photos"}
-                  </span>
-                  {!reportPhotoName && prevPhotoName && (
-                    <span className="mt-1 block text-xs ink-subtle">
-                      Previously selected in quick report: {prevPhotoName}
-                    </span>
-                  )}
-                  <div className="mt-2">
-                    <div
-                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                    >
-                      +
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative h-full w-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={reportPhotoPreviewUrl!}
-                    alt="Selected photo preview"
-                    className="h-full w-full object-cover rounded-xl"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Remove photo"
-                    className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                    style={{
-                      background: "var(--white)",
-                      border: "1px solid var(--border-color)",
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (reportPhotoInputRef.current)
-                        reportPhotoInputRef.current.value = "";
-                      setReportPhoto(null);
-                      if (reportPhotoPreviewUrl) {
-                        try {
-                          URL.revokeObjectURL(reportPhotoPreviewUrl);
-                        } catch {}
-                      }
-                      setReportPhotoPreviewUrl(null);
-                      setReportPhotoName("");
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </label>
-
-            <label
-              className="mt-2 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-              htmlFor="report-landmarks"
-              style={{ border: "2px dashed var(--border-color)" }}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                id="report-landmarks"
-                onChange={handleLandmarkPhotosChange}
-                ref={landmarkInputRef}
-              />
-              {landmarkPreviewUrls.length === 0 ? (
-                <>
-                  <span className="block text-3xl">🗺️</span>
-                  <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                    Upload landmark photos (up to 5)
-                  </span>
-                  <div className="mt-2">
-                    <div
-                      className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                    >
-                      +
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative h-full w-full">
-                  <LandmarkCarousel
-                    urls={landmarkPreviewUrls}
-                    onRemove={(idx) => removeLandmarkAt(idx)}
-                    onClearAll={() => clearLandmarkPhotos()}
-                    onAdd={() => landmarkInputRef.current?.click()}
-                  />
-                </div>
-              )}
-            </label>
-          </div>
-
-          {/* Identity */}
-          <div>
-            <h3 className="font-semibold ink-heading">Pet Identity</h3>
-            <div className="mt-2 grid gap-3 lg:grid-cols-2">
-              <label className="block text-sm">
-                Pet Name (optional)
+          <form className="p-6" onSubmit={onSubmit}>
+            {/* Mobile upload tiles (match iREPORT style) */}
+            <div className="grid grid-cols-1 gap-3 md:hidden mb-4">
+              {/* Main photo (mobile) */}
+              <label
+                className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-photo-mobile"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
                 <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="e.g., Buddy"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={petName}
-                  onChange={(e) => setPetName(e.target.value)}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="report-photo-mobile"
+                  onChange={handlePhotoChange}
+                  ref={reportPhotoInputRef}
                 />
+                {!reportPhotoPreviewUrl ? (
+                  <>
+                    <PawPrint
+                      size={30}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                      {reportPhotoName
+                        ? `Selected: ${reportPhotoName}`
+                        : "Upload one or more photos"}
+                    </span>
+                    <div className="mt-2">
+                      <div
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        +
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={reportPhotoPreviewUrl}
+                      alt="Selected photo preview"
+                      className="h-full w-full object-cover rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove photo"
+                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border-color)",
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (reportPhotoInputRef.current)
+                          reportPhotoInputRef.current.value = "";
+                        setReportPhoto(null);
+                        if (reportPhotoPreviewUrl) {
+                          try {
+                            URL.revokeObjectURL(reportPhotoPreviewUrl);
+                          } catch {}
+                        }
+                        setReportPhotoPreviewUrl(null);
+                        setReportPhotoName("");
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </label>
-              <label className="block text-sm">
-                Species
+
+              {/* Landmark Photos (mobile) */}
+              <label
+                className="mt-2 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-landmarks-mobile"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  id="report-landmarks-mobile"
+                  onChange={handleLandmarkPhotosChange}
+                  ref={landmarkInputMobileRef}
+                />
+                {landmarkPreviewUrls.length === 0 ? (
+                  <>
+                    <MapPinHouse
+                      size={30}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                      Upload landmark photos (up to 5)
+                    </span>
+                    <div className="mt-2">
+                      <div
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        +
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    <LandmarkCarousel
+                      urls={landmarkPreviewUrls}
+                      onRemove={(idx) => removeLandmarkAt(idx)}
+                      onClearAll={() => clearLandmarkPhotos()}
+                      onAdd={() => landmarkInputMobileRef.current?.click()}
+                    />
+                  </div>
+                )}
+              </label>
+            </div>
+
+            {/* Desktop upload tiles (updated to match iREPORT style) */}
+            <div className="hidden md:flex justify-center gap-6 mb-4">
+              <label
+                className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-photo"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="report-photo"
+                  onChange={handlePhotoChange}
+                  ref={reportPhotoInputRef}
+                />
+                {!reportPhotoPreviewUrl ? (
+                  <>
+                    <PawPrint
+                      size={36}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                      {reportPhotoName
+                        ? `Selected: ${reportPhotoName}`
+                        : "Upload photo of the pet"}
+                    </span>
+                    {!reportPhotoName && prevPhotoName && (
+                      <span className="mt-1 block text-xs ink-subtle">
+                        Previously selected in quick report: {prevPhotoName}
+                      </span>
+                    )}
+                    <div className="mt-2">
+                      <div
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        +
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={reportPhotoPreviewUrl!}
+                      alt="Selected photo preview"
+                      className="h-full w-full object-cover rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove photo"
+                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border-color)",
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (reportPhotoInputRef.current)
+                          reportPhotoInputRef.current.value = "";
+                        setReportPhoto(null);
+                        if (reportPhotoPreviewUrl) {
+                          try {
+                            URL.revokeObjectURL(reportPhotoPreviewUrl);
+                          } catch {}
+                        }
+                        setReportPhotoPreviewUrl(null);
+                        setReportPhotoName("");
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </label>
+
+              <label
+                className="mt-2 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                htmlFor="report-landmarks"
+                style={{ border: "2px dashed var(--border-color)" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  id="report-landmarks"
+                  onChange={handleLandmarkPhotosChange}
+                  ref={landmarkInputRef}
+                />
+                {landmarkPreviewUrls.length === 0 ? (
+                  <>
+                    <MapPinHouse
+                      size={36}
+                      strokeWidth={2}
+                      style={{
+                        color: "var(--primary-mintgreen)",
+                        opacity: 0.8,
+                      }}
+                    />
+                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                      Upload landmark photos (up to 5)
+                    </span>
+                    <div className="mt-2">
+                      <div
+                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                      >
+                        +
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative h-full w-full">
+                    <LandmarkCarousel
+                      urls={landmarkPreviewUrls}
+                      onRemove={(idx) => removeLandmarkAt(idx)}
+                      onClearAll={() => clearLandmarkPhotos()}
+                      onAdd={() => landmarkInputRef.current?.click()}
+                    />
+                  </div>
+                )}
+              </label>
+            </div>
+
+            {/* Identity */}
+            <div>
+              <h3 className="font-semibold ink-heading">Pet Identity</h3>
+              <div className="mt-2 grid gap-3 lg:grid-cols-2">
+                <label className="block text-sm">
+                  Pet Name (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="e.g., Buddy"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={petName}
+                    onChange={(e) => setPetName(e.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  Species
                 <select
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                   value={species}
                   onChange={(e) => setSpecies(e.target.value)}
-                  required
+                  required={!isCruelty}
                 >
-                  <option>Dog</option>
-                  <option>Cat</option>
-                  <option>Other</option>
-                </select>
-              </label>
-              <label className="block text-sm lg:col-span-2">
-                Breed / Mix
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="e.g., Aspin / Mix"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={breed}
-                  onChange={(e) => setBreed(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                Gender
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                >
-                  <option>Unknown</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                </select>
-              </label>
-              <label className="block text-sm">
-                Age / Size
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={ageSize}
-                  onChange={(e) => setAgeSize(e.target.value)}
-                >
-                  <option>Puppy/Kitten</option>
-                  <option>Adult</option>
-                  <option>Senior</option>
-                </select>
-              </label>
+                    <option>Dog</option>
+                    <option>Cat</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+                <label className="block text-sm lg:col-span-2">
+                  Breed / Mix
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="e.g., Aspin / Mix"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={breed}
+                    onChange={(e) => setBreed(e.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  Gender
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                  >
+                    <option>Unknown</option>
+                    <option>Male</option>
+                    <option>Female</option>
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  Age / Size
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={ageSize}
+                    onChange={(e) => setAgeSize(e.target.value)}
+                  >
+                    <option>Puppy/Kitten</option>
+                    <option>Adult</option>
+                    <option>Senior</option>
+                  </select>
+                </label>
+              </div>
             </div>
-          </div>
 
-          {/* Status & Safety */}
-          <div>
-            <h3 className="font-semibold ink-heading">Status & Safety</h3>
-            <div className="mt-2 grid gap-3 lg:grid-cols-2">
-              <label className="block text-sm">
-                Report Type
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportType}
-                  onChange={(e) =>
-                    setReportType(e.target.value as Exclude<AlertType, "all">)
-                  }
-                  required
-                >
-                  <option value="found">Found</option>
-                  <option value="lost">Lost</option>
-                  <option value="cruelty">Cruelty</option>
-                </select>
-              </label>
-              <label className="block text-sm">
-                Condition
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportCondition}
-                  onChange={(e) => setReportCondition(e.target.value)}
-                >
-                  <option>Healthy</option>
-                  <option>Injured</option>
-                  <option>Aggressive</option>
-                  <option>Malnourished</option>
-                  <option>Other</option>
-                </select>
-              </label>
+            {/* Status & Safety */}
+            <div>
+              <h3 className="font-semibold ink-heading">Status & Safety</h3>
+              <div className="mt-2 grid gap-3 lg:grid-cols-2">
+                <label className="block text-sm">
+                  Report Type
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportType}
+                    onChange={(e) =>
+                      setReportType(e.target.value as Exclude<AlertType, "all">)
+                    }
+                    required
+                  >
+                    <option value="found">Found</option>
+                    <option value="lost">Lost</option>
+                    <option value="cruelty">Cruelty</option>
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  Condition
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportCondition}
+                    onChange={(e) => setReportCondition(e.target.value)}
+                  >
+                    <option>Healthy</option>
+                    <option>Injured</option>
+                    <option>Aggressive</option>
+                    <option>Malnourished</option>
+                    <option>Other</option>
+                  </select>
+                </label>
               <label className="block text-sm lg:col-span-2">
                 Distinctive Features
                 <input
@@ -710,303 +965,371 @@ export default function ReportFormPage() {
                 />
               </label>
               <div className="mt-1 flex flex-wrap items-center gap-4 lg:col-span-2">
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    aggressiveFlag
-                      ? { color: "var(--primary-orange)" }
-                      : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={aggressiveFlag}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setAggressiveFlag(checked);
-                      if (checked) {
-                        setFriendly(false);
-                        setReportCondition("Aggressive");
-                      } else if (reportCondition === "Aggressive") {
-                        // Default back to Healthy when turning off aggressive
-                        setReportCondition("Healthy");
-                      }
-                      if (checked) showTipFor(e.target, "aggressive");
-                      else hideTip();
-                    }}
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
                     style={
                       aggressiveFlag
-                        ? ({
-                            accentColor: "var(--primary-orange)",
-                          } as React.CSSProperties)
+                        ? { color: "var(--primary-orange)" }
                         : undefined
                     }
-                  />
-                  <span>This pet may be aggressive</span>
-                </label>
-                <label
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={
-                    friendly ? { color: "var(--primary-mintgreen)" } : undefined
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={friendly}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setFriendly(checked);
-                      if (checked) {
-                        setAggressiveFlag(false);
-                        setReportCondition("Healthy");
-                      } else if (reportCondition === "Healthy") {
-                        // Keep at Healthy by default when turning off
-                        setReportCondition("Healthy");
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={aggressiveFlag}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAggressiveFlag(checked);
+                        if (checked) {
+                          setFriendly(false);
+                          setReportCondition("Aggressive");
+                        } else if (reportCondition === "Aggressive") {
+                          // Default back to Healthy when turning off aggressive
+                          setReportCondition("Healthy");
+                        }
+                        if (checked) {
+                          openFlagModal("aggressive");
+                        }
+                      }}
+                      style={
+                        aggressiveFlag
+                          ? ({
+                              accentColor: "var(--primary-orange)",
+                            } as React.CSSProperties)
+                          : undefined
                       }
-                      if (checked) showTipFor(e.target, "friendly");
-                      else hideTip();
-                    }}
+                    />
+                    <span>Aggressive</span>
+                  </label>
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
                     style={
                       friendly
-                        ? ({
-                            accentColor: "var(--primary-mintgreen)",
-                          } as React.CSSProperties)
+                        ? { color: "var(--primary-mintgreen)" }
                         : undefined
                     }
-                  />
-                  <span>Pet seems friendly</span>
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={friendly}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFriendly(checked);
+                        if (checked) {
+                          setAggressiveFlag(false);
+                          setReportCondition("Healthy");
+                        } else if (reportCondition === "Healthy") {
+                          // Keep at Healthy by default when turning off
+                          setReportCondition("Healthy");
+                        }
+                        if (checked) {
+                          openFlagModal("friendly");
+                        }
+                      }}
+                      style={
+                        friendly
+                          ? ({
+                              accentColor: "var(--primary-mintgreen)",
+                            } as React.CSSProperties)
+                          : undefined
+                      }
+                    />
+                    <span>Friendly</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={anonymous}
+                      onChange={(e) => {
+                        setAnonymous(e.target.checked);
+                        if (e.target.checked) showTipFor(e.target, "anonymous");
+                        else hideTip();
+                      }}
+                    />
+                    <span>Submit anonymously</span>
+                  </label>
+              </div>
+              {isCruelty && (
+                <div
+                  className="lg:col-span-2 rounded-xl p-4"
+                  style={{
+                    background: "var(--card-bg)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
+                  <p className="font-semibold ink-heading">Safety & Welfare</p>
+                  <ul
+                    className="ink-muted mt-2 space-y-1 pl-5"
+                    style={{ listStyle: "disc" }}
+                  >
+                    <li>Do not intervene if unsafe.</li>
+                    <li>Share exact location details.</li>
+                    <li>Upload clear evidence if possible.</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+            {/* Location & Time */}
+            <div
+              className="mt-6 rounded-2xl p-4"
+              style={{ background: "var(--card-bg)" }}
+            >
+              <h3 className="font-semibold ink-heading">Location & Time</h3>
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <label className="block text-sm">
+                  Location
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
+                      placeholder="Use the pin to pick location"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportLocation}
+                      readOnly
+                      aria-readonly
+                      disabled
+                      required
+                    />
+                    <button
+                      type="button"
+                      aria-label="Open map picker"
+                      onClick={() => setShowMapPicker(true)}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                    >
+                      Pin
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs ink-muted">
+                    Use the pin to pick an exact location.
+                  </p>
                 </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={anonymous}
-                    onChange={(e) => {
-                      setAnonymous(e.target.checked);
-                      if (e.target.checked) showTipFor(e.target, "anonymous");
-                      else hideTip();
-                    }}
-                  />
-                  <span>Submit anonymously</span>
+                <label className="block text-sm">
+                  When
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl px-3 py-2"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={when}
+                      onChange={(e) => setWhen(e.target.value)}
+                      required={!isCruelty}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Set current date & time"
+                      onClick={() => {
+                        const now = new Date();
+                        const iso = new Date(
+                          now.getTime() - now.getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        setWhen(iso);
+                      }}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs ink-muted">
+                    You can type a date/time or tap the clock to set now.
+                  </p>
                 </label>
+                {/* Hidden precise coordinates so we retain accuracy while showing address */}
+                <input
+                  type="hidden"
+                  name="lat"
+                  value={reportLat ?? ""}
+                  readOnly
+                />
+                <input
+                  type="hidden"
+                  name="lng"
+                  value={reportLng ?? ""}
+                  readOnly
+                />
               </div>
             </div>
-          </div>
 
-          {/* Location & Time */}
-          <div
-            className="mt-6 rounded-2xl p-4"
-            style={{ background: "var(--card-bg)" }}
-          >
-            <h3 className="font-semibold ink-heading">Location & Time</h3>
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              <label className="block text-sm">
-                Location
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
-                    placeholder="Use the pin to pick location"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={reportLocation}
-                    readOnly
-                    aria-readonly
-                    disabled
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Open map picker"
-                    onClick={() => setShowMapPicker(true)}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    Pin
-                  </button>
-                </div>
-                <p className="mt-1 text-xs ink-muted">
-                  Use the pin to pick an exact location.
-                </p>
-              </label>
-              <label className="block text-sm">
-                When
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={when}
-                    onChange={(e) => setWhen(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Set current date & time"
-                    onClick={() => {
-                      const now = new Date();
-                      const iso = new Date(
-                        now.getTime() - now.getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      setWhen(iso);
-                    }}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    <Clock className="h-5 w-5" />
-                  </button>
-                </div>
-                <p className="mt-1 text-xs ink-muted">
-                  You can type a date/time or tap the clock to set now.
-                </p>
-              </label>
-              {/* Hidden precise coordinates so we retain accuracy while showing address */}
-              <input
-                type="hidden"
-                name="lat"
-                value={reportLat ?? ""}
-                readOnly
-              />
-              <input
-                type="hidden"
-                name="lng"
-                value={reportLng ?? ""}
-                readOnly
-              />
-            </div>
-          </div>
-
-          {/* Notes & Contact */}
-          <div className="mt-6 grid gap-6 lg:grid-cols-2 items-stretch">
-            <label className="block text-sm h-full">
-              Reporter Notes
-              <textarea
-                rows={4}
-                className="mt-1 w-full rounded-xl px-3 py-2 min-h-36"
-                placeholder="Behavior, situation, directions..."
-                style={{ border: "1px solid var(--border-color)" }}
-                value={reportDescription}
-                onChange={(e) => setReportDescription(e.target.value)}
-              />
-            </label>
-            <div className="space-y-3">
-              <label className="block text-sm">
-                Your Name (optional)
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
+            {/* Notes & Contact */}
+            <div className="mt-6 grid gap-6 lg:grid-cols-2 items-stretch">
+              <label className="block text-sm h-full">
+                {isCruelty ? "Description" : "Reporter Notes"}
+                <textarea
+                  rows={4}
+                  className="mt-1 w-full rounded-xl px-3 py-2 min-h-36"
+                  placeholder={
+                    isCruelty
+                      ? "What happened? When/where?"
+                      : "Behavior, situation, directions..."
+                  }
                   style={{ border: "1px solid var(--border-color)" }}
-                  value={reporterName}
-                  onChange={(e) => setReporterName(e.target.value)}
-                  disabled={anonymous}
+                  value={reportDescription}
+                  onChange={(e) => setReportDescription(e.target.value)}
                 />
               </label>
-              <label className="block text-sm">
-                Phone / Email (optional)
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="0900 000 0000 / you@example.com"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                />
-              </label>
-              {/* Anonymous toggle moved next to status checkboxes */}
+              <div className="space-y-3">
+                <label className="block text-sm">
+                  Your Name (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reporterName}
+                    onChange={(e) => setReporterName(e.target.value)}
+                    disabled={anonymous}
+                  />
+                </label>
+                <label className="block text-sm">
+                  Phone / Email (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="0900 000 0000 / you@example.com"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                  />
+                </label>
+                {/* Anonymous toggle moved next to status checkboxes */}
+              </div>
             </div>
-          </div>
 
-          {/* Actions */}
-          <div className="mt-6 flex flex-wrap gap-3 p-6 pt-0">
-            <button type="button" className="btn btn-accent px-4 py-3">
-              Emergency Hotline
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary px-6 py-3"
-              disabled={reportStatus === "submitting"}
-            >
-              {reportStatus === "submitting"
-                ? "Submitting..."
-                : "Submit Report"}
-            </button>
-            {showValidation && !isFormValid && (
-              <p
-                className="text-sm"
-                style={{ color: "var(--primary-orange)" }}
-                aria-live="polite"
-              >
-                Please fill required fields: {missingFields.join(" and ") || ""}
-                .
-              </p>
-            )}
-            {reportStatus === "success" && (
-              <p className="text-sm" style={{ color: "var(--primary-green)" }}>
-                Report submitted! Rescue team notified.
-              </p>
-            )}
-            {reportStatus === "error" && (
-              <p className="text-sm" style={{ color: "var(--primary-orange)" }}>
-                Something went wrong. Please try again.
-              </p>
-            )}
-          </div>
-        </form>
-      </div>
-      {tipOpen && tipKey && (
-        <div
-          className="fixed z-50"
-          style={{
-            top: tipPos.top,
-            left: tipPos.left,
-            width: "min(92vw, 360px)",
-          }}
-          role="dialog"
-          aria-live="polite"
-        >
-          <div
-            className="surface rounded-2xl p-3 shadow-soft"
-            style={{ borderColor: "var(--border-color)" }}
-          >
-            <div className="flex items-start gap-2">
-              <div className="flex-1 text-sm">{getTipContent(tipKey)}</div>
+            {/* Actions */}
+            <div className="mt-6 flex flex-wrap gap-3 ">
               <button
-                type="button"
-                className="pill px-2 py-1 text-xs"
-                style={{ border: "1px solid var(--border-color)" }}
-                onClick={hideTip}
+                type="submit"
+                className={
+                  isCruelty
+                    ? "w-full btn px-6 py-3 text-white"
+                    : "w-full btn btn-primary px-6 py-3"
+                }
+                style={
+                  isCruelty
+                    ? ({ backgroundColor: "var(--primary-mintgreen)" } as React.CSSProperties)
+                    : undefined
+                }
+                disabled={reportStatus === "submitting"}
               >
-                Close
+                {reportStatus === "submitting"
+                  ? "Submitting..."
+                  : "Submit Report"}
               </button>
+              {showValidation && !isFormValid && (
+                <p
+                  className="text-sm"
+                  style={{ color: "var(--primary-orange)" }}
+                  aria-live="polite"
+                >
+                  Please fill required fields:{" "}
+                  {missingFields.join(" and ") || ""}.
+                </p>
+              )}
+              {reportStatus === "success" && (
+                <p
+                  className="text-sm"
+                  style={{ color: "var(--primary-green)" }}
+                >
+                  Report submitted! Rescue team notified.
+                </p>
+              )}
+              {reportStatus === "error" && (
+                <p
+                  className="text-sm"
+                  style={{ color: "var(--primary-orange)" }}
+                >
+                  Something went wrong. Please try again.
+                </p>
+              )}
             </div>
-          </div>
-          <div
-            className="absolute"
-            style={
-              {
-                width: 12,
-                height: 12,
-                left: tipPos.arrowLeft,
-                [tipPos.below ? "top" : "bottom"]: -6,
-                background: "var(--white)",
-                transform: `rotate(${tipPos.below ? 45 : 225}deg)`,
-                borderLeft: "1px solid var(--border-color)",
-                borderTop: "1px solid var(--border-color)",
-              } as React.CSSProperties
-            }
-          />
+          </form>
         </div>
-      )}
-      <MapPickerModal
-        open={showMapPicker}
-        onClose={() => setShowMapPicker(false)}
-        onSelect={(lat, lng, address) => {
-          setReportLocation(address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-          setReportLat(lat);
-          setReportLng(lng);
-          setShowMapPicker(false);
-        }}
-      />
+        {tipOpen && tipKey && (
+          <div
+            className="fixed z-50"
+            style={{
+              top: tipPos.top,
+              left: tipPos.left,
+              width: "min(92vw, 360px)",
+            }}
+            role="dialog"
+            aria-live="polite"
+          >
+            <div
+              className="surface rounded-2xl p-3 shadow-soft"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <div className="flex items-start gap-2">
+                <div className="flex-1 text-sm">{getTipContent(tipKey)}</div>
+                <button
+                  type="button"
+                  className="pill px-2 py-1 text-xs"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  onClick={hideTip}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div
+              className="absolute"
+              style={
+                {
+                  width: 12,
+                  height: 12,
+                  left: tipPos.arrowLeft,
+                  [tipPos.below ? "top" : "bottom"]: -6,
+                  background: "var(--white)",
+                  transform: `rotate(${tipPos.below ? 45 : 225}deg)`,
+                  borderLeft: "1px solid var(--border-color)",
+                  borderTop: "1px solid var(--border-color)",
+                } as React.CSSProperties
+              }
+            />
+          </div>
+        )}
+        <MapPickerModal
+          open={showMapPicker}
+          onClose={() => setShowMapPicker(false)}
+          onSelect={(lat, lng, address) => {
+            setReportLocation(
+              address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+            );
+            setReportLat(lat);
+            setReportLng(lng);
+            setShowMapPicker(false);
+          }}
+        />
+        {/* Aggressive/Friendly info modal (DetailsModal-style parity) */}
+        {flagKey && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[70] grid place-items-center p-4">
+                <div className="absolute inset-0 bg-black/40" onClick={closeFlagModal} />
+                <div className="relative w-full max-w-[700px] rounded-2xl shadow-soft surface p-5">
+                  <div className="relative ">
+                    {flagKey === "aggressive"
+                      ? getTipContent("aggressive")
+                      : getTipContent("friendly")}
+                    <div className="mt-4 text-left">
+                      <button
+                        type="button"
+                        className="pill px-3 py-1"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        onClick={closeFlagModal}
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
+      </div>
     </main>
   );
 }

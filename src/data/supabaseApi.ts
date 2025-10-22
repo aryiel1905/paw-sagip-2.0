@@ -471,3 +471,80 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
 
   return { landmarkUrls: [] };
 }
+
+// Account view: fetch a single report with public media URLs and details
+export type AccountReportView = {
+  id: string;
+  type: string;
+  condition?: string | null;
+  location?: string | null;
+  event_at?: string | null;
+  pet_name?: string | null;
+  species?: string | null;
+  breed?: string | null;
+  gender?: string | null;
+  age_size?: string | null;
+  features?: string | null;
+  description?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+  is_anonymous?: boolean | null;
+  reporter_name?: string | null;
+  reporter_contact?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  mainUrl?: string | null;
+  landmarkUrls: string[];
+};
+
+export async function fetchReportById(id: string): Promise<AccountReportView | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select(
+      "id,report_type,condition,location,event_at,pet_name,species,breed,gender,age_size,features,description,created_at,status,is_anonymous,reporter_name,reporter_contact,latitude,longitude,photo_path,landmark_media_paths"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  const photoPath = (data as any).photo_path as string | null | undefined;
+  const lmPaths = ((data as any).landmark_media_paths ?? []) as string[];
+  const mainUrl = photoPath
+    ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(photoPath).data
+        .publicUrl
+    : null;
+  const landmarkUrls = Array.isArray(lmPaths)
+    ? lmPaths
+        .filter(Boolean)
+        .map(
+          (p) =>
+            supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
+              .publicUrl
+        )
+    : [];
+
+  return {
+    id: data.id as string,
+    type: (data.report_type as string) ?? "",
+    condition: (data as any).condition ?? null,
+    location: (data as any).location ?? null,
+    event_at: (data as any).event_at ?? null,
+    pet_name: (data as any).pet_name ?? null,
+    species: (data as any).species ?? null,
+    breed: (data as any).breed ?? null,
+    gender: (data as any).gender ?? null,
+    age_size: (data as any).age_size ?? null,
+    features: (data as any).features ?? null,
+    description: (data as any).description ?? null,
+    created_at: (data as any).created_at ?? null,
+    status: (data as any).status ?? null,
+    is_anonymous: (data as any).is_anonymous ?? null,
+    reporter_name: (data as any).reporter_name ?? null,
+    reporter_contact: (data as any).reporter_contact ?? null,
+    latitude: (data as any).latitude ?? null,
+    longitude: (data as any).longitude ?? null,
+    mainUrl,
+    landmarkUrls,
+  };
+}

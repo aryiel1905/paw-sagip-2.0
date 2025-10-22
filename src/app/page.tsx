@@ -555,7 +555,16 @@ export default function Home() {
     };
   }, [reportPhotoPreviewUrl]);
 
-  const handleSubmitReport = async (speciesValue?: string) => {
+  type QuickReporter = {
+    reporterContact?: string | null;
+    reporterName?: string | null;
+    isAnonymous?: boolean;
+  };
+
+  const handleSubmitReport = async (
+    speciesValue?: string,
+    reporter?: QuickReporter
+  ) => {
     const supabase = getSupabaseClient();
     setReportStatus("submitting");
 
@@ -610,6 +619,21 @@ export default function Home() {
       uploadedLandmarkPaths = paths;
     }
 
+    // Determine anonymous from passed value, fallback to draft if present
+    let draftAnon = reporter?.isAnonymous ?? false;
+    if (reporter?.isAnonymous == null) {
+      try {
+        const raw =
+          typeof window !== "undefined"
+            ? window.sessionStorage.getItem("reportDraft")
+            : null;
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (d && typeof d.anonymous === "boolean") draftAnon = d.anonymous;
+        }
+      } catch {}
+    }
+
     const payload = {
       type: reportType,
       description: reportDescription,
@@ -620,6 +644,13 @@ export default function Home() {
       photoPath: uploadedPhotoPath,
       landmarkMediaPaths: uploadedLandmarkPaths,
       species: speciesValue || null,
+      isAnonymous: draftAnon,
+      // Map quick reporter info (server will null these if anonymous)
+      reporterContact:
+        draftAnon
+          ? null
+          : (reporter?.reporterContact?.trim?.() || null),
+      reporterName: draftAnon ? null : (reporter?.reporterName?.trim?.() || null),
     };
 
     try {

@@ -21,6 +21,8 @@ export function Navbar({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -62,10 +64,16 @@ export function Navbar({
       const supabase = getSupabaseClient();
       supabase.auth.getUser().then(({ data }) => {
         setIsLoggedIn(!!data.user);
+        setUserEmail(data.user?.email ?? null);
+        const fullName = (data.user?.user_metadata?.full_name as string | undefined) ?? null;
+        setUserName(fullName);
         setIsReady(true);
       });
       const { data } = supabase.auth.onAuthStateChange((_e, session) => {
         setIsLoggedIn(!!session?.user);
+        setUserEmail(session?.user?.email ?? null);
+        const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+        setUserName(fullName);
       });
       unsub = () => {
         try {
@@ -156,7 +164,7 @@ export function Navbar({
                 onClick={handleLogout}
                 type="button"
               >
-                Log out
+                {userName?.trim() || userEmail || "Account"}
               </button>
             ) : (
               <button
@@ -243,7 +251,7 @@ export function Navbar({
                   }}
                   type="button"
                 >
-                  Log out
+                  {userName?.trim() || userEmail || "Account"}
                 </button>
               ) : (
                 <button

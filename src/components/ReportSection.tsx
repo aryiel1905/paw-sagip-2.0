@@ -23,6 +23,7 @@ import { AlertType, ReportStatus } from "@/types/app";
 import { useEffect } from "react";
 import { showToast } from "@/lib/toast";
 import { useMemo } from "react";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type ReportSectionProps = {
   reportType: Exclude<AlertType, "all">;
@@ -39,7 +40,14 @@ type ReportSectionProps = {
   reportPhotoName: string;
   reportStatus: ReportStatus;
   handlePhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  handleSubmitReport: (species: string) => void;
+  handleSubmitReport: (
+    species: string,
+    opts?: {
+      reporterContact?: string | null;
+      reporterName?: string | null;
+      isAnonymous?: boolean;
+    }
+  ) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
   reportPhotoPreviewUrl: string | null;
   // Landmark photos (multiple)
@@ -85,6 +93,9 @@ export function ReportSection({
   const [qFriendly, setQFriendly] = useState(false);
   const [showQuickValidation, setShowQuickValidation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  // Auth-derived identity for autofill
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   // Inline popover for checkbox tips (Quick Report)
   const [tipOpen, setTipOpen] = useState(false);
@@ -250,6 +261,45 @@ export function ReportSection({
     };
   }, [tipOpen]);
 
+  // Load current auth user (email + display name) for autofill when not anonymous
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let unsub: (() => void) | null = null;
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user;
+      setUserEmail(u?.email ?? null);
+      const fullName = (u?.user_metadata?.full_name as string | undefined) ?? null;
+      setUserName(fullName);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserEmail(session?.user?.email ?? null);
+      const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+      setUserName(fullName);
+    });
+    unsub = () => {
+      try {
+        data.subscription.unsubscribe();
+      } catch {}
+    };
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
+  // Autofill contact with user email when not anonymous and field is empty
+  useEffect(() => {
+    if (!qAnon && !qContact && userEmail) {
+      setQContact(userEmail);
+    }
+  }, [qAnon, qContact, userEmail]);
+
+  // Clear contact on switching to anonymous for privacy
+  useEffect(() => {
+    if (qAnon) {
+      setQContact("");
+    }
+  }, [qAnon]);
+
   // Lock scroll and add ESC close when the flag modal is open
   useEffect(() => {
     if (!flagKey) return;
@@ -380,20 +430,28 @@ export function ReportSection({
         setShowQuickValidation(true);
         return;
       }
-      // Optionally enrich the description with light context (species/contact/when)
+      // Optionally enrich the description with light context (species/when)
       // without altering the API. We only do this if the description is empty.
       if (!reportDescription.trim() && !isCruelty) {
         const parts = [
           qSpecies ? `Species: ${qSpecies}` : "",
           qWhen ? `When: ${qWhen}` : "",
-          qContact ? `Contact: ${qContact}` : "",
           qAnon ? "(Submitted anonymously)" : "",
         ].filter(Boolean);
         if (parts.length > 0) {
           setReportDescription(parts.join(" | "));
         }
       }
-      handleSubmitReport(qSpecies);
+      // Build reporter info to mirror full form mapping
+      const reporterContact = qAnon
+        ? null
+        : (qContact?.trim() || userEmail || null);
+      const reporterName = qAnon ? null : userName || null;
+      handleSubmitReport(qSpecies, {
+        reporterContact,
+        reporterName,
+        isAnonymous: qAnon,
+      });
     },
     [
       handleSubmitReport,
@@ -406,6 +464,8 @@ export function ReportSection({
       reportLocation,
       reportType,
       isCruelty,
+      userEmail,
+      userName,
     ]
   );
 
