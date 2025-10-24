@@ -17,10 +17,7 @@ import ApplicationsList, {
   type SimpleApplication,
 } from "@/components/account/ApplicationsList";
 import SettingsPanel from "@/components/account/SettingsPanel";
-import ReportViewModal, {
-  type ReportViewData,
-} from "@/components/account/ReportViewModal";
-import { fetchReportById } from "@/data/supabaseApi";
+import ReportViewModal from "@/components/account/ReportViewModal";
 
 type UserInfo = {
   id: string;
@@ -41,9 +38,7 @@ export default function AccountDashboardPage() {
   const [dataLoading, setDataLoading] = useState(false);
   // View modal state
   const [viewOpen, setViewOpen] = useState(false);
-  const [viewLoading, setViewLoading] = useState(false);
-  const [viewError, setViewError] = useState<string | null>(null);
-  const [viewData, setViewData] = useState<ReportViewData | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -182,20 +177,9 @@ export default function AccountDashboardPage() {
     };
   }, [user]);
 
-  async function openViewReport(id: string) {
+  function openViewReport(id: string) {
+    setViewId(id);
     setViewOpen(true);
-    setViewLoading(true);
-    setViewError(null);
-    setViewData(null);
-    try {
-      const rep = await fetchReportById(id);
-      if (!rep) setViewError("Could not load report details.");
-      else setViewData(rep as ReportViewData);
-    } catch (e) {
-      setViewError("Could not load report details.");
-    } finally {
-      setViewLoading(false);
-    }
   }
 
   const metrics = useMemo(
@@ -339,9 +323,7 @@ export default function AccountDashboardPage() {
                 />
                 <ReportViewModal
                   open={viewOpen}
-                  data={viewData}
-                  loading={viewLoading}
-                  error={viewError}
+                  reportId={viewId}
                   onClose={() => setViewOpen(false)}
                 />
               </>

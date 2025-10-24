@@ -489,6 +489,8 @@ export type AccountReportView = {
   created_at?: string | null;
   status?: string | null;
   is_anonymous?: boolean | null;
+  is_aggressive?: boolean | null;
+  is_friendly?: boolean | null;
   reporter_name?: string | null;
   reporter_contact?: string | null;
   latitude?: number | null;
@@ -499,14 +501,18 @@ export type AccountReportView = {
 
 export async function fetchReportById(id: string): Promise<AccountReportView | null> {
   const supabase = getSupabaseClient();
+  // Select all columns to avoid schema drift issues if some optional fields don't exist
   const { data, error } = await supabase
     .from("reports")
-    .select(
-      "id,report_type,condition,location,event_at,pet_name,species,breed,gender,age_size,features,description,created_at,status,is_anonymous,reporter_name,reporter_contact,latitude,longitude,photo_path,landmark_media_paths"
-    )
+    .select("*")
     .eq("id", id)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data) {
+    try {
+      console.error("fetchReportById failed", { id, error });
+    } catch {}
+    return null;
+  }
 
   const photoPath = (data as any).photo_path as string | null | undefined;
   const lmPaths = ((data as any).landmark_media_paths ?? []) as string[];
@@ -514,7 +520,7 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
     ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(photoPath).data
         .publicUrl
     : null;
-  const landmarkUrls = Array.isArray(lmPaths)
+  let landmarkUrls = Array.isArray(lmPaths)
     ? lmPaths
         .filter(Boolean)
         .map(
@@ -524,9 +530,20 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
         )
     : [];
 
+  // Fallback: if the report row has no landmark paths but has a main image, attempt to derive
+  // landmark URLs by matching photo_path (same approach used by DetailsModal)
+  if ((!landmarkUrls || landmarkUrls.length === 0) && mainUrl) {
+    try {
+      const derived = await fetchLandmarkImageUrlsByAlertImage(mainUrl);
+      if (Array.isArray(derived) && derived.length > 0) {
+        landmarkUrls = derived;
+      }
+    } catch {}
+  }
+
   return {
     id: data.id as string,
-    type: (data.report_type as string) ?? "",
+    type: (data as any).report_type ?? "",
     condition: (data as any).condition ?? null,
     location: (data as any).location ?? null,
     event_at: (data as any).event_at ?? null,
@@ -540,6 +557,8 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
     created_at: (data as any).created_at ?? null,
     status: (data as any).status ?? null,
     is_anonymous: (data as any).is_anonymous ?? null,
+    is_aggressive: (data as any).is_aggressive ?? null,
+    is_friendly: (data as any).is_friendly ?? null,
     reporter_name: (data as any).reporter_name ?? null,
     reporter_contact: (data as any).reporter_contact ?? null,
     latitude: (data as any).latitude ?? null,

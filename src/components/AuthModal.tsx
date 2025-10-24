@@ -19,6 +19,7 @@ export function AuthModal({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -52,6 +53,7 @@ export function AuthModal({
     setPassword("");
     setConfirm("");
     setFullName("");
+    setPhone("");
   }, [open, initialMode]);
 
   const loginClasses = useMemo(
@@ -126,10 +128,36 @@ export function AuthModal({
       const { error, data } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone || null,
+          },
+        },
       });
       if (error) {
         showToast("error", error.message || "Sign up failed");
+        return;
+      }
+      if (data?.user && data.session) {
+        const { error: profileError } = await supabase.from("profiles").upsert(
+          {
+            id: data.user.id,
+            display_name: fullName,
+            phone: phone || null,
+            role: "member",
+          },
+          { onConflict: "id" }
+        );
+        if (profileError) {
+          showToast(
+            "error",
+            profileError.message || "Failed to save profile information"
+          );
+          return;
+        }
+        showToast("success", "Account created");
+        onClose();
         return;
       }
       if (data?.user && !data.session) {
@@ -295,6 +323,22 @@ export function AuthModal({
                     className="h-12 w-full rounded-[12px] border px-3 py-2 text-sm border-[#d8eedd] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-mintgreen)/0.4] focus:border-[var(--primary-mintgreen)] placeholder:text-[#9AA6AC]"
                   />
                 </div>
+                {/*<div className="grid gap-2">
+                  <label
+                    htmlFor="signup-phone"
+                    className="text-sm font-medium ink-heading"
+                  >
+                    Phone (optional)
+                  </label>
+                  <input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="e.g., 09171234567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-12 w-full rounded-[12px] border px-3 py-2 text-sm border-[#d8eedd] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-mintgreen)/0.4] focus:border-[var(--primary-mintgreen)] placeholder:text-[#9AA6AC]"
+                  />
+                </div>*/}
                 <div className="grid gap-2">
                   <label
                     htmlFor="signup-email"
