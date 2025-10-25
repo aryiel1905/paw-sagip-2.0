@@ -783,8 +783,8 @@ export default function Home() {
           className="mb-11.5 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-30 "
           style={{ scrollMarginTop: 91 }}
         >
-          <div className="mb-3 max-w-7xl mx-auto pb-15 px-4  grid md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] gap-10 items-center">
-            <div>
+          <div className="mb-3 max-w-7xl mx-auto pb-15 px-4 grid grid-cols-1 gap-10 md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] items-center">
+            <div className="order-last md:order-first text-center md:text-left">
               <h1 className="hero-title">
                 Find.
                 <br />
@@ -813,7 +813,7 @@ export default function Home() {
                   Adopt a Pet
                 </button>
               </div>
-              <div className="mt-6 md:hidden">
+              <div className="mt-6 hidden md:hidden">
                 <label className="sr-only" htmlFor="pet-search">
                   Search pets
                 </label>
@@ -1101,7 +1101,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="w-full relative">
+            <div className="w-full relative order-first md:order-last">
               <div className="hero-ellipse-shadow" aria-hidden="true"></div>
               <Image
                 src="/LandingPage_PawSagip.svg"
