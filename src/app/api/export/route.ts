@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   let currentUserId: string | null = null;
   let currentUserEmail: string | null = null;
   try {
-    const jar = cookies();
+    const jar = await cookies();
     const accessToken =
       jar.get("sb-access-token")?.value ||
       (() => {
@@ -103,4 +103,3 @@ export async function GET(request: Request) {
     },
   });
 }
-
