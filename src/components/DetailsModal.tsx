@@ -308,7 +308,12 @@ function DetailsModalInner({
               {isAlert ? (
                 <>
                   <DetailsRow
-                    label="Species / Breed"
+                    label="Report ID"
+                    value={reportDetails?.custom_id || "-"}
+                  />
+
+                  <DetailsRow
+                    label="Pet Type / Breed"
                     value={
                       [reportDetails?.species, reportDetails?.breed]
                         .filter(Boolean)

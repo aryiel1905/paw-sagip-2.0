@@ -41,7 +41,7 @@ export default function ReportFormPage() {
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
   const [gender, setGender] = useState("Unknown");
-  const [ageSize, setAgeSize] = useState("Puppy/Kitten");
+  const [ageSize, setAgeSize] = useState("Puppy");
   const [features, setFeatures] = useState("");
   const [contact, setContact] = useState("");
   const [anonymous, setAnonymous] = useState(false);
@@ -479,8 +479,19 @@ export default function ReportFormPage() {
         showToast("error", "Something went wrong. Please try again.");
         return;
       }
+      let resp: any = null;
+      try {
+        resp = await response.json();
+      } catch {}
       setReportStatus("success");
-      showToast("success", "Report submitted! Rescue team notified.");
+      if (resp?.customId) {
+        showToast(
+          "success",
+          `Report submitted! ID: ${resp.customId}`
+        );
+      } else {
+        showToast("success", "Report submitted! Rescue team notified.");
+      }
       setReportDescription("");
       setReportLocation("");
       setReportPhoto(null);
@@ -867,17 +878,30 @@ export default function ReportFormPage() {
                   />
                 </label>
                 <label className="block text-sm">
-                  Species
+                  Pet Type
                 <select
                   className="mt-1 w-full rounded-xl px-3 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                   value={species}
-                  onChange={(e) => setSpecies(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSpecies(next);
+                    setAgeSize((prev) => {
+                      if (next === "Dog") {
+                        if (prev === "Kitten" || prev === "Puppy/Kitten") return "Puppy";
+                        return prev || "Puppy";
+                      }
+                      if (next === "Cat") {
+                        if (prev === "Puppy" || prev === "Puppy/Kitten") return "Kitten";
+                        return prev || "Kitten";
+                      }
+                      return prev;
+                    });
+                  }}
                   required={!isCruelty}
                 >
                     <option>Dog</option>
                     <option>Cat</option>
-                    <option>Other</option>
                   </select>
                 </label>
                 <label className="block text-sm lg:col-span-2">
@@ -911,9 +935,19 @@ export default function ReportFormPage() {
                     value={ageSize}
                     onChange={(e) => setAgeSize(e.target.value)}
                   >
-                    <option>Puppy/Kitten</option>
-                    <option>Adult</option>
-                    <option>Senior</option>
+                    {species === "Dog" ? (
+                      <>
+                        <option>Puppy</option>
+                        <option>Adult</option>
+                        <option>Senior</option>
+                      </>
+                    ) : (
+                      <>
+                        <option>Kitten</option>
+                        <option>Adult</option>
+                        <option>Senior</option>
+                      </>
+                    )}
                   </select>
                 </label>
               </div>

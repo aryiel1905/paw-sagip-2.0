@@ -397,6 +397,7 @@ export async function fetchLandmarkImageUrlsByAlertImage(
 }
 
 export type ReportDetails = {
+  custom_id?: string | null;
   species?: string | null;
   breed?: string | null;
   gender?: string | null;
@@ -430,6 +431,7 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
       (p) => supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data.publicUrl
     );
     return {
+      custom_id: row?.custom_id ?? null,
       species: row?.species ?? null,
       breed: row?.breed ?? null,
       gender: row?.gender ?? null,
@@ -449,7 +451,7 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
     const { data: rep, error } = await supabase
       .from("reports")
       .select(
-        "species,breed,gender,age_size,features,description,landmark_media_paths,photo_path"
+        "custom_id,species,breed,gender,age_size,features,description,landmark_media_paths,photo_path"
       )
       .eq("id", alertRow.source_id)
       .maybeSingle();
@@ -462,7 +464,7 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
     const { data: rep2, error: err2 } = await supabase
       .from("reports")
       .select(
-        "species,breed,gender,age_size,features,description,landmark_media_paths,photo_path"
+        "custom_id,species,breed,gender,age_size,features,description,landmark_media_paths,photo_path"
       )
       .eq("photo_path", ph)
       .maybeSingle();
@@ -475,6 +477,7 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
 // Account view: fetch a single report with public media URLs and details
 export type AccountReportView = {
   id: string;
+  custom_id?: string | null;
   type: string;
   condition?: string | null;
   location?: string | null;
@@ -543,6 +546,7 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
 
   return {
     id: data.id as string,
+    custom_id: (data as any).custom_id ?? null,
     type: (data as any).report_type ?? "",
     condition: (data as any).condition ?? null,
     location: (data as any).location ?? null,

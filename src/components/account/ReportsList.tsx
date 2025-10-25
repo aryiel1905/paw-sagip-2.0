@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 export type SimpleReport = {
   id: string;
+  custom_id?: string | null;
   title: string;
   type: string;
   location?: string;
@@ -102,7 +103,7 @@ export default function ReportsList({ items, loading, onView }: Props) {
                 <tr key={r.id} className="border-b last:border-b-0">
                   <td className="py-3 pr-3">
                     <div className="font-medium ink-heading">{r.title}</div>
-                    <div className="text-xs ink-subtle">ID: {r.id}</div>
+                    <div className="text-xs ink-subtle">ID: {r.custom_id || r.id}</div>
                   </td>
                   <td className="py-3 pr-3">{dateShort(r.created_at)}</td>
                   <td className="py-3 pr-3">{r.location || "—"}</td>

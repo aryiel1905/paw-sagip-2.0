@@ -103,7 +103,7 @@ export default function AccountDashboardPage() {
         let r = supabase
           .from("reports")
           .select(
-            "id, created_at, report_type, location, species, pet_name, reporter_contact"
+            "id, custom_id, created_at, report_type, location, species, pet_name, reporter_contact"
           );
         if (user.email) {
           r = r.or(`user_id.eq.${user.id},reporter_contact.eq.${user.email}`);
@@ -120,6 +120,7 @@ export default function AccountDashboardPage() {
           setMyReports(
             rows.map((row: any) => ({
               id: row.id,
+              custom_id: row.custom_id ?? null,
               title:
                 row.pet_name ||
                 row.species ||
@@ -229,114 +230,128 @@ export default function AccountDashboardPage() {
   }
 
   return (
-    <main className=" min-h-screen bg-black/80 overflow-hidden overflow-auto pt-10 px-4 py-4">
-      <div className="max-w-full mx-auto ">
-        <div className="mb-4 flex items-center justify-between">
-          <h1
-            className="text-3xl font-extrabold text-white tracking-wide
-          "
-          >
-            My Account
-          </h1>
-          <div className="flex gap-2">
-            <a
-              href="/api/export"
-              className="btn btn-primary px-4 py-2"
-              aria-disabled
+    <>
+      {/* viewport overlay behind content */}
+      <div
+        className="fixed inset-0 bg-black/80 -z-10 pointer-events-none"
+        aria-hidden="true"
+      />
+      <main
+        className="box-border overflow-hidden pt-2 px-4"
+        style={{ height: "calc(99dvh - var(--nav-h, 64px))" }}
+      >
+        <div className="max-w-full mx-auto h-full pt-10">
+          <div className="py-2 mb-2 flex items-center justify-between">
+            <h1
+              className="text-3xl font-extrabold text-white tracking-wide
+            "
             >
-              Export data
-            </a>
-            <button
-              className="btn btn-accent px-4 py-2"
-              onClick={() => (window.location.href = "/report-form")}
-            >
-              Create report
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-4 lg:grid-cols-[320px,1fr,1fr] gap-4 items-start">
-          <div className="grid gap-4 lg:col-span-1">
-            <ProfileCard
-              name={user.fullName}
-              email={user.email}
-              memberSince={user.createdAt}
-              onEdit={() => showToast("info", "Profile editing coming soon")}
-            />
-            <MetricCard
-              title="Total Reports"
-              count={metrics.reports}
-              summary={
-                metrics.reports > 0
-                  ? `${metrics.reports} total`
-                  : "No reports yet"
-              }
-              tone="amber"
-            />
-            <MetricCard
-              title="Adoption Applications"
-              count={metrics.apps}
-              summary={
-                metrics.apps > 0
-                  ? `${metrics.apps} total`
-                  : "No applications yet"
-              }
-              tone="green"
-            />
+              My Account
+            </h1>
+            <div className="flex gap-2">
+              <a
+                href="/api/export"
+                className="btn btn-primary px-4 py-2"
+                aria-disabled
+              >
+                Export data
+              </a>
+              <button
+                className="btn btn-accent px-4 py-2"
+                onClick={() => (window.location.href = "/report-form")}
+              >
+                s Create report
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-3 lg:col-span-3">
-            <Tabs
-              active={active}
-              onChange={(k) => setActive(k as TabKey)}
-              tabs={[
-                { key: "overview", label: "Overview" },
-                { key: "reports", label: "My Reports" },
-                { key: "apps", label: "Adoption Apps" },
-                { key: "settings", label: "Settings" },
-              ]}
-            />
-
-            {active === "overview" && (
-              <OverviewPanel
-                reports={(myReports.slice(0, 3) as RecentReport[]).map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  type: r.type,
-                  created_at: r.created_at,
-                }))}
-                apps={(myApps.slice(0, 2) as RecentApplication[]).map((a) => ({
-                  id: a.id,
-                  petName: a.petName,
-                  species: a.species,
-                  status: a.status,
-                  created_at: a.created_at,
-                }))}
+          <div className="grid grid-cols-4 lg:grid-cols-[320px,1fr,1fr] gap-4 items-start">
+            <div className="grid gap-4 lg:col-span-1">
+              <ProfileCard
+                name={user.fullName}
+                email={user.email}
+                memberSince={user.createdAt}
+                onEdit={() => showToast("info", "Profile editing coming soon")}
               />
-            )}
-            {active === "reports" && (
-              <>
-                <ReportsList
-                  items={myReports}
-                  loading={dataLoading}
-                  onView={(id) => openViewReport(id)}
+              <MetricCard
+                title="Total Reports"
+                count={metrics.reports}
+                summary={
+                  metrics.reports > 0
+                    ? `${metrics.reports} total`
+                    : "No reports yet"
+                }
+                tone="amber"
+              />
+              <MetricCard
+                title="Adoption Applications"
+                count={metrics.apps}
+                summary={
+                  metrics.apps > 0
+                    ? `${metrics.apps} total`
+                    : "No applications yet"
+                }
+                tone="green"
+              />
+            </div>
+
+            <div className="grid gap-3 lg:col-span-3">
+              <Tabs
+                active={active}
+                onChange={(k) => setActive(k as TabKey)}
+                tabs={[
+                  { key: "overview", label: "Overview" },
+                  { key: "reports", label: "My Reports" },
+                  { key: "apps", label: "Adoption Apps" },
+                  { key: "settings", label: "Settings" },
+                ]}
+              />
+
+              {active === "overview" && (
+                <OverviewPanel
+                  reports={(myReports.slice(0, 3) as RecentReport[]).map(
+                    (r) => ({
+                      id: r.id,
+                      title: r.title,
+                      type: r.type,
+                      created_at: r.created_at,
+                    })
+                  )}
+                  apps={(myApps.slice(0, 2) as RecentApplication[]).map(
+                    (a) => ({
+                      id: a.id,
+                      petName: a.petName,
+                      species: a.species,
+                      status: a.status,
+                      created_at: a.created_at,
+                    })
+                  )}
                 />
-                <ReportViewModal
-                  open={viewOpen}
-                  reportId={viewId}
-                  onClose={() => setViewOpen(false)}
-                />
-              </>
-            )}
-            {active === "apps" && (
-              <ApplicationsList items={myApps} loading={dataLoading} />
-            )}
-            {active === "settings" && (
-              <SettingsPanel userEmail={user.email ?? ""} />
-            )}
+              )}
+              {active === "reports" && (
+                <>
+                  <ReportsList
+                    items={myReports}
+                    loading={dataLoading}
+                    onView={(id) => openViewReport(id)}
+                  />
+                  <ReportViewModal
+                    open={viewOpen}
+                    reportId={viewId}
+                    onClose={() => setViewOpen(false)}
+                  />
+                </>
+              )}
+              {active === "apps" && (
+                <ApplicationsList items={myApps} loading={dataLoading} />
+              )}
+              {active === "settings" && (
+                <SettingsPanel userEmail={user.email ?? ""} />
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

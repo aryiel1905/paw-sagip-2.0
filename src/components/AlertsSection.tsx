@@ -116,7 +116,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             </div>
             <div className="px-6 py-2 flex-1 flex flex-col">
               {col.items.length === 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
@@ -138,7 +138,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   {col.items.slice(0, 6).map((alert) => (
                     <button
                       key={alert.id}
@@ -159,13 +159,13 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                         <div className="rounded-xl overflow-hidden mb-2">
                           {alert.imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={alert.imageUrl}
-                            alt="alert"
-                            className="w-full h-28 object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
+                            <img
+                              src={alert.imageUrl}
+                              alt="alert"
+                              className="w-full h-28 object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
                           ) : (
                             <div
                               className="grid place-content-center h-28 text-3xl"
@@ -214,10 +214,12 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                 <a
                   href={`/alerts?type=${col.key}`}
                   className="btn w-full py-3 text-center block font-semibold rounded-full transition-colors duration-300 ease-in-out bg-white text-[var(--btn-accent)] border-2 border-[var(--btn-accent)] hover:bg-[var(--btn-accent)] hover:text-white hover:border-white focus-visible:bg-[var(--btn-accent)] focus-visible:text-white focus-visible:border-white"
-                  style={{
-                    ["--btn-accent" as any]: col.base,
-                    boxShadow: `0 10px 18px -12px color-mix(in srgb, ${col.base} 55%, transparent)`,
-                  } as React.CSSProperties}
+                  style={
+                    {
+                      ["--btn-accent" as any]: col.base,
+                      boxShadow: `0 10px 18px -12px color-mix(in srgb, ${col.base} 55%, transparent)`,
+                    } as React.CSSProperties
+                  }
                 >
                   View More
                 </a>

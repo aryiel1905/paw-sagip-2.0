@@ -646,11 +646,10 @@ export default function Home() {
       species: speciesValue || null,
       isAnonymous: draftAnon,
       // Map quick reporter info (server will null these if anonymous)
-      reporterContact:
-        draftAnon
-          ? null
-          : (reporter?.reporterContact?.trim?.() || null),
-      reporterName: draftAnon ? null : (reporter?.reporterName?.trim?.() || null),
+      reporterContact: draftAnon
+        ? null
+        : reporter?.reporterContact?.trim?.() || null,
+      reporterName: draftAnon ? null : reporter?.reporterName?.trim?.() || null,
     };
 
     try {
@@ -774,9 +773,19 @@ export default function Home() {
       landmarkInputMobileRef.current.value = "";
   };
 
+  useEffect(() => {
+    // Hide scrollbar for the whole page while on Home
+    document.documentElement.classList.add("scrollbar-none");
+    document.body.classList.add("scrollbar-none");
+    return () => {
+      document.documentElement.classList.remove("scrollbar-none");
+      document.body.classList.remove("scrollbar-none");
+    };
+  }, []);
+
   return (
     <>
-      <main className="pt-5 ">
+      <main className="pt-5">
         {/* Hero section with quick calls to action and nearby alerts */}
         <section
           id="home"
@@ -797,7 +806,7 @@ export default function Home() {
                 Report lost or found pets, receive nearby alerts, and help
                 coordinate safe rescues in your barangay.
               </p>
-              <div className=" mt-4 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-3 justify-center md:justify-start">
                 <button
                   className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl"
                   onClick={() => scrollToTarget("#report")}
@@ -1101,7 +1110,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="w-full relative order-first md:order-last">
+            <div className="w-full relative order-first md:order-last mb-8 md:mb-0 flex justify-center">
               <div className="hero-ellipse-shadow" aria-hidden="true"></div>
               <Image
                 src="/LandingPage_PawSagip.svg"
@@ -1109,7 +1118,7 @@ export default function Home() {
                 width={700}
                 height={520}
                 priority
-                className="relative z-10 w-full h-auto max-w-none mx-auto"
+                className="relative z-10 w-full h-auto max-w-md md:max-w-none"
               />
             </div>
           </div>

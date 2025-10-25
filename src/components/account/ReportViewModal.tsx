@@ -1,12 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  memo,
+} from "react";
 import { createPortal } from "react-dom";
 import { fetchReportById } from "@/data/supabaseApi";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import MapPickerModal from "@/components/MapPickerModal";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import { showToast } from "@/lib/toast";
 
 export type ReportViewData = {
   id: string;
+  custom_id?: string | null;
   type: string;
   condition?: string | null;
   location?: string | null;
@@ -31,6 +43,86 @@ export type ReportViewData = {
   landmarkUrls: string[];
 };
 
+type EditFormState = {
+  type: string;
+  condition: string;
+  gender: string;
+  ageSize: string;
+  petName: string;
+  species: string;
+  breed: string;
+  features: string;
+  description: string;
+  when: string;
+  status: string | null;
+  location: string;
+  isAggressive: boolean;
+  isFriendly: boolean;
+  isAnonymous: boolean;
+  reporterName: string;
+  reporterContact: string;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+const REPORT_TYPES = ["found", "lost", "cruelty", "adoption"] as const;
+const CONDITION_OPTIONS = [
+  "Healthy",
+  "Injured",
+  "Aggressive",
+  "Malnourished",
+  "Other",
+] as const;
+const SPECIES_OPTIONS = ["Dog", "Cat"] as const;
+const GENDER_OPTIONS = ["Unknown", "Male", "Female"] as const;
+function getAgeOptions(species: string | undefined | null) {
+  const s = (species || "").toLowerCase();
+  if (s === "dog") return ["Puppy", "Adult", "Senior"] as const;
+  if (s === "cat") return ["Kitten", "Adult", "Senior"] as const;
+  return ["Puppy", "Kitten", "Adult", "Senior"] as const;
+}
+
+function toLocalInput(value?: string | null): string {
+  if (!value) return "";
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  } catch {
+    return "";
+  }
+}
+
+function toFormState(data: ReportViewData): EditFormState {
+  const incomingAge = (data.age_size || "").trim();
+  let mappedAge = incomingAge;
+  if (incomingAge === "Puppy/Kitten") {
+    mappedAge = (data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy";
+  }
+  return {
+    type: data.type?.toLowerCase?.() || "found",
+    condition: data.condition || "Healthy",
+    gender: data.gender || "Unknown",
+    ageSize: mappedAge || ((data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy"),
+    petName: data.pet_name || "",
+    species: data.species || "Dog",
+    breed: data.breed || "",
+    features: data.features || "",
+    description: data.description || "",
+    when: toLocalInput(data.event_at || data.created_at),
+    status: data.status ?? null,
+    location: data.location || "",
+    isAggressive: !!data.is_aggressive,
+    isFriendly: !!data.is_friendly,
+    isAnonymous: !!data.is_anonymous,
+    reporterName: data.reporter_name || "",
+    reporterContact: data.reporter_contact || "",
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
+  };
+}
+
 export default function ReportViewModal({
   open,
   data,
@@ -49,6 +141,20 @@ export default function ReportViewModal({
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [localData, setLocalData] = useState<ReportViewData | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<EditFormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) return;
+    setEditing(false);
+    setForm(null);
+    setSaving(false);
+    setActionError(null);
+    setMapPickerOpen(false);
+  }, [open]);
 
   // When given an id (like DetailsModal pattern), fetch inside the modal
   useEffect(() => {
@@ -93,6 +199,110 @@ export default function ReportViewModal({
     index: number;
   } | null>(null);
 
+  const editingReady = editing && form !== null;
+  const firstEditRef = useRef<HTMLInputElement | null>(null);
+
+  const beginEdit = () => {
+    if (!effectiveData) return;
+    setForm(toFormState(effectiveData));
+    setEditing(true);
+    setActionError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setForm(null);
+    setSaving(false);
+    setActionError(null);
+    setMapPickerOpen(false);
+  };
+
+  const handleMapSelect = (lat: number, lng: number, address?: string) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+        location: address?.trim?.() || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      };
+    });
+    setMapPickerOpen(false);
+  };
+
+  useEffect(() => {
+    if (editing && firstEditRef.current) {
+      try {
+        firstEditRef.current.focus();
+        firstEditRef.current.select?.();
+      } catch {}
+    }
+  }, [editing]);
+
+  const handleSave = async () => {
+    if (!effectiveData || !form) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      const supabase = getSupabaseClient();
+      const eventAt = form.when ? new Date(form.when).toISOString() : null;
+      const payload = {
+        report_type: form.type,
+        condition: form.condition || null,
+        location: form.location || null,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        event_at: eventAt,
+        pet_name: form.petName?.trim() ? form.petName.trim() : null,
+        species: form.species || null,
+        breed: form.breed?.trim() ? form.breed.trim() : null,
+        gender: form.gender || null,
+        age_size: form.ageSize || null,
+        features: form.features?.trim() ? form.features.trim() : null,
+        description: form.description?.trim() ? form.description.trim() : null,
+        is_aggressive: form.isAggressive,
+        is_friendly: form.isFriendly,
+        is_anonymous: form.isAnonymous,
+        reporter_name:
+          form.isAnonymous || !form.reporterName?.trim()
+            ? null
+            : form.reporterName.trim(),
+        reporter_contact:
+          form.isAnonymous || !form.reporterContact?.trim()
+            ? null
+            : form.reporterContact.trim(),
+      };
+
+      const { error: updateError } = await supabase
+        .from("reports")
+        .update(payload)
+        .eq("id", effectiveData.id);
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+      const refreshed = await fetchReportById(effectiveData.id);
+      if (refreshed) {
+        setLocalData(refreshed);
+      }
+      showToast("success", "Report updated");
+      cancelEdit();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to update report.";
+      setActionError(message);
+      showToast("error", "Could not update the report");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateForm = <K extends keyof EditFormState>(
+    key: K,
+    value: EditFormState[K]
+  ) => {
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
   useEffect(() => {
     if (!open) return;
     const y = typeof window !== "undefined" ? window.scrollY : 0;
@@ -133,13 +343,15 @@ export default function ReportViewModal({
     [displayLandmarks, lmIndex, lmCount]
   );
 
-  if (!open) return null;
+  // removed early return; modal is conditionally portaled below to keep hook order stable
 
+  const latForMap =
+    editingReady && form ? form.latitude : effectiveData?.latitude ?? null;
+  const lngForMap =
+    editingReady && form ? form.longitude : effectiveData?.longitude ?? null;
   const mapLink =
-    effectiveData &&
-    typeof effectiveData.latitude === "number" &&
-    typeof effectiveData.longitude === "number"
-      ? `https://www.google.com/maps?q=${effectiveData.latitude},${effectiveData.longitude}`
+    typeof latForMap === "number" && typeof lngForMap === "number"
+      ? `https://www.google.com/maps?q=${latForMap},${lngForMap}`
       : null;
 
   function formatWhen(): string {
@@ -159,320 +371,828 @@ export default function ReportViewModal({
     }
   }
 
+  const DetailField = useMemo(
+    () =>
+      memo(function DetailField({
+        label,
+        value,
+        editNode,
+        editable,
+      }: {
+        label: string;
+        value: ReactNode;
+        editNode?: ReactNode;
+        editable?: boolean;
+      }) {
+        return (
+          <div className="flex flex-col gap-1 text-sm min-w-0">
+            <div className="ink-subtle flex items-center h-6">{label}</div>
+            <div
+              className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 font-medium text-sm ink-heading break-words w-full min-w-0"
+              onMouseDown={editable ? (e) => e.stopPropagation() : undefined}
+            >
+              {editable && editNode ? editNode : value ?? "-"}
+            </div>
+          </div>
+        );
+      }),
+    []
+  );
+
+  const boolLabel = (value?: boolean | null) =>
+    typeof value === "boolean" ? (value ? "Yes" : "No") : "-";
+
+  const createdAtDisplay = (() => {
+    const d = effectiveData?.created_at;
+    if (!d) return "-";
+    try {
+      return new Date(d).toLocaleString();
+    } catch {
+      return d;
+    }
+  })();
+
+  const detailRows = useMemo(
+    () => [
+      {
+        id: "type-gender",
+        left: {
+          label: "Type",
+          value: effectiveData?.type || "-",
+          editNode: (
+            <select
+              className="w-full bg-transparent outline-none"
+              value={form?.type ?? "found"}
+              onChange={(e) => updateForm("type", e.currentTarget.value)}
+            >
+              {REPORT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+          ),
+        },
+        right: {
+          label: "Gender",
+          value: effectiveData?.gender || "-",
+          editNode: (
+            <select
+              className="w-full bg-transparent outline-none"
+              value={form?.gender ?? "Unknown"}
+              onChange={(e) => updateForm("gender", e.currentTarget.value)}
+            >
+              {GENDER_OPTIONS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          ),
+        },
+      },
+      {
+        id: "petname-agesize",
+        left: {
+          label: "Pet Name",
+          value: effectiveData?.pet_name || "-",
+          editNode: (
+            <input
+              ref={firstEditRef}
+              className="w-full bg-transparent outline-none"
+              value={form?.petName ?? ""}
+              onChange={(e) => updateForm("petName", e.currentTarget.value)}
+              placeholder="e.g., Buddy"
+            />
+          ),
+        },
+        right: {
+          label: "Age/Size",
+          value: effectiveData?.age_size || "-",
+          editNode: (
+            <select
+              className="w-full bg-transparent outline-none"
+              value={form?.ageSize ?? ((form?.species || "Dog") === "Cat" ? "Kitten" : "Puppy")}
+              onChange={(e) => updateForm("ageSize", e.currentTarget.value)}
+            >
+              {getAgeOptions(form?.species).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          ),
+        },
+      },
+      {
+        id: "condition-status",
+        left: {
+          label: "Condition",
+          value: effectiveData?.condition || "-",
+          editNode: (
+            <select
+              className="w-full bg-transparent outline-none"
+              value={form?.condition ?? "Healthy"}
+              onChange={(e) => {
+                const val = e.currentTarget.value;
+                setForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        condition: val,
+                        isAggressive: val === "Aggressive",
+                        isFriendly: val === "Healthy",
+                      }
+                    : prev
+                );
+              }}
+            >
+              {CONDITION_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          ),
+        },
+        right: {
+          label: "Status",
+          value: effectiveData?.status || "-",
+        },
+      },
+      {
+        id: "when-aggressive",
+        left: {
+          label: "When",
+          value: formatWhen(),
+          editNode: (
+            <input
+              type="datetime-local"
+              className="w-full bg-transparent outline-none"
+              value={form?.when ?? ""}
+              onChange={(e) => updateForm("when", e.currentTarget.value)}
+            />
+          ),
+        },
+        right: {
+          label: "Aggressive",
+          value: boolLabel(effectiveData?.is_aggressive),
+          editNode: (
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={!!form?.isAggressive}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          isAggressive: checked,
+                          isFriendly: checked ? false : prev.isFriendly,
+                          condition: checked
+                            ? "Aggressive"
+                            : prev.condition === "Aggressive"
+                            ? "Healthy"
+                            : prev.condition,
+                        }
+                      : prev
+                  );
+                }}
+                style={
+                  form?.isAggressive
+                    ? ({
+                        accentColor: "var(--primary-orange)",
+                      } as CSSProperties)
+                    : undefined
+                }
+              />
+              <span>{form?.isAggressive ? "Marked aggressive" : "No"}</span>
+            </label>
+          ),
+        },
+      },
+      {
+        id: "submitted-friendly",
+        left: {
+          label: "Submitted",
+          value: createdAtDisplay,
+        },
+        right: {
+          label: "Friendly",
+          value: boolLabel(effectiveData?.is_friendly),
+          editNode: (
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={!!form?.isFriendly}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          isFriendly: checked,
+                          isAggressive: checked ? false : prev.isAggressive,
+                          condition: checked ? "Healthy" : prev.condition,
+                        }
+                      : prev
+                  );
+                }}
+                style={
+                  form?.isFriendly
+                    ? ({
+                        accentColor: "var(--primary-mintgreen)",
+                      } as CSSProperties)
+                    : undefined
+                }
+              />
+              <span>{form?.isFriendly ? "Marked friendly" : "No"}</span>
+            </label>
+          ),
+        },
+      },
+      {
+        id: "location-anonymous",
+        left: {
+          label: "Location",
+          value: effectiveData?.location || "-",
+          editNode: (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex-1 bg-transparent outline-none"
+                  value={form?.location ?? ""}
+                  onChange={(e) =>
+                    updateForm("location", e.currentTarget.value)
+                  }
+                  placeholder="Set via pin or type address"
+                />
+                <button
+                  type="button"
+                  className="pill px-3 py-1 text-sm"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  onClick={() => setMapPickerOpen(true)}
+                >
+                  Pin
+                </button>
+              </div>
+              <div className="text-xs ink-subtle">
+                {typeof form?.latitude === "number" &&
+                typeof form?.longitude === "number"
+                  ? `Lat ${form.latitude.toFixed(
+                      4
+                    )}, Lng ${form.longitude.toFixed(4)}`
+                  : "No coordinates selected"}
+              </div>
+            </div>
+          ),
+        },
+        right: {
+          label: "Anonymous",
+          value: boolLabel(effectiveData?.is_anonymous),
+          editNode: (
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={!!form?.isAnonymous}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          isAnonymous: checked,
+                          reporterName: checked ? "" : prev.reporterName,
+                          reporterContact: checked ? "" : prev.reporterContact,
+                        }
+                      : prev
+                  );
+                }}
+              />
+              <span>{form?.isAnonymous ? "Hidden identity" : "Shown"}</span>
+            </label>
+          ),
+        },
+      },
+      {
+        id: "species-reportername",
+        left: {
+          label: "Pet Type",
+          value: effectiveData?.species || "-",
+          editNode: (
+            <select
+              className="w-full bg-transparent outline-none"
+              value={form?.species ?? "Dog"}
+              onChange={(e) => {
+                const next = e.currentTarget.value;
+                setForm((prev) => {
+                  if (!prev) return prev;
+                  let nextAge = prev.ageSize;
+                  if (next === "Dog") {
+                    if (prev.ageSize === "Kitten" || prev.ageSize === "Puppy/Kitten") nextAge = "Puppy";
+                    if (!(getAgeOptions(next) as readonly string[]).includes(nextAge)) nextAge = "Puppy";
+                  } else if (next === "Cat") {
+                    if (prev.ageSize === "Puppy" || prev.ageSize === "Puppy/Kitten") nextAge = "Kitten";
+                    if (!(getAgeOptions(next) as readonly string[]).includes(nextAge)) nextAge = "Kitten";
+                  }
+                  return { ...prev, species: next, ageSize: nextAge };
+                });
+              }}
+            >
+              {form?.species === "Other" ? (
+                <option value="Other" disabled>
+                  Other (legacy)
+                </option>
+              ) : null}
+              {SPECIES_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          ),
+        },
+        right: {
+          label: "Reporter Name",
+          value: effectiveData?.is_anonymous
+            ? "-"
+            : effectiveData?.reporter_name || "-",
+          editNode: (
+            <input
+              className="w-full bg-transparent outline-none"
+              value={form?.reporterName ?? ""}
+              onChange={(e) =>
+                updateForm("reporterName", e.currentTarget.value)
+              }
+              disabled={!!form?.isAnonymous}
+              placeholder="Your name"
+            />
+          ),
+        },
+      },
+      {
+        id: "breed-contact",
+        left: {
+          label: "Breed",
+          value: effectiveData?.breed || "-",
+          editNode: (
+            <input
+              className="w-full bg-transparent outline-none"
+              value={form?.breed ?? ""}
+              onChange={(e) => updateForm("breed", e.currentTarget.value)}
+              placeholder="e.g., Aspin"
+            />
+          ),
+        },
+        right: {
+          label: "Contact",
+          value: effectiveData?.is_anonymous
+            ? "-"
+            : effectiveData?.reporter_contact || "-",
+          editNode: (
+            <input
+              className="w-full bg-transparent outline-none"
+              value={form?.reporterContact ?? ""}
+              onChange={(e) =>
+                updateForm("reporterContact", e.currentTarget.value)
+              }
+              disabled={!!form?.isAnonymous}
+              placeholder="Phone or email"
+            />
+          ),
+        },
+      },
+      {
+        id: "report-id",
+        left: null,
+        right: {
+          label: "Report ID",
+          value: effectiveData?.id || "-",
+        },
+      },
+    ],
+    [effectiveData, form]
+  );
+
+  const contactDisplay = editingReady
+    ? form?.isAnonymous
+      ? null
+      : form?.reporterContact?.trim() || null
+    : effectiveData?.is_anonymous
+    ? null
+    : effectiveData?.reporter_contact || null;
   // viewer state declared above so effects can reference it safely
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-full rounded-2xl shadow-soft surface">
+  const modal = open
+    ? createPortal(
         <div
-          className="flex items-center justify-between border-b p-5"
-          style={{ borderColor: "var(--border-color)" }}
+          className="fixed inset-0 z-[70] grid place-items-center p-4"
+          role="dialog"
+          aria-modal="true"
         >
-          <div>
-            <h3 className="text-lg font-semibold ink-heading">
-              {(effectiveData?.pet_name ? `${effectiveData.pet_name} — ` : "") +
-                (effectiveData?.type?.toUpperCase() || "")}
-            </h3>
-            <p className="text-sm ink-muted">{effectiveData?.location || ""}</p>
-          </div>
-          <button
-            className="pill px-3 py-1"
-            style={{ border: "1px solid var(--border-color)" }}
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="p-5 grid gap-5 md:grid-cols-3">
-          <div className="md:col-span-1">
-            {effectiveLoading ? (
-              <div className="ink-muted text-sm">Loading details…</div>
-            ) : effectiveError ? (
-              <div className="ink-muted text-sm">{effectiveError}</div>
-            ) : effectiveData?.mainUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={effectiveData.mainUrl}
-                alt="report"
-                className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewer({
-                    urls: [effectiveData.mainUrl as string],
-                    index: 0,
-                  });
-                }}
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              <div
-                className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
-                style={{ background: "var(--card-bg)" }}
-              >
-                🐾
+          <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+          <div className="relative w-full h-full max-w-[50vw] max-h-[90vh] rounded-2xl shadow-soft surface overflow-hidden flex flex-col">
+            <div
+              className="flex items-center justify-between border-b p-5 flex-none"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <div>
+                <h3 className="text-lg font-semibold ink-heading">
+                  {(effectiveData?.pet_name
+                    ? `${effectiveData.pet_name} — `
+                    : "") + (effectiveData?.type?.toUpperCase() || "")}
+                </h3>
+                <p className="text-sm ink-muted">
+                  {effectiveData?.location || ""}
+                </p>
               </div>
-            )}
-
-            {lmCount > 0 && (
-              <div className="relative mt-3 h-32 w-full max-w-[180px]">
-                {currentLm && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentLm}
-                    alt={`landmark ${Math.min(
-                      lmIndex + 1,
-                      lmCount
-                    )} of ${lmCount}`}
-                    className="h-full w-full object-cover rounded-xl cursor-zoom-in"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewer({
-                        urls: displayLandmarks,
-                        index: Math.min(lmIndex, lmCount - 1),
-                      });
-                    }}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                )}
-                {lmCount > 1 && (
+              <div className="flex items-center gap-2">
+                {editing ? (
                   <>
                     <button
                       type="button"
-                      aria-label="Previous landmark"
-                      className="absolute left-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
+                      className="pill px-3 py-1"
                       style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
+                        backgroundColor: "var(--primary-mintgreen)",
+                        color: "var(--white)",
                       }}
-                      onClick={() =>
-                        setLmIndex((i) => (i - 1 + lmCount) % lmCount)
-                      }
-                    >
-                      <ChevronLeft />
-                    </button>
+                      onClick={handleSave}
+                      disabled={saving}
+                        >
+                          Save
+                        </button>
+                        {saving ? (
+                          <span className="text-xs ink-subtle ml-1" aria-live="polite">
+                            Saving...
+                          </span>
+                        ) : null}
                     <button
                       type="button"
-                      aria-label="Next landmark"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                      onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
+                      className="pill px-3 py-1"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      onClick={cancelEdit}
+                      disabled={saving}
                     >
-                      <ChevronRight />
+                      Cancel
                     </button>
                   </>
+                ) : (
+                  <button
+                    type="button"
+                    className="pill px-3 py-1"
+                    style={{
+                      backgroundColor: "var(--primary-mintgreen)",
+                      color: "var(--white)",
+                    }}
+                    onClick={beginEdit}
+                    disabled={!effectiveData || effectiveLoading}
+                  >
+                    Edit
+                  </button>
                 )}
-                <div
-                  className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
-                  style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                <button
+                  className="pill px-3 py-1"
+                  style={{ border: "1px solid var(--border-color)" }}
+                  onClick={onClose}
+                  disabled={saving}
                 >
-                  {Math.min(lmIndex + 1, lmCount)}/{lmCount}
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 gap-5">
+                <div className="flex flex-col gap-3">
+                  {effectiveLoading ? (
+                    <div className="ink-muted text-sm">Loading details…</div>
+                  ) : effectiveError ? (
+                    <div className="ink-muted text-sm">{effectiveError}</div>
+                  ) : lmCount > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div
+                        className="relative w-full rounded-xl overflow-hidden"
+                        style={{ aspectRatio: "4 / 3" }}
+                      >
+                        {/* main photo */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {effectiveData?.mainUrl ? (
+                          <img
+                            src={effectiveData.mainUrl}
+                            alt="report"
+                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewer({
+                                urls: [effectiveData.mainUrl as string],
+                                index: 0,
+                              });
+                            }}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div
+                            className="absolute inset-0 grid place-content-center text-4xl"
+                            style={{ background: "var(--card-bg)" }}
+                          >
+                            🐾
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="relative w-full rounded-xl overflow-hidden"
+                        style={{ aspectRatio: "4 / 3" }}
+                      >
+                        {/* landmark carousel */}
+                        {currentLm && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={currentLm}
+                            alt={`landmark ${Math.min(
+                              lmIndex + 1,
+                              lmCount
+                            )} of ${lmCount}`}
+                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewer({
+                                urls: displayLandmarks,
+                                index: Math.min(lmIndex, lmCount - 1),
+                              });
+                            }}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        )}
+                        {lmCount > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              aria-label="Previous landmark"
+                              className="absolute left-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
+                              style={{
+                                background: "var(--white)",
+                                border: "1px solid var(--border-color)",
+                              }}
+                              onClick={() =>
+                                setLmIndex((i) => (i - 1 + lmCount) % lmCount)
+                              }
+                            >
+                              <ChevronLeft />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Next landmark"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
+                              style={{
+                                background: "var(--white)",
+                                border: "1px solid var(--border-color)",
+                              }}
+                              onClick={() =>
+                                setLmIndex((i) => (i + 1) % lmCount)
+                              }
+                            >
+                              <ChevronRight />
+                            </button>
+                          </>
+                        )}
+                        <div
+                          className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+                          style={{
+                            background: "rgba(0,0,0,0.5)",
+                            color: "#fff",
+                          }}
+                        >
+                          {Math.min(lmIndex + 1, lmCount)}/{lmCount}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* main photo only */}
+                      <div
+                        className="relative w-full rounded-xl overflow-hidden"
+                        style={{ aspectRatio: "4 / 3" }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {effectiveData?.mainUrl ? (
+                          <img
+                            src={effectiveData.mainUrl}
+                            alt="report"
+                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewer({
+                                urls: [effectiveData.mainUrl as string],
+                                index: 0,
+                              });
+                            }}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div
+                            className="absolute inset-0 grid place-content-center text-4xl"
+                            style={{ background: "var(--card-bg)" }}
+                          >
+                            🐾
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="grid gap-3">
+                  {/* Report metadata */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
+                    <DetailField
+                      label="Report ID"
+                      value={effectiveData?.custom_id ?? "-"}
+                    />
+                    <DetailField label="Submitted" value={formatWhen()} />
+                  </div>
+                  {editing && actionError ? (
+                    <div
+                      className="text-sm"
+                      style={{ color: "var(--primary-orange)" }}
+                    >
+                      {actionError}
+                    </div>
+                  ) : null}
+                  {detailRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0"
+                    >
+                      {row.left ? (
+                        <DetailField
+                          label={row.left.label}
+                          value={row.left.value}
+                          editNode={row.left.editNode}
+                          editable={editing}
+                        />
+                      ) : (
+                        <div className="hidden md:block" />
+                      )}
+                      {row.right ? (
+                        <DetailField
+                          label={row.right.label}
+                          value={row.right.value}
+                          editNode={row.right.editNode}
+                          editable={editing}
+                        />
+                      ) : (
+                        <div className="hidden md:block" />
+                      )}
+                    </div>
+                  ))}
+
+                  <div>
+                  <div className="ink-subtle text-sm mb-1">Features</div>
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 text-sm ink-heading break-words" onMouseDown={(e) => e.stopPropagation()}>
+                      {editingReady ? (
+                        <input
+                          className="w-full bg-transparent outline-none"
+                          value={form?.features ?? ""}
+                          onChange={(e) =>
+                            updateForm("features", e.currentTarget.value)
+                          }
+                          placeholder="Distinct markings, collar, etc."
+                        />
+                      ) : (
+                        effectiveData?.features || "-"
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                  <div className="ink-subtle text-sm mb-1">Description</div>
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 text-sm ink-heading break-words" onMouseDown={(e) => e.stopPropagation()}>
+                      {editingReady ? (
+                        <textarea
+                          rows={4}
+                          className="w-full bg-transparent outline-none resize-none"
+                          value={form?.description ?? ""}
+                          onChange={(e) =>
+                            updateForm("description", e.currentTarget.value)
+                          }
+                          placeholder="Behavior, situation, extra notes…"
+                        />
+                      ) : (
+                        effectiveData?.description || "-"
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {mapLink ? (
+                      <a
+                        href={mapLink}
+                        className="btn btn-accent px-3 py-1.5"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        View in Maps
+                      </a>
+                    ) : null}
+                    {contactDisplay ? (
+                      <span
+                        className="pill px-3 py-1 text-xs"
+                        style={{ border: "1px solid var(--border-color)" }}
+                      >
+                        Contact: {contactDisplay}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="md:col-span-2 grid gap-3">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <div className="ink-subtle">Type</div>
-              <div className="ink-heading capitalize">
-                {effectiveData?.type || "-"}
-              </div>
-              <div className="ink-subtle">Pet Name</div>
-              <div className="ink-heading">
-                {effectiveData?.pet_name || "-"}
-              </div>
-              <div className="ink-subtle">Condition</div>
-              <div className="ink-heading">
-                {effectiveData?.condition || "-"}
-              </div>
-              <div className="ink-subtle">When</div>
-              <div className="ink-heading">{formatWhen()}</div>
-              <div className="ink-subtle">Submitted</div>
-              <div className="ink-heading">
-                {(() => {
-                  const d = effectiveData?.created_at;
-                  if (!d) return "-";
-                  try {
-                    return new Date(d).toLocaleString();
-                  } catch {
-                    return d;
-                  }
-                })()}
-              </div>
-              <div className="ink-subtle">Location</div>
-              <div className="ink-heading">
-                {effectiveData?.location || "-"}
-              </div>
-              <div className="ink-subtle">Species</div>
-              <div className="ink-heading">{effectiveData?.species || "-"}</div>
-              <div className="ink-subtle">Breed</div>
-              <div className="ink-heading">{effectiveData?.breed || "-"}</div>
-              <div className="ink-subtle">Gender</div>
-              <div className="ink-heading">{effectiveData?.gender || "-"}</div>
-              <div className="ink-subtle">Age/Size</div>
-              <div className="ink-heading">
-                {effectiveData?.age_size || "-"}
-              </div>
-              <div className="ink-subtle">Status</div>
-              <div className="ink-heading">{effectiveData?.status || "-"}</div>
-              <div className="ink-subtle">Aggressive</div>
-              <div className="ink-heading">
-                {typeof effectiveData?.is_aggressive === "boolean"
-                  ? effectiveData?.is_aggressive
-                    ? "Yes"
-                    : "No"
-                  : "-"}
-              </div>
-              <div className="ink-subtle">Friendly</div>
-              <div className="ink-heading">
-                {typeof effectiveData?.is_friendly === "boolean"
-                  ? effectiveData?.is_friendly
-                    ? "Yes"
-                    : "No"
-                  : "-"}
-              </div>
-              <div className="ink-subtle">Anonymous</div>
-              <div className="ink-heading">
-                {typeof effectiveData?.is_anonymous === "boolean"
-                  ? effectiveData?.is_anonymous
-                    ? "Yes"
-                    : "No"
-                  : "-"}
-              </div>
-              <div className="ink-subtle">Reporter Name</div>
-              <div className="ink-heading">
-                {effectiveData?.is_anonymous
-                  ? "-"
-                  : effectiveData?.reporter_name || "-"}
-              </div>
-              <div className="ink-subtle">Contact</div>
-              <div className="ink-heading">
-                {effectiveData?.is_anonymous
-                  ? "-"
-                  : effectiveData?.reporter_contact || "-"}
-              </div>
-              <div className="ink-subtle">ID</div>
-              <div className="ink-heading">{effectiveData?.id || "-"}</div>
-            </div>
-
-            <div>
-              <div className="ink-subtle text-sm mb-1">Features</div>
-              <div className="ink-heading text-sm break-words">
-                {effectiveData?.features || "-"}
-              </div>
-            </div>
-
-            <div>
-              <div className="ink-subtle text-sm mb-1">Description</div>
-              <div className="ink-heading text-sm break-words">
-                {effectiveData?.description || "-"}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-2">
-              {mapLink ? (
-                <a
-                  href={mapLink}
-                  className="btn btn-accent px-3 py-1.5"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  View in Maps
-                </a>
-              ) : null}
-              {effectiveData &&
-              effectiveData.is_anonymous ? null : effectiveData?.reporter_contact ? (
-                <span
-                  className="pill px-3 py-1 text-xs"
-                  style={{ border: "1px solid var(--border-color)" }}
-                >
-                  Contact: {effectiveData.reporter_contact}
-                </span>
-              ) : null}
             </div>
           </div>
-        </div>
-      </div>
-      {viewer && (
-        <div
-          className="fixed inset-0 z-[80]"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setViewer(null)}
-        >
-          <div className="absolute inset-0 bg-black/80" />
-          <button
-            type="button"
-            className="absolute left-4 top-4 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out flex items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setViewer(null);
-            }}
-          >
-            <ChevronLeft />
-            Back
-          </button>
-          {viewer.urls.length > 1 && (
-            <>
+          {viewer && (
+            <div
+              className="fixed inset-0 z-[80]"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => setViewer(null)}
+            >
+              <div className="absolute inset-0 bg-black/80" />
               <button
                 type="button"
-                aria-label="Previous image"
-                className="absolute left-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+                className="absolute left-4 top-4 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out flex items-center gap-2"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setViewer((v) =>
-                    v
-                      ? {
-                          ...v,
-                          index: (v.index - 1 + v.urls.length) % v.urls.length,
-                        }
-                      : v
-                  );
+                  setViewer(null);
                 }}
               >
                 <ChevronLeft />
+                Back
               </button>
-              <button
-                type="button"
-                aria-label="Next image"
-                className="absolute right-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewer((v) =>
-                    v ? { ...v, index: (v.index + 1) % v.urls.length } : v
-                  );
-                }}
-              >
-                <ChevronRight />
-              </button>
-            </>
+              {viewer.urls.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous image"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewer((v) =>
+                        v
+                          ? {
+                              ...v,
+                              index:
+                                (v.index - 1 + v.urls.length) % v.urls.length,
+                            }
+                          : v
+                      );
+                    }}
+                  >
+                    <ChevronLeft />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next image"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewer((v) =>
+                        v ? { ...v, index: (v.index + 1) % v.urls.length } : v
+                      );
+                    }}
+                  >
+                    <ChevronRight />
+                  </button>
+                </>
+              )}
+              <div className="relative z-[81] grid place-items-center w-full h-full p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]
+                  }
+                  alt="Full size"
+                  className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
           )}
-          <div className="relative z-[81] grid place-items-center w-full h-full p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
-              alt="Full size"
-              className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
-    </div>,
-    typeof document !== "undefined"
-      ? document.body
-      : (globalThis as any).document?.body
+        </div>,
+        typeof document !== "undefined"
+          ? document.body
+          : (globalThis as any).document?.body
+      )
+    : null;
+
+  return (
+    <>
+      {modal}
+      <MapPickerModal
+        open={Boolean(mapPickerOpen && editing)}
+        onClose={() => setMapPickerOpen(false)}
+        onSelect={handleMapSelect}
+      />
+    </>
   );
 }

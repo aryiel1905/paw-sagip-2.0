@@ -101,7 +101,9 @@ export async function POST(request: Request) {
 
   const anonymous = !!payload.isAnonymous;
 
-  const { error } = await supabase.from("reports").insert([
+  const { data: inserted, error } = await supabase
+    .from("reports")
+    .insert([
     {
       report_type: reportType,
       description: payload.description ?? null,
@@ -133,11 +135,14 @@ export async function POST(request: Request) {
       is_friendly: payload.isFriendly ?? null,
       is_anonymous: payload.isAnonymous ?? null,
     },
-  ]);
+  ])
+    // Return id + custom_id so client can surface it immediately
+    .select("id, custom_id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, id: inserted?.id, customId: (inserted as any)?.custom_id ?? null });
 }

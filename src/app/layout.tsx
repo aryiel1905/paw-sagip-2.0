@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
         {/* Preload background images so the composed tile appears without flash */}
         <link rel="preload" as="image" href="/HeaderBackground.png" />

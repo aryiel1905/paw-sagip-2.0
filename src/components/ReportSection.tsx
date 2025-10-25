@@ -492,11 +492,12 @@ export function ReportSection({
       <div className="mx-auto max-w-screen-2xl">
         <form className="mt-5 space-y-3" onSubmit={quickSubmit}>
           {/* Mobile layout */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
-            {/* Photos */}
+          <div className="md:hidden">
+            <div className="rounded-[24px] bg-white shadow-soft p-4 space-y-4">
+              {/* Photos */}
             <div>
               <label
-                className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                className="mt-2 relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-photo-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -568,7 +569,7 @@ export function ReportSection({
             {/* Landmark Photos (multiple) */}
             <div>
               <label
-                className="mt-1 relative group flex flex-col aspect-[4/3] w-full max-w-[360px] cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                className="mt-1 relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-landmarks-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
@@ -784,8 +785,9 @@ export function ReportSection({
               )}
             </div>
           </div>
+        </div>
 
-          {/* Desktop: centered photo placeholders above columns */}
+        {/* Desktop: centered photo placeholders above columns */}
 
           {/* Desktop layout (new 3-column design) */}
           <div className="hidden md:grid grid-cols-13 gap-6 mb-4 ">

@@ -1,7 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import {
   PawPrint,
   Menu,
@@ -12,6 +10,8 @@ import {
   FileEdit,
   HeartHandshake,
 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const NAV_LINKS = [
@@ -21,42 +21,71 @@ const NAV_LINKS = [
   { href: "#adoption", label: "Adoption", icon: HeartHandshake },
 ];
 
+const NAV_PENDING_HASH_KEY = "nav:pendingHash";
+
 export function Navbar({
   onNavigate,
 }: {
   onNavigate?: (target: string) => void;
 }) {
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [activeHash, setActiveHash] = useState<string | null>(null);
+  const lastNavRef = useRef(0);
+  const deferObserverUntil = useRef(0); // pause IO + hash sync until timestamp
   const router = useRouter();
   const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
+
+  const scrollToSection = (hash: string) => {
+    const id = hash.replace(/^#/, "");
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
 
   const handleNavigate = useCallback(
     (target: string) => {
       setIsMenuOpen(false);
       onNavigate?.(target);
-      if (target.startsWith("#")) {
-        setActiveHash(target);
-      } else {
-        setActiveHash(null);
-      }
+
       if (target.startsWith("/")) {
+        setActiveHash(null);
         router.push(target);
         return;
       }
-      const section = target.startsWith("#") ? target.slice(1) : target;
-      if (pathname !== "/") {
-        router.push(`/?goto=${encodeURIComponent(section)}`);
+
+      if (target.startsWith("#")) {
+        const section = target.slice(1);
+        lastNavRef.current = performance.now();
+        setActiveHash(target);
+
+        if (pathname !== "/") {
+          // Pause scroll spy, then route to home without auto scroll.
+          deferObserverUntil.current = performance.now() + 1200;
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem(NAV_PENDING_HASH_KEY, `#${section}`);
+          }
+          router.push(`/#${section}`, { scroll: false });
+          return;
+        }
+
+        // Same-page smooth scroll
+        if (typeof window !== "undefined") {
+          if (window.location.hash !== target)
+            history.pushState(null, "", target);
+          scrollToSection(target);
+        }
         return;
-      }
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("app:navigate", { detail: { target } })
-        );
       }
     },
     [onNavigate, pathname, router]
@@ -79,14 +108,17 @@ export function Navbar({
       supabase.auth.getUser().then(({ data }) => {
         setIsLoggedIn(!!data.user);
         setUserEmail(data.user?.email ?? null);
-        const fullName = (data.user?.user_metadata?.full_name as string | undefined) ?? null;
+        const fullName =
+          (data.user?.user_metadata?.full_name as string | undefined) ?? null;
         setUserName(fullName);
         setIsReady(true);
       });
       const { data } = supabase.auth.onAuthStateChange((_e, session) => {
         setIsLoggedIn(!!session?.user);
         setUserEmail(session?.user?.email ?? null);
-        const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+        const fullName =
+          (session?.user?.user_metadata?.full_name as string | undefined) ??
+          null;
         setUserName(fullName);
       });
       unsub = () => {
@@ -102,6 +134,19 @@ export function Navbar({
     };
   }, []);
 
+  // Disable automatic scroll restoration on home (prevents jumping back to top)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pathname !== "/") return;
+    const prev = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    return () => {
+      try {
+        history.scrollRestoration = prev;
+      } catch {}
+    };
+  }, [pathname]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (pathname !== "/") {
@@ -109,10 +154,27 @@ export function Navbar({
       return;
     }
     const updateFromHash = () => {
+      // Ignore hash updates while we're deferring
+      if (performance.now() < deferObserverUntil.current) return;
       const hash = window.location.hash || "#home";
       setActiveHash(hash);
     };
-    updateFromHash();
+    const initialHash = window.location.hash;
+    const pending = sessionStorage.getItem(NAV_PENDING_HASH_KEY);
+    if (pending) {
+      sessionStorage.removeItem(NAV_PENDING_HASH_KEY);
+      setActiveHash(pending);
+      deferObserverUntil.current = performance.now() + 1200;
+      if (window.location.hash !== pending)
+        history.replaceState(null, "", pending);
+      scrollToSection(pending);
+    } else if (initialHash) {
+      setActiveHash(initialHash);
+      // Optional: ensure smooth scroll on first load with hash
+      scrollToSection(initialHash);
+    } else {
+      updateFromHash();
+    }
     const onHashChange = () => updateFromHash();
     const onAppNavigate = (event: Event) => {
       const detail = (event as CustomEvent<{ target?: string }>).detail;
@@ -122,25 +184,74 @@ export function Navbar({
     window.addEventListener("app:navigate", onAppNavigate as EventListener);
     return () => {
       window.removeEventListener("hashchange", onHashChange);
-      window.removeEventListener("app:navigate", onAppNavigate as EventListener);
+      window.removeEventListener(
+        "app:navigate",
+        onAppNavigate as EventListener
+      );
     };
   }, [pathname]);
+
+  // Follow scroll: highlight section (don’t run while deferred)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pathname !== "/") return;
+    const sectionIds = NAV_LINKS.filter((l) => l.href.startsWith("#")).map(
+      (l) => l.href.slice(1)
+    );
+    const elements = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
+    if (!elements.length) return;
+
+    const ratios = new Map<Element, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (performance.now() < deferObserverUntil.current) return;
+        entries.forEach((e) => ratios.set(e.target, e.intersectionRatio));
+        if (performance.now() - lastNavRef.current < 600) return;
+        const best = Array.from(ratios.entries())
+          .filter(([, r]) => r > 0)
+          .sort((a, b) => b[1] - a[1])[0];
+        if (!best) return;
+        const id = (best[0] as HTMLElement).id;
+        const hash = `#${id}`;
+        if (activeHash !== hash) {
+          setActiveHash(hash);
+          if (window.location.hash !== hash) {
+            history.replaceState(null, "", hash);
+          }
+        }
+      },
+      {
+        root: null,
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+        rootMargin: "-25% 0px -55% 0px",
+      }
+    );
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [pathname, activeHash]);
 
   // Note: Logout actions are handled within the Account pages.
 
   return (
-    <header className="sticky top-0 z-50">
+    <header ref={headerRef} className="sticky top-0 z-50 surface">
       <div
         className="bg-[#ffffff]"
         style={{ borderColor: "var(--border-color)" }}
       >
         <div className="relative mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
           {/* Logo */}
-          <button
+          <a
             className="flex shrink-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
             style={{ outlineColor: "var(--primary-mintgreen)" }}
-            onClick={() => handleNavigate("#home")}
-            type="button"
+            href={pathname === "/" ? "#home" : "/#home"}
+            onClick={(e) => {
+              if (pathname === "/") {
+                e.preventDefault();
+                handleNavigate("#home");
+              }
+            }}
           >
             <div
               className="rounded-xl p-2 shadow-soft"
@@ -152,11 +263,11 @@ export function Navbar({
               <p className="text-xl font-extrabold tracking-tight">PawSagip</p>
               <p className="text-xs ink-subtle">Community Pet Rescue</p>
             </div>
-          </button>
+          </a>
 
           {/* Nav links */}
           <nav
-            className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-2"
+            className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-2 pointer-events-none"
             aria-label="Primary"
           >
             {(isReady ? NAV_LINKS : NAV_LINKS).map((link) => {
@@ -165,59 +276,55 @@ export function Navbar({
               const isActive = isSection
                 ? activeHash === link.href
                 : pathname === link.href;
+              const href = pathname === "/" ? link.href : `/${link.href}`;
               return (
-                <button
+                <a
                   key={link.href}
-                  className={`h-10 pill px-4 py-2 text-[40vm] font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${isActive ? "bg-[var(--primary-mintgreen)] text-white" : "hover:bg-[var(--card-bg)]"}`}
+                  className={`h-10 pill px-4 py-2 text-[40vm] font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 pointer-events-auto ${
+                    isActive
+                      ? "bg-[var(--primary-mintgreen)] text-white"
+                      : "hover:bg-[var(--card-bg)]"
+                  }`}
                   style={{ outlineColor: "var(--primary-green)" }}
-                  onClick={() => handleNavigate(link.href)}
-                  type="button"
+                  href={href}
+                  onClick={(e) => {
+                    e.preventDefault(); // always intercept for SPA behavior
+                    handleNavigate(link.href);
+                  }}
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {link.label}
-                </button>
+                </a>
               );
             })}
           </nav>
 
           <div className="hidden md:flex flex-1" aria-hidden="true" />
 
-          {/* Right group: Sign in only (search hidden) */}
-          <div className="hidden shrink-0 md:flex items-center gap-2">
+          {/* Right group */}
+          <div className="hidden shrink-0 md:flex items-center gap-2 relative z-10">
             {isReady && isLoggedIn ? (
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-full"
-                style={{
-                  backgroundColor: "var(--card-bg)",
-                }}
-              >
-                <UserRound
-                  className="h-5 w-5 text-[var(--primary-orange)]"
-                  aria-hidden="true"
-                />
-              </div>
-            ) : null}
-            {isReady && isLoggedIn ? (
-              <button
-                className="pill px-3 py-2 text-sm"
-                style={{
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--primary-orange)",
-                  color: "var(--white)",
-                }}
-                onClick={() => handleNavigate("/account")}
-                type="button"
-              >
-                {userName?.trim() || userEmail || "Account"}
-              </button>
+              (() => {
+                const isAccountActive = pathname?.startsWith("/account");
+                return (
+                  <button
+                    className={`pill px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                      isAccountActive
+                        ? "bg-[var(--primary-orange)] text-white"
+                        : "bg-white text-[var(--primary-orange)] hover:bg-[var(--primary-orange)] hover:text-white"
+                    } border border-[var(--primary-orange)]`}
+                    onClick={() => handleNavigate("/account")}
+                    type="button"
+                    aria-current={isAccountActive ? "page" : undefined}
+                  >
+                    <UserRound className="h-5 w-5" aria-hidden="true" />
+                    <span>{userName?.trim() || userEmail || "Account"}</span>
+                  </button>
+                );
+              })()
             ) : (
               <button
-                className="pill px-3 py-2 text-sm"
-                style={{
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--primary-orange)",
-                  color: "var(--white)",
-                }}
+                className="pill px-3 py-2 text-sm border border-[var(--border-color)] bg-[var(--primary-orange)] text-white"
                 onClick={() => {
                   try {
                     if (typeof window !== "undefined") {
@@ -267,44 +374,53 @@ export function Navbar({
               const isActive = isSection
                 ? activeHash === link.href
                 : pathname === link.href;
+              const href = pathname === "/" ? link.href : `/${link.href}`;
               return (
-                <button
+                <a
                   key={link.href}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${isActive ? "bg-[var(--primary-mintgreen)] text-white" : "hover:bg-[var(--card-bg)]"}`}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                    isActive
+                      ? "bg-[var(--primary-mintgreen)] text-white"
+                      : "hover:bg-[var(--card-bg)]"
+                  }`}
                   style={{ outlineColor: "var(--primary-green)" }}
-                  onClick={() => handleNavigate(link.href)}
-                  type="button"
+                  href={href}
+                  onClick={(e) => {
+                    e.preventDefault(); // SPA behavior on all routes
+                    handleNavigate(link.href);
+                  }}
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {link.label}
-                </button>
+                </a>
               );
             })}
             <div className="mt-2 flex items-center gap-2">
               {isReady && isLoggedIn ? (
-                <button
-                  className="flex-1 rounded-xl px-4 py-3 text-sm"
-                  style={{
-                    border: "1px solid var(--border-color)",
-                    backgroundColor: "var(--primary-orange)",
-                    color: "#fff",
-                  }}
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleNavigate("/account");
-                  }}
-                  type="button"
-                >
-                  {userName?.trim() || userEmail || "Account"}
-                </button>
+                (() => {
+                  const isAccountActive = pathname?.startsWith("/account");
+                  return (
+                    <button
+                      className={`flex-1 rounded-xl px-4 py-3 text-sm flex items-center gap-2 transition-colors ${
+                        isAccountActive
+                          ? "bg-[var(--primary-orange)] text-white"
+                          : "bg-white text-[var(--primary-orange)] hover:bg-[var(--primary-orange)] hover:text-white"
+                      } border border-[var(--primary-orange)]`}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        handleNavigate("/account");
+                      }}
+                      type="button"
+                      aria-current={isAccountActive ? "page" : undefined}
+                    >
+                      <UserRound className="h-5 w-5" aria-hidden="true" />
+                      <span>{userName?.trim() || userEmail || "Account"}</span>
+                    </button>
+                  );
+                })()
               ) : (
                 <button
-                  className="flex-1 rounded-xl px-4 py-3 text-sm"
-                  style={{
-                    border: "1px solid var(--border-color)",
-                    backgroundColor: "var(--primary-orange)",
-                    color: "#fff",
-                  }}
+                  className="flex-1 rounded-xl px-4 py-3 text-sm border border-[var(--border-color)] bg-[var(--primary-orange)] text-white"
                   onClick={() => {
                     setIsMenuOpen(false);
                     try {

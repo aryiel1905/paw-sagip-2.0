@@ -45,7 +45,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
               </div>
             </div>
             <div className="px-6  flex-1 flex flex-col">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
                 {adoptionResults.slice(0, 9).map((pet) => (
                   <Link
                     key={pet.id}
@@ -88,7 +88,6 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                     </div>
                   </Link>
                 ))}
-
                 {/* Fillers if fewer than 9 */}
                 {Array.from({
                   length: Math.max(0, 9 - Math.min(9, adoptionResults.length)),
@@ -111,7 +110,6 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                     </div>
                   </div>
                 ))}
-
                 {/* More tile */}
                 <Link
                   href="/adopt"
