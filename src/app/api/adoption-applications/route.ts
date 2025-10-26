@@ -70,9 +70,17 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServerSupabaseClient();
+  let userId: string | null = null;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  } catch {}
 
   // Attempt to persist; if the table doesn't exist yet, return a graceful response.
   const insertRow = {
+    user_id: userId,
     pet_id: payload.petId,
     applicant_name:
       (payload.applicantName ??
@@ -133,7 +141,25 @@ export async function POST(request: Request) {
     .insert([insertRow]);
 
   if (error) {
-    // Return 202 so UI can proceed while we finalize schema later.
+    const missingUserId = error.message?.includes?.("user_id");
+    if (missingUserId) {
+      const fallbackRow = { ...insertRow } as Record<string, unknown>;
+      delete fallbackRow.user_id;
+      const { error: retryError } = await supabase
+        .from("adoption_applications")
+        .insert([fallbackRow]);
+      if (!retryError) {
+        return NextResponse.json({ success: true, note: "Saved without user link" });
+      }
+      return NextResponse.json(
+        {
+          success: true,
+          note: "Saved later (table not ready)",
+          detail: retryError.message,
+        },
+        { status: 202 }
+      );
+    }
     return NextResponse.json(
       {
         success: true,

@@ -15,6 +15,7 @@ export type SimpleApplication = {
 type Props = {
   items: SimpleApplication[];
   loading?: boolean;
+  onView?: (id: string) => void;
 };
 
 function dateShort(d: string | null) {
@@ -30,7 +31,7 @@ function dateShort(d: string | null) {
   }
 }
 
-export default function ApplicationsList({ items, loading }: Props) {
+export default function ApplicationsList({ items, loading, onView }: Props) {
   return (
     <section className="surface rounded-2xl shadow-soft p-5">
       <h2 className="font-semibold ink-heading mb-3">Adoption Applications</h2>
@@ -82,9 +83,19 @@ export default function ApplicationsList({ items, loading }: Props) {
               </div>
 
               <div className="mt-4 flex gap-2">
-                <a className="btn px-3 py-2 border" href={a.petId ? `/adopt/${a.petId}` : "#"}>
-                  View
-                </a>
+                {onView ? (
+                  <button
+                    type="button"
+                    className="btn px-3 py-2 border"
+                    onClick={() => onView(a.id)}
+                  >
+                    View
+                  </button>
+                ) : (
+                  <a className="btn px-3 py-2 border" href={a.petId ? `/adopt/${a.petId}` : "#"}>
+                    View
+                  </a>
+                )}
                 <a
                   className={`btn btn-primary px-3 py-2 ${a.shelterEmail ? "" : "opacity-50 pointer-events-none"}`}
                   href={a.shelterEmail ? `mailto:${a.shelterEmail}` : "#"}
@@ -99,4 +110,3 @@ export default function ApplicationsList({ items, loading }: Props) {
     </section>
   );
 }
-

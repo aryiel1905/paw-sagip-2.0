@@ -384,11 +384,14 @@ export default function ReportViewModal({
         editNode?: ReactNode;
         editable?: boolean;
       }) {
+        const highlightClass = editable
+          ? "border-neutral-700 bg-white"
+          : "border-[var(--border-color)] bg-[var(--card-bg)]";
         return (
           <div className="flex flex-col gap-1 text-sm min-w-0">
             <div className="ink-subtle flex items-center h-6">{label}</div>
             <div
-              className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 font-medium text-sm ink-heading break-words w-full min-w-0"
+              className={`rounded-lg border px-3 py-2 font-medium text-sm ink-heading break-words w-full min-w-0 transition-colors duration-150 ${highlightClass}`}
               onMouseDown={editable ? (e) => e.stopPropagation() : undefined}
             >
               {editable && editNode ? editNode : value ?? "-"}
@@ -1051,7 +1054,14 @@ export default function ReportViewModal({
 
                   <div>
                   <div className="ink-subtle text-sm mb-1">Features</div>
-                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 text-sm ink-heading break-words" onMouseDown={(e) => e.stopPropagation()}>
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
+                      editingReady
+                        ? "border-neutral-700 bg-white"
+                        : "border-[var(--border-color)] bg-[var(--card-bg)]"
+                    }`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
                       {editingReady ? (
                         <input
                           className="w-full bg-transparent outline-none"
@@ -1069,7 +1079,14 @@ export default function ReportViewModal({
 
                   <div>
                   <div className="ink-subtle text-sm mb-1">Description</div>
-                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] px-3 py-2 text-sm ink-heading break-words" onMouseDown={(e) => e.stopPropagation()}>
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
+                      editingReady
+                        ? "border-neutral-700 bg-white"
+                        : "border-[var(--border-color)] bg-[var(--card-bg)]"
+                    }`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
                       {editingReady ? (
                         <textarea
                           rows={4}

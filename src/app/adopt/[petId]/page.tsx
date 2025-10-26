@@ -39,6 +39,8 @@ export default function AdoptionApplicationPage() {
   // Wizard state (0=preface, 1=form, 2=questionnaire, 3=photos)
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [ackInfo, setAckInfo] = useState(false);
+  const [showApplicantErrors, setShowApplicantErrors] = useState(false);
+  const [showQuestionnaireErrors, setShowQuestionnaireErrors] = useState(false);
 
   // Form state (collected in Step 1)
   const [email, setEmail] = useState("");
@@ -63,13 +65,7 @@ export default function AdoptionApplicationPage() {
   const [promptedBy, setPromptedBy] = useState<string[]>([]);
 
   // Questionnaire state (Step 2)
-  const [adoptWhat, setAdoptWhat] = useState<
-    "cat" | "dog" | "both" | "not_decided" | ""
-  >("");
-  const [specificShelterAnimal, setSpecificShelterAnimal] = useState<
-    boolean | null
-  >(null);
-  const [idealPet, setIdealPet] = useState("");
+  const [adoptWhat, setAdoptWhat] = useState<"cat" | "dog" | "">("");
   const [homeTypeQ, setHomeTypeQ] = useState<
     "house" | "apartment" | "condo" | "other" | ""
   >("");
@@ -182,12 +178,20 @@ export default function AdoptionApplicationPage() {
     };
   }, [petId]);
 
+  // Preselect adoptWhat based on the selected pet's species (lock in Step 2)
+  useEffect(() => {
+    if (!pet || adoptWhat) return;
+    const s = (pet.species || "").toLowerCase();
+    if (s.includes("cat")) setAdoptWhat("cat");
+    else if (s.includes("dog")) setAdoptWhat("dog");
+  }, [pet, adoptWhat]);
+
   // Validation is performed per-step via inline handlers
 
   // inline per-step submit handlers are defined below
 
   return (
-    <section className="mx-auto mt-8 max-w-3xl px-4 sm:px-6 lg:px-8">
+    <section className="mx-auto my-8 max-w-3xl px-4 sm:px-6 lg:px-8">
       <div className="surface rounded-2xl p-6 shadow-soft">
         <div className="flex items-center justify-between">
           <div>
@@ -288,6 +292,7 @@ export default function AdoptionApplicationPage() {
                       );
                       return;
                     }
+                    setShowApplicantErrors(false);
                     setStep(1);
                   }}
                 >
@@ -308,46 +313,6 @@ export default function AdoptionApplicationPage() {
         {/* Applicant Form (Step 1) */}
         {step === 1 && (
           <>
-            {/* Pet summary */}
-            <div
-              className="mt-4 rounded-2xl p-4"
-              style={{ background: "var(--card-bg)" }}
-            >
-              {loadingPet ? (
-                <p className="ink-subtle text-sm">Loading pet details…</p>
-              ) : pet ? (
-                <div className="flex h-full w-full items-center gap-4 text-left">
-                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-[var(--soft-bg)]">
-                    {pet.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={pet.imageUrl}
-                        alt={`${pet.name} photo`}
-                        className="h-full w-full rounded-2xl object-cover"
-                      />
-                    ) : (
-                      <span className="text-5xl">
-                        {speciesEmoji(pet?.species)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <div className="font-semibold text-lg ink-heading">
-                      {pet.name || "Unnamed Pet"}
-                    </div>
-                    <div className="ink-muted text-sm">
-                      {pet.species || "Other"}
-                    </div>
-                    {pet.location ? (
-                      <div className="ink-subtle text-xs">{pet.location}</div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <p className="ink-subtle text-sm">Pet not found.</p>
-              )}
-            </div>
-
             <div className="mt-6 grid gap-4">
               <StepApplicant
                 firstName={firstName}
@@ -374,8 +339,7 @@ export default function AdoptionApplicationPage() {
                 setPronouns={setPronouns}
                 adoptedBefore={adoptedBefore}
                 setAdoptedBefore={setAdoptedBefore}
-                promptedBy={promptedBy}
-                setPromptedBy={setPromptedBy}
+                showErrors={showApplicantErrors}
               />
               <div className="flex items-center justify-between">
                 <button
@@ -391,7 +355,7 @@ export default function AdoptionApplicationPage() {
                   className="btn btn-primary px-4 py-2"
                   style={{ border: "1px solid var(--border-color)" }}
                   onClick={() => {
-                    if (
+                    const missingRequired =
                       !firstName.trim() ||
                       !lastName.trim() ||
                       !address.trim() ||
@@ -400,14 +364,14 @@ export default function AdoptionApplicationPage() {
                       !birthDate ||
                       !civilStatus ||
                       !pronouns ||
-                      adoptedBefore === null
-                    ) {
-                      showToast(
-                        "error",
-                        "Please complete the required fields in this step."
-                      );
+                      adoptedBefore === null;
+
+                    if (missingRequired) {
+                      setShowApplicantErrors(true);
                       return;
                     }
+
+                    setShowApplicantErrors(false);
                     setStep(2);
                   }}
                 >
@@ -420,14 +384,11 @@ export default function AdoptionApplicationPage() {
 
         {/* Placeholder containers for Step 2 and 3 to be added next */}
         {step === 2 && (
-          <div className="mt-6 grid gap-4">
+          <div className="mt-4 flex flex-col gap-4">
             <StepQuestionnaire
               adoptWhat={adoptWhat}
-              setAdoptWhat={(v) => setAdoptWhat(v)}
-              specificShelterAnimal={specificShelterAnimal}
-              setSpecificShelterAnimal={(v) => setSpecificShelterAnimal(v)}
-              idealPet={idealPet}
-              setIdealPet={setIdealPet}
+              setAdoptWhat={setAdoptWhat}
+              lockAdoptWhat={true}
               homeType={homeTypeQ}
               setHomeType={(v) => setHomeTypeQ(v)}
               rents={rents}
@@ -453,40 +414,41 @@ export default function AdoptionApplicationPage() {
               hasPetsNow={hasPetsNow}
               setHasPetsNow={(v) => setHasPetsNow(v)}
               hadPetsPast={hadPetsPast}
-              setHadPetsPast={(v) => setHadPetsPast(v)}
+              setHadPetsPast={setHadPetsPast}
+              showErrors={showQuestionnaireErrors}
             />
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 className="btn pill px-3 py-2"
                 style={{ border: "1px solid var(--border-color)" }}
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setShowQuestionnaireErrors(false);
+                  setStep(1);
+                }}
               >
                 Back
               </button>
               <button
                 type="button"
-                className="btn btn-primary px-4 py-2"
-                style={{ border: "1px solid var(--border-color)" }}
+                className="btn btn-primary pill px-4 py-2"
                 onClick={() => {
-                  // minimal per-step validation
-                  if (
+                  const missingRequired =
                     !adoptWhat ||
-                    specificShelterAnimal === null ||
                     !homeTypeQ ||
                     rents === null ||
                     liveWith.length === 0 ||
                     allergies === null ||
                     familySupports === null ||
                     hasPetsNow === null ||
-                    hadPetsPast === null
-                  ) {
-                    showToast(
-                      "error",
-                      "Please complete the required fields in this step."
-                    );
+                    hadPetsPast === null;
+
+                  if (missingRequired) {
+                    setShowQuestionnaireErrors(true);
                     return;
                   }
+
+                  setShowQuestionnaireErrors(false);
                   setStep(3);
                 }}
               >
@@ -545,8 +507,6 @@ export default function AdoptionApplicationPage() {
                       promptedBy,
                       // questionnaire
                       adoptWhat,
-                      specificShelterAnimal,
-                      idealPet,
                       homeType: homeTypeQ,
                       rents,
                       movePlan,

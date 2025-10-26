@@ -15,6 +15,7 @@ import ApplicationsList, {
 } from "@/components/account/ApplicationsList";
 import SettingsPanel from "@/components/account/SettingsPanel";
 import ReportViewModal from "@/components/account/ReportViewModal";
+import AdoptionViewModal from "@/components/account/AdoptionViewModal";
 
 type UserInfo = {
   id: string;
@@ -35,6 +36,8 @@ export default function AccountDashboardPage() {
   // View modal state
   const [viewOpen, setViewOpen] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
+  const [appViewOpen, setAppViewOpen] = useState(false);
+  const [appViewId, setAppViewId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -135,17 +138,52 @@ export default function AccountDashboardPage() {
         console.error("Reports load threw", msg);
       }
 
-      // Applications (email filter)
+      // Applications (email filter + future user linkage)
       try {
-        let a = supabase
-          .from("adoption_applications")
-          .select(
-            "id, created_at, status, email, phone, pet_id, adoption_pets:pet_id ( pet_name, species, location )"
-          )
-          .order("created_at", { ascending: false })
-          .limit(100);
-        if (user.email) a = a.eq("email", user.email);
-        const { data: rows, error: appsError } = await a;
+        const baseSelect =
+          "id, created_at, status, email, phone, pet_id, user_id, adoption_pets:pet_id ( pet_name, species, location )";
+        const buildQuery = () =>
+          supabase
+            .from("adoption_applications")
+            .select(baseSelect)
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+        let rows: any[] | null = null;
+        let appsError: any = null;
+
+        const query = buildQuery();
+        if (user.email) {
+          const { data, error } = await query.or(
+            `user_id.eq.${user.id},email.eq.${user.email}`
+          );
+          rows = data ?? null;
+          appsError = error ?? null;
+        } else {
+          const { data, error } = await query.eq("user_id", user.id);
+          rows = data ?? null;
+          appsError = error ?? null;
+        }
+
+        if (appsError?.message?.includes?.("user_id")) {
+          // Fallback for environments without user_id column yet.
+          let fallback = supabase
+            .from("adoption_applications")
+            .select(
+              "id, created_at, status, email, phone, pet_id, adoption_pets:pet_id ( pet_name, species, location )"
+            )
+            .order("created_at", { ascending: false })
+            .limit(100);
+          if (user.email) {
+            fallback = fallback.eq("email", user.email);
+          } else {
+            fallback = fallback.limit(0);
+          }
+          const { data: fbRows, error: fbError } = await fallback;
+          rows = fbRows ?? null;
+          appsError = fbError ?? null;
+        }
+
         if (appsError) {
           console.error("Applications load failed", appsError);
         }
@@ -179,6 +217,11 @@ export default function AccountDashboardPage() {
   function openViewReport(id: string) {
     setViewId(id);
     setViewOpen(true);
+  }
+
+  function openViewApplication(id: string) {
+    setAppViewId(id);
+    setAppViewOpen(true);
   }
 
   const metrics = useMemo(
@@ -321,7 +364,18 @@ export default function AccountDashboardPage() {
                 </>
               )}
               {active === "apps" && (
-                <ApplicationsList items={myApps} loading={dataLoading} />
+                <>
+                  <ApplicationsList
+                    items={myApps}
+                    loading={dataLoading}
+                    onView={(id) => openViewApplication(id)}
+                  />
+                  <AdoptionViewModal
+                    open={appViewOpen}
+                    applicationId={appViewId}
+                    onClose={() => setAppViewOpen(false)}
+                  />
+                </>
               )}
               {active === "settings" && (
                 <SettingsPanel userEmail={user.email ?? ""} />

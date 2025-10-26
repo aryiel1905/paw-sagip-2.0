@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject } from "react";
+import { RefObject, useId } from "react";
 
 type Props = {
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -17,6 +17,11 @@ export default function StepPhotos({
   onRemoveAt,
   onClearAll,
 }: Props) {
+  const inputId = useId();
+  const tileBaseClasses =
+    "aspect-[4/3] w-full rounded-xl border border-[var(--border-color)] bg-[var(--soft-bg)] transition";
+  const actionTileClasses = `${tileBaseClasses} flex items-center justify-center text-sm ink-muted hover:border-[var(--brand-500)] hover:text-[var(--brand-600)]`;
+
   return (
     <div
       className="rounded-2xl p-4"
@@ -27,31 +32,44 @@ export default function StepPhotos({
         Replaces on-site ocular inspections. Your photos are used only for this
         application.
       </p>
-      <label className="block text-sm mt-3">
-        Upload Home Photos (front, street, living room, dining, kitchen,
-        bedrooms, windows for cats, front & backyard for dogs) *
+      <div className="mt-3">
+        <div className="text-sm ink-heading">
+          Upload Home Photos (front, street, living room, dining, kitchen,
+          bedrooms, windows for cats, front & backyard for dogs) *
+        </div>
         <input
+          id={inputId}
           ref={fileInputRef}
-          className="mt-1 w-full rounded-xl px-3 py-2"
-          style={{ border: "1px solid var(--border-color)" }}
+          className="sr-only"
           type="file"
           multiple
           accept="image/*"
           onChange={(e) => onSelectFiles(e.target.files)}
         />
-        <div className="ink-subtle text-xs mt-1">
+        {previewUrls.length === 0 ? (
+          <label
+            htmlFor={inputId}
+            className={`${actionTileClasses} mt-2 cursor-pointer`}
+          >
+            <span>Upload photos</span>
+          </label>
+        ) : null}
+        <div className="ink-subtle text-xs mt-2">
           Max 8MB per file. You can upload multiple images.
         </div>
-      </label>
+      </div>
       {previewUrls.length > 0 && (
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {previewUrls.map((u, i) => (
-            <div key={i} className="relative">
+            <div
+              key={i}
+              className={`${tileBaseClasses} relative overflow-hidden`}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={u}
                 alt={`home ${i + 1}`}
-                className="w-full h-32 object-cover rounded-xl"
+                className="h-full w-full object-cover"
               />
               <button
                 type="button"
@@ -66,18 +84,15 @@ export default function StepPhotos({
               </button>
             </div>
           ))}
-          <button
-            type="button"
-            className="pill px-2 py-1 text-xs"
-            style={{ border: "1px solid var(--border-color)" }}
-            onClick={() => fileInputRef.current?.click()}
+          <label
+            htmlFor={inputId}
+            className={`${actionTileClasses} cursor-pointer`}
           >
-            Add more
-          </button>
+            <span>Add more</span>
+          </label>
           <button
             type="button"
-            className="pill px-2 py-1 text-xs"
-            style={{ border: "1px solid var(--border-color)" }}
+            className={`${actionTileClasses} cursor-pointer`}
             onClick={onClearAll}
           >
             Clear all
