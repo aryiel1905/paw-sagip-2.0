@@ -6,10 +6,7 @@ import { showToast } from "@/lib/toast";
 import ProfileCard from "@/components/account/ProfileCard";
 import MetricCard from "@/components/account/MetricCard";
 import Tabs from "@/components/account/Tabs";
-import OverviewPanel, {
-  type RecentApplication,
-  type RecentReport,
-} from "@/components/account/OverviewPanel";
+
 import ReportsList, {
   type SimpleReport,
 } from "@/components/account/ReportsList";
@@ -23,7 +20,6 @@ type UserInfo = {
   id: string;
   email: string | null;
   fullName: string | null;
-  createdAt: string | null;
 };
 
 type TabKey = "overview" | "reports" | "apps" | "settings";
@@ -31,7 +27,7 @@ type TabKey = "overview" | "reports" | "apps" | "settings";
 export default function AccountDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [active, setActive] = useState<TabKey>("overview");
+  const [active, setActive] = useState<TabKey>("reports");
 
   const [myReports, setMyReports] = useState<SimpleReport[]>([]);
   const [myApps, setMyApps] = useState<SimpleApplication[]>([]);
@@ -65,8 +61,8 @@ export default function AccountDashboardPage() {
           setUser({
             id: u.id,
             email: u.email ?? null,
-            fullName: (u.user_metadata?.full_name as string | undefined) ?? null,
-            createdAt: u.created_at ?? null,
+            fullName:
+              (u.user_metadata?.full_name as string | undefined) ?? null,
           });
         }
       } finally {
@@ -84,7 +80,6 @@ export default function AccountDashboardPage() {
               fullName:
                 (session.user.user_metadata?.full_name as string | undefined) ??
                 null,
-              createdAt: session.user.created_at ?? null,
             }
           : null
       );
@@ -248,9 +243,10 @@ export default function AccountDashboardPage() {
               className="text-3xl font-extrabold text-white tracking-wide
             "
             >
-              My Account
+              MY ACCOUNT{" "}
             </h1>
             <div className="flex gap-2">
+              {/*}
               <a
                 href="/api/export"
                 className="btn btn-primary px-4 py-2"
@@ -258,11 +254,14 @@ export default function AccountDashboardPage() {
               >
                 Export data
               </a>
+              */}
               <button
                 className="btn btn-accent px-4 py-2"
-                onClick={() => (window.location.href = "/report-form")}
+                onClick={() =>
+                  (window.location.href = "/report-form?from=account")
+                }
               >
-                s Create report
+                Create report
               </button>
             </div>
           </div>
@@ -272,7 +271,6 @@ export default function AccountDashboardPage() {
               <ProfileCard
                 name={user.fullName}
                 email={user.email}
-                memberSince={user.createdAt}
                 onEdit={() => showToast("info", "Profile editing coming soon")}
               />
               <MetricCard
@@ -302,34 +300,12 @@ export default function AccountDashboardPage() {
                 active={active}
                 onChange={(k) => setActive(k as TabKey)}
                 tabs={[
-                  { key: "overview", label: "Overview" },
                   { key: "reports", label: "My Reports" },
                   { key: "apps", label: "Adoption Apps" },
                   { key: "settings", label: "Settings" },
                 ]}
               />
 
-              {active === "overview" && (
-                <OverviewPanel
-                  reports={(myReports.slice(0, 3) as RecentReport[]).map(
-                    (r) => ({
-                      id: r.id,
-                      title: r.title,
-                      type: r.type,
-                      created_at: r.created_at,
-                    })
-                  )}
-                  apps={(myApps.slice(0, 2) as RecentApplication[]).map(
-                    (a) => ({
-                      id: a.id,
-                      petName: a.petName,
-                      species: a.species,
-                      status: a.status,
-                      created_at: a.created_at,
-                    })
-                  )}
-                />
-              )}
               {active === "reports" && (
                 <>
                   <ReportsList

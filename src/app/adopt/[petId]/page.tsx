@@ -19,6 +19,13 @@ type PetSummary = {
   imageUrl?: string | null;
 };
 
+function speciesEmoji(species?: string | null) {
+  const s = (species || "").toLowerCase();
+  if (s.includes("cat")) return "🐱";
+  if (s.includes("dog")) return "🐶";
+  return "🐾";
+}
+
 // payload is constructed inline during submission
 
 export default function AdoptionApplicationPage() {
@@ -202,32 +209,31 @@ export default function AdoptionApplicationPage() {
 
         {/* Preface gate (Step 0) */}
         {step === 0 && (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 flex flex-col gap-4">
             <div
-              className="rounded-2xl p-4"
+              className="grid rounded-2xl p-4"
               style={{ background: "var(--card-bg)" }}
             >
               {loadingPet ? (
                 <p className="ink-subtle text-sm">Loading pet details…</p>
               ) : pet ? (
-                <div className="flex items-center gap-3">
-                  {pet.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={pet.imageUrl}
-                      alt={`${pet.name} photo`}
-                      className="h-20 w-20 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="h-20 w-20 rounded-lg grid place-content-center"
-                      style={{ background: "var(--soft-bg)" }}
-                    >
-                      🐾
-                    </div>
-                  )}
-                  <div>
-                    <div className="font-semibold ink-heading">
+                <div className="flex h-full w-full items-center gap-4 text-left">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-[var(--soft-bg)]">
+                    {pet.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pet.imageUrl}
+                        alt={`${pet.name} photo`}
+                        className="h-full w-full rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <span className="text-5xl">
+                        {speciesEmoji(pet?.species)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-1">
+                    <div className="font-semibold text-lg ink-heading">
                       {pet.name || "Unnamed Pet"}
                     </div>
                     <div className="ink-muted text-sm">
@@ -310,27 +316,28 @@ export default function AdoptionApplicationPage() {
               {loadingPet ? (
                 <p className="ink-subtle text-sm">Loading pet details…</p>
               ) : pet ? (
-                <div className="flex items-center gap-3">
-                  {pet.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={pet.imageUrl}
-                      alt={`${pet.name} photo`}
-                      className="h-16 w-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="h-16 w-16 rounded-lg grid place-content-center"
-                      style={{ background: "var(--soft-bg)" }}
-                    >
-                      🐾
+                <div className="flex h-full w-full items-center gap-4 text-left">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-[var(--soft-bg)]">
+                    {pet.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pet.imageUrl}
+                        alt={`${pet.name} photo`}
+                        className="h-full w-full rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <span className="text-5xl">
+                        {speciesEmoji(pet?.species)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-1">
+                    <div className="font-semibold text-lg ink-heading">
+                      {pet.name || "Unnamed Pet"}
                     </div>
-                  )}
-                  <div>
-                    <div className="font-semibold ink-heading">
-                      {pet.name || "Unnamed"}
+                    <div className="ink-muted text-sm">
+                      {pet.species || "Other"}
                     </div>
-                    <div className="ink-muted text-sm">{pet.species}</div>
                     {pet.location ? (
                       <div className="ink-subtle text-xs">{pet.location}</div>
                     ) : null}

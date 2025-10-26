@@ -65,11 +65,6 @@ export default function ProfileCard({
             {name || "—"}
           </div>
           <div className="text-sm ink-muted truncate">{email || "—"}</div>
-          {memberSince ? (
-            <div className="mt-2 text-xs ink-subtle">
-              Member since {formatDate(memberSince)}
-            </div>
-          ) : null}
         </div>
       </div>
       <div className=" flex mt-4 text-right gap-4">

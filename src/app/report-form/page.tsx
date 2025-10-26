@@ -8,7 +8,7 @@ import {
   useMemo,
   ChangeEvent,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Clock,
   ArrowLeft,
@@ -49,6 +49,19 @@ export default function ReportFormPage() {
   const [showValidation, setShowValidation] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
+  const handleGoBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    if (fromParam === "account") {
+      router.push("/account/dashboard");
+    } else {
+      router.push("/#report");
+    }
+  }, [router, fromParam]);
 
   const [reportPhoto, setReportPhoto] = useState<File | null>(null);
   const [reportPhotoName, setReportPhotoName] = useState("");
@@ -127,7 +140,9 @@ export default function ReportFormPage() {
               />
             </div>
             <div className="col-span-2">
-              <p className="text-lg font-semibold">Seems Friendly - Approach Slowly</p>
+              <p className="text-lg font-semibold">
+                Seems Friendly - Approach Slowly
+              </p>
               <p className="mt-1 text-lg">
                 Speak softly and crouch to appear smaller. Check for a collar or
                 tag. Offer water; avoid chasing.
@@ -365,12 +380,14 @@ export default function ReportFormPage() {
     supabase.auth.getUser().then(({ data }) => {
       const u = data.user;
       setUserEmail(u?.email ?? null);
-      const fullName = (u?.user_metadata?.full_name as string | undefined) ?? null;
+      const fullName =
+        (u?.user_metadata?.full_name as string | undefined) ?? null;
       setUserName(fullName);
     });
     const { data } = supabase.auth.onAuthStateChange((_e, session) => {
       setUserEmail(session?.user?.email ?? null);
-      const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+      const fullName =
+        (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
       setUserName(fullName);
     });
     unsub = () => {
@@ -485,10 +502,7 @@ export default function ReportFormPage() {
       } catch {}
       setReportStatus("success");
       if (resp?.customId) {
-        showToast(
-          "success",
-          `Report submitted! ID: ${resp.customId}`
-        );
+        showToast("success", `Report submitted! ID: ${resp.customId}`);
       } else {
         showToast("success", "Report submitted! Rescue team notified.");
       }
@@ -568,7 +582,7 @@ export default function ReportFormPage() {
       <div className="mx-auto mt-5  mb-12 max-w-screen-lg px-4 sm:px-6 lg:px-8">
         <div className="mb-1  py-5">
           <button
-            onClick={() => router.push("/")}
+            onClick={handleGoBack}
             className="inline-flex items-center py-2 pl-2 pr-3 gap-2 pill  text-white/90 border bg-[var(--primary-mintgreen)] hover:bg-[#7e7e7e] hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
             style={{ color: "" }}
           >
@@ -879,27 +893,29 @@ export default function ReportFormPage() {
                 </label>
                 <label className="block text-sm">
                   Pet Type
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={species}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setSpecies(next);
-                    setAgeSize((prev) => {
-                      if (next === "Dog") {
-                        if (prev === "Kitten" || prev === "Puppy/Kitten") return "Puppy";
-                        return prev || "Puppy";
-                      }
-                      if (next === "Cat") {
-                        if (prev === "Puppy" || prev === "Puppy/Kitten") return "Kitten";
-                        return prev || "Kitten";
-                      }
-                      return prev;
-                    });
-                  }}
-                  required={!isCruelty}
-                >
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={species}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setSpecies(next);
+                      setAgeSize((prev) => {
+                        if (next === "Dog") {
+                          if (prev === "Kitten" || prev === "Puppy/Kitten")
+                            return "Puppy";
+                          return prev || "Puppy";
+                        }
+                        if (next === "Cat") {
+                          if (prev === "Puppy" || prev === "Puppy/Kitten")
+                            return "Kitten";
+                          return prev || "Kitten";
+                        }
+                        return prev;
+                      });
+                    }}
+                    required={!isCruelty}
+                  >
                     <option>Dog</option>
                     <option>Cat</option>
                   </select>
@@ -988,17 +1004,17 @@ export default function ReportFormPage() {
                     <option>Other</option>
                   </select>
                 </label>
-              <label className="block text-sm lg:col-span-2">
-                Distinctive Features
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="Collar color, scars, markings, tag/microchip"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={features}
-                  onChange={(e) => setFeatures(e.target.value)}
-                />
-              </label>
-              <div className="mt-1 flex flex-wrap items-center gap-4 lg:col-span-2">
+                <label className="block text-sm lg:col-span-2">
+                  Distinctive Features
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="Collar color, scars, markings, tag/microchip"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={features}
+                    onChange={(e) => setFeatures(e.target.value)}
+                  />
+                </label>
+                <div className="mt-1 flex flex-wrap items-center gap-4 lg:col-span-2">
                   <label
                     className="inline-flex items-center gap-2 text-sm"
                     style={
@@ -1084,28 +1100,30 @@ export default function ReportFormPage() {
                     />
                     <span>Submit anonymously</span>
                   </label>
-              </div>
-              {isCruelty && (
-                <div
-                  className="lg:col-span-2 rounded-xl p-4"
-                  style={{
-                    background: "var(--card-bg)",
-                    border: "1px solid var(--border-color)",
-                  }}
-                >
-                  <p className="font-semibold ink-heading">Safety & Welfare</p>
-                  <ul
-                    className="ink-muted mt-2 space-y-1 pl-5"
-                    style={{ listStyle: "disc" }}
-                  >
-                    <li>Do not intervene if unsafe.</li>
-                    <li>Share exact location details.</li>
-                    <li>Upload clear evidence if possible.</li>
-                  </ul>
                 </div>
-              )}
+                {isCruelty && (
+                  <div
+                    className="lg:col-span-2 rounded-xl p-4"
+                    style={{
+                      background: "var(--card-bg)",
+                      border: "1px solid var(--border-color)",
+                    }}
+                  >
+                    <p className="font-semibold ink-heading">
+                      Safety & Welfare
+                    </p>
+                    <ul
+                      className="ink-muted mt-2 space-y-1 pl-5"
+                      style={{ listStyle: "disc" }}
+                    >
+                      <li>Do not intervene if unsafe.</li>
+                      <li>Share exact location details.</li>
+                      <li>Upload clear evidence if possible.</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
             {/* Location & Time */}
             <div
@@ -1243,7 +1261,9 @@ export default function ReportFormPage() {
                 }
                 style={
                   isCruelty
-                    ? ({ backgroundColor: "var(--primary-mintgreen)" } as React.CSSProperties)
+                    ? ({
+                        backgroundColor: "var(--primary-mintgreen)",
+                      } as React.CSSProperties)
                     : undefined
                 }
                 disabled={reportStatus === "submitting"}
@@ -1341,7 +1361,10 @@ export default function ReportFormPage() {
         {flagKey && typeof document !== "undefined"
           ? createPortal(
               <div className="fixed inset-0 z-[70] grid place-items-center p-4">
-                <div className="absolute inset-0 bg-black/40" onClick={closeFlagModal} />
+                <div
+                  className="absolute inset-0 bg-black/40"
+                  onClick={closeFlagModal}
+                />
                 <div className="relative w-full max-w-[700px] rounded-2xl shadow-soft surface p-5">
                   <div className="relative ">
                     {flagKey === "aggressive"

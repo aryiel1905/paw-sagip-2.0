@@ -53,6 +53,12 @@ export default function ReportsList({ items, loading, onView }: Props) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
         <h2 className="font-semibold ink-heading">My Reports</h2>
         <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            className="btn btn-accent px-4 py-2"
+            onClick={() => (window.location.href = "/report-form?from=account")}
+          >
+            Create report
+          </button>
           <input
             className="flex-1 sm:w-64 rounded-xl border px-3 py-2 text-sm"
             placeholder="Search by title, location…"
@@ -112,7 +118,7 @@ export default function ReportsList({ items, loading, onView }: Props) {
                   <td className="py-3 pr-3 capitalize">{r.type || "—"}</td>
                   <td className="py-3 pr-3">
                     <span
-                      className={`pill px-2 py-0.5 text-xs font-medium ${
+                      className={`pill px-3 py-2  text-sm font-medium ${
                         r.status === "resolved"
                           ? "bg-emerald-100 text-emerald-700"
                           : r.status === "in_review"
@@ -128,14 +134,8 @@ export default function ReportsList({ items, loading, onView }: Props) {
                     </span>
                   </td>
                   <td className="py-3 pr-3 whitespace-nowrap">
-                    <a
-                      className="inline-block btn btn-primary px-3 py-1.5 mr-2"
-                      href="/report-form"
-                    >
-                      Update
-                    </a>
                     <button
-                      className="inline-block btn px-3 py-1.5 border"
+                      className="inline-block btn px-3 py-1.5 border border-[var(--primary-mintgreen)] bg-[var(--primary-mintgreen)] text-white hover:brightness-95 hover:shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)]"
                       onClick={() => onView?.(r.id)}
                       disabled={!onView}
                       type="button"

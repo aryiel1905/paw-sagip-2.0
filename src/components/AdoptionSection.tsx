@@ -80,10 +80,12 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                         )}
                       </div>
                       <div className="font-semibold text-sm truncate text-black">
-                        {pet.kind.toUpperCase()}
+                        {pet.name?.trim()
+                          ? pet.name
+                          : pet.kind?.toUpperCase?.() ?? ""}
                       </div>
                       <div className="text-xs truncate text-black/70">
-                        {pet.age || pet.location || ""}
+                        {pet.age || pet.location || "<unknown>"}
                       </div>
                     </div>
                   </Link>
