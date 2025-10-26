@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   let currentUserEmail: string | null = null;
   let currentUserName: string | null = null;
   try {
-    const jar = cookies();
+    const jar = await cookies();
     const accessToken =
       jar.get("sb-access-token")?.value ||
       // Some setups store a JSON array token under this name; try to parse
@@ -71,7 +71,9 @@ export async function POST(request: Request) {
           const raw = jar.get("supabase-auth-token")?.value;
           if (!raw) return null;
           const arr = JSON.parse(raw);
-          return Array.isArray(arr) && arr[0]?.access_token ? arr[0].access_token : null;
+          return Array.isArray(arr) && arr[0]?.access_token
+            ? arr[0].access_token
+            : null;
         } catch {
           return null;
         }
@@ -82,7 +84,9 @@ export async function POST(request: Request) {
         currentUserId = data.user.id ?? null;
         currentUserEmail = (data.user.email as string | null) ?? null;
         currentUserName =
-          ((data.user.user_metadata?.full_name as string | undefined) ?? null) || null;
+          ((data.user.user_metadata?.full_name as string | undefined) ??
+            null) ||
+          null;
       }
     }
   } catch {
@@ -104,38 +108,40 @@ export async function POST(request: Request) {
   const { data: inserted, error } = await supabase
     .from("reports")
     .insert([
-    {
-      report_type: reportType,
-      description: payload.description ?? null,
-      condition: payload.condition ?? null,
-      location: payload.location ?? null,
-      photo_path: payload.photoPath ?? null,
-      landmark_media_paths: payload.landmarkMediaPaths ?? [],
-      latitude,
-      longitude,
+      {
+        report_type: reportType,
+        description: payload.description ?? null,
+        condition: payload.condition ?? null,
+        location: payload.location ?? null,
+        photo_path: payload.photoPath ?? null,
+        landmark_media_paths: payload.landmarkMediaPaths ?? [],
+        latitude,
+        longitude,
 
-      // newly mapped fields
-      pet_name: payload.petName ?? null,
-      species: payload.species ?? null,
-      breed: payload.breed ?? null,
-      gender: payload.gender ?? null,
-      age_size: payload.ageSize ?? null,
-      features: payload.features ?? null,
-      event_at: payload.eventAt ? new Date(payload.eventAt).toISOString() : null,
-      // Always attach user_id (ownership) when available so the report shows under "My Reports"
-      // but drop reporter name/contact when anonymous so it remains private publicly.
-      user_id: currentUserId ?? payload.userId ?? null,
-      reporter_name: anonymous
-        ? null
-        : payload.reporterName ?? payload.userFullName ?? currentUserName,
-      reporter_contact: anonymous
-        ? null
-        : payload.reporterContact ?? payload.userEmail ?? currentUserEmail,
-      is_aggressive: payload.isAggressive ?? null,
-      is_friendly: payload.isFriendly ?? null,
-      is_anonymous: payload.isAnonymous ?? null,
-    },
-  ])
+        // newly mapped fields
+        pet_name: payload.petName ?? null,
+        species: payload.species ?? null,
+        breed: payload.breed ?? null,
+        gender: payload.gender ?? null,
+        age_size: payload.ageSize ?? null,
+        features: payload.features ?? null,
+        event_at: payload.eventAt
+          ? new Date(payload.eventAt).toISOString()
+          : null,
+        // Always attach user_id (ownership) when available so the report shows under "My Reports"
+        // but drop reporter name/contact when anonymous so it remains private publicly.
+        user_id: currentUserId ?? payload.userId ?? null,
+        reporter_name: anonymous
+          ? null
+          : payload.reporterName ?? payload.userFullName ?? currentUserName,
+        reporter_contact: anonymous
+          ? null
+          : payload.reporterContact ?? payload.userEmail ?? currentUserEmail,
+        is_aggressive: payload.isAggressive ?? null,
+        is_friendly: payload.isFriendly ?? null,
+        is_anonymous: payload.isAnonymous ?? null,
+      },
+    ])
     // Return id + custom_id so client can surface it immediately
     .select("id, custom_id")
     .single();
@@ -144,5 +150,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, id: inserted?.id, customId: (inserted as any)?.custom_id ?? null });
+  return NextResponse.json({
+    success: true,
+    id: inserted?.id,
+    customId: (inserted as any)?.custom_id ?? null,
+  });
 }
