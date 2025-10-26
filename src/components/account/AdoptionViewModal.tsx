@@ -283,13 +283,12 @@ export default function AdoptionViewModal({
   const editingReady = editing && form !== null;
 
   useEffect(() => {
-    if (editing && form && firstInputRef.current) {
-      try {
-        firstInputRef.current.focus();
-        firstInputRef.current.select?.();
-      } catch {}
-    }
-  }, [editing, form]);
+    if (!editing || !firstInputRef.current) return;
+    try {
+      firstInputRef.current.focus();
+      firstInputRef.current.select?.();
+    } catch {}
+  }, [editing]);
 
   useEffect(() => {
     if (!open) return;
@@ -435,75 +434,62 @@ export default function AdoptionViewModal({
         onClick={() => (editingReady ? undefined : onClose())}
       />
       <div className="relative z-[71] mx-auto my-6 max-w-4xl px-4">
-        <div className="surface rounded-2xl shadow-2xl p-5 max-h-[90vh] overflow-y-auto">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] pb-4">
-              <div>
-                <h2 className="text-2xl font-semibold ink-heading">
-                  {effectiveData?.adoption_pets?.pet_name || "Pet"}
-                </h2>
-                <p className="ink-subtle text-sm">
-                  {effectiveData?.adoption_pets?.species || "--"}
-                </p>
-                <p className="ink-subtle text-xs mt-1">
-                  Submitted {formatDateTime(effectiveData?.created_at)}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span
-                    className={
-                      "pill px-2 py-0.5 font-medium " +
-                      statusTone(effectiveData?.status)
-                    }
+        <div className="surface rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div
+            className="flex items-center justify-between border-b px-5 pb-2 pt-5 flex-none"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <div>
+              <h2 className="text-2xl font-semibold ink-heading">
+                {effectiveData?.adoption_pets?.pet_name || "Pet"}
+              </h2>
+              <p className="ink-subtle text-sm">
+                {effectiveData?.adoption_pets?.species || "--"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    className="pill px-3 py-1.5"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    onClick={cancelEdit}
+                    disabled={saving}
                   >
-                    {effectiveData?.status || "unknown"}
-                  </span>
-                  <span className="pill px-2 py-0.5" aria-live="polite">
-                    {adoptNote}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {editing ? (
-                  <>
-                    <button
-                      type="button"
-                      className="pill px-3 py-1.5"
-                      style={{ border: "1px solid var(--border-color)" }}
-                      onClick={cancelEdit}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary px-4 py-1.5"
-                      onClick={handleSave}
-                      disabled={saving}
-                    >
-                      {saving ? "Saving..." : "Save"}
-                    </button>
-                  </>
-                ) : (
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     className="btn btn-primary px-4 py-1.5"
-                    onClick={beginEdit}
-                    disabled={!canEditStatus || effectiveLoading}
+                    onClick={handleSave}
+                    disabled={saving}
                   >
-                    Edit
+                    {saving ? "Saving..." : "Save"}
                   </button>
-                )}
+                </>
+              ) : (
                 <button
                   type="button"
-                  className="pill px-3 py-1.5"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  onClick={onClose}
+                  className="btn btn-primary px-4 py-1.5"
+                  onClick={beginEdit}
+                  disabled={!canEditStatus || effectiveLoading}
                 >
-                  Close
+                  Edit
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                className="pill px-3 py-1.5"
+                style={{ border: "1px solid var(--border-color)" }}
+                onClick={onClose}
+              >
+                Close
+              </button>
             </div>
+          </div>
 
+          <div className="p-5 overflow-y-auto flex-1">
             {effectiveLoading ? (
               <div className="ink-muted text-sm">Loading application...</div>
             ) : effectiveError ? (
@@ -511,10 +497,33 @@ export default function AdoptionViewModal({
             ) : !effectiveData ? (
               <div className="ink-muted text-sm">Application not found.</div>
             ) : (
-              <>
+              <div className="flex flex-col gap-4">
                 {actionError ? (
                   <div className="text-sm text-red-500">{actionError}</div>
                 ) : null}
+
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <p className="ink-subtle text-xs">
+                    Submitted {formatDateTime(effectiveData.created_at)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs md:justify-end">
+                    <span
+                      className={
+                        "pill px-2 py-0.5 font-medium " +
+                        statusTone(effectiveData.status)
+                      }
+                    >
+                      {effectiveData.status || "unknown"}
+                    </span>
+                    <span className="pill px-2 py-0.5" aria-live="polite">
+                      {adoptNote}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="columns-2">
+                  <div className="grid grid-cols-2 gap-4"></div>
+                </div>
 
                 <section>
                   <h3 className="font-semibold ink-heading mb-2">Applicant</h3>
@@ -1092,7 +1101,7 @@ export default function AdoptionViewModal({
                     </div>
                   </section>
                 ) : null}
-              </>
+              </div>
             )}
           </div>
         </div>
