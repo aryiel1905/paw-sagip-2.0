@@ -74,13 +74,6 @@ export default function ProfileCard({
       </div>
       <div className=" flex mt-4 text-right gap-4">
         <button
-          type="button"
-          className="w-full btn btn-primary px-3 py-2 text-sm"
-          onClick={onEdit}
-        >
-          Edit profile
-        </button>
-        <button
           className=" w-full pill px-3 py-2 text-sm"
           style={{
             border: "1px solid var(--border-color)",

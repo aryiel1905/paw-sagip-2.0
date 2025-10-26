@@ -45,9 +45,16 @@ export default function AccountDashboardPage() {
     (async () => {
       try {
         const supabase = getSupabaseClient();
-        const { data } = await supabase.auth.getUser();
+        let u: any = null;
+        try {
+          const { data } = await supabase.auth.getUser();
+          u = data?.user ?? null;
+        } catch {
+          // Network/auth failed; continue as guest
+          u = null;
+        }
         if (!mounted) return;
-        if (!data.user) {
+        if (!u) {
           try {
             window.dispatchEvent(
               new CustomEvent("app:signin", { detail: { mode: "login" } })
@@ -56,12 +63,10 @@ export default function AccountDashboardPage() {
           setUser(null);
         } else {
           setUser({
-            id: data.user.id,
-            email: data.user.email ?? null,
-            fullName:
-              (data.user.user_metadata?.full_name as string | undefined) ??
-              null,
-            createdAt: data.user.created_at ?? null,
+            id: u.id,
+            email: u.email ?? null,
+            fullName: (u.user_metadata?.full_name as string | undefined) ?? null,
+            createdAt: u.created_at ?? null,
           });
         }
       } finally {
@@ -103,7 +108,7 @@ export default function AccountDashboardPage() {
         let r = supabase
           .from("reports")
           .select(
-            "id, custom_id, created_at, report_type, location, species, pet_name, reporter_contact"
+            "id, custom_id, created_at, report_type, location, species, pet_name, status, reporter_contact"
           );
         if (user.email) {
           r = r.or(`user_id.eq.${user.id},reporter_contact.eq.${user.email}`);
@@ -112,10 +117,7 @@ export default function AccountDashboardPage() {
         }
         r = r.order("created_at", { ascending: false }).limit(100);
 
-        const { data: rows, error: reportsError } = await r;
-        if (reportsError) {
-          console.error("Reports load failed", reportsError);
-        }
+        const { data: rows } = await r.throwOnError();
         if (!cancelled && Array.isArray(rows)) {
           setMyReports(
             rows.map((row: any) => ({
@@ -134,7 +136,8 @@ export default function AccountDashboardPage() {
           );
         }
       } catch (err) {
-        console.error("Reports load threw", err);
+        const msg = err instanceof Error ? err.message : String(err ?? "");
+        console.error("Reports load threw", msg);
       }
 
       // Applications (email filter)
@@ -231,7 +234,6 @@ export default function AccountDashboardPage() {
 
   return (
     <>
-      {/* viewport overlay behind content */}
       <div
         className="fixed inset-0 bg-black/80 -z-10 pointer-events-none"
         aria-hidden="true"
@@ -240,7 +242,7 @@ export default function AccountDashboardPage() {
         className="box-border overflow-hidden pt-2 px-4"
         style={{ height: "calc(99dvh - var(--nav-h, 64px))" }}
       >
-        <div className="max-w-full mx-auto h-full pt-10">
+        <div className="max-w-full mx-auto h-full pt-2">
           <div className="py-2 mb-2 flex items-center justify-between">
             <h1
               className="text-3xl font-extrabold text-white tracking-wide

@@ -45,6 +45,19 @@ export default function RootLayout({
               src="https://cdn.lordicon.com/xdjxvujz.js"
               strategy="afterInteractive"
             />
+            {/* Suppress noisy unhandled rejections from background auth refresh when offline */}
+            <Script id="suppress-auth-refresh-failed" strategy="afterInteractive">
+              {`
+                try {
+                  window.addEventListener('unhandledrejection', function(e){
+                    try {
+                      var r = e && e.reason; var msg = (r && (r.message || String(r))) || '';
+                      if (typeof msg === 'string' && /failed to fetch/i.test(msg)) { e.preventDefault(); }
+                    } catch {}
+                  });
+                } catch {}
+              `}
+            </Script>
             {/* Compose a single tile from HeaderBackground.png + Continuation.png and set as CSS var */}
             <Script id="bg-pair-tile" strategy="beforeInteractive">
               {`

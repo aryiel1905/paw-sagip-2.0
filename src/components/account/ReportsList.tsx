@@ -103,23 +103,29 @@ export default function ReportsList({ items, loading, onView }: Props) {
                 <tr key={r.id} className="border-b last:border-b-0">
                   <td className="py-3 pr-3">
                     <div className="font-medium ink-heading">{r.title}</div>
-                    <div className="text-xs ink-subtle">ID: {r.custom_id || r.id}</div>
+                    <div className="text-xs ink-subtle">
+                      ID: {r.custom_id || r.id}
+                    </div>
                   </td>
                   <td className="py-3 pr-3">{dateShort(r.created_at)}</td>
                   <td className="py-3 pr-3">{r.location || "—"}</td>
                   <td className="py-3 pr-3 capitalize">{r.type || "—"}</td>
                   <td className="py-3 pr-3">
-                    <span className={`pill px-2 py-0.5 text-xs font-medium ${
-                      r.status === "resolved"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : r.status === "in_review"
-                        ? "bg-sky-100 text-sky-700"
-                        : r.status === "closed"
-                        ? "bg-slate-100 text-slate-700"
-                        : r.status === "open"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-700"
-                    }`}>{r.status ?? "—"}</span>
+                    <span
+                      className={`pill px-2 py-0.5 text-xs font-medium ${
+                        r.status === "resolved"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : r.status === "in_review"
+                          ? "bg-sky-100 text-sky-700"
+                          : r.status === "closed"
+                          ? "bg-slate-100 text-slate-700"
+                          : r.status === "open"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {r.status ?? "—"}
+                    </span>
                   </td>
                   <td className="py-3 pr-3 whitespace-nowrap">
                     <a
