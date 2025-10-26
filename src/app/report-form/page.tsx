@@ -7,6 +7,7 @@ import {
   useState,
   useMemo,
   ChangeEvent,
+  Suspense,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -28,7 +29,7 @@ import { showToast } from "@/lib/toast";
 // Storage bucket to keep report photos consistent with the home page
 const PET_MEDIA_BUCKET = "pet-media";
 
-export default function ReportFormPage() {
+function ReportFormPageInner() {
   const [reportType, setReportType] =
     useState<Exclude<AlertType, "all">>("found");
   const [reportCondition, setReportCondition] = useState("Healthy");
@@ -1388,6 +1389,14 @@ export default function ReportFormPage() {
           : null}
       </div>
     </main>
+  );
+}
+
+export default function ReportFormPage() {
+  return (
+    <Suspense fallback={<div />}> 
+      <ReportFormPageInner />
+    </Suspense>
   );
 }
 
