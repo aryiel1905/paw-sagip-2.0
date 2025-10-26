@@ -22,6 +22,8 @@ type AdoptionApplicationPayload = {
   pronouns?: string | null; // she/her|he/him|they/them
   adoptedBefore?: boolean | null;
   promptedBy?: string[] | null; // friends|website|social_media|other
+  idDocumentType?: string | null;
+  idDocumentPath?: string | null;
   // Step 2 (questionnaire)
   adoptWhat?: string | null; // cat|dog|both|not_decided
   specificShelterAnimal?: boolean | null;
@@ -102,6 +104,8 @@ export async function POST(request: Request) {
     adopted_before:
       typeof payload.adoptedBefore === "boolean" ? payload.adoptedBefore : null,
     prompted_by: Array.isArray(payload.promptedBy) ? payload.promptedBy : null,
+    id_document_type: payload.idDocumentType ?? null,
+    id_document_path: payload.idDocumentPath ?? null,
 
     adopt_what: payload.adoptWhat ?? null,
     specific_shelter_animal:

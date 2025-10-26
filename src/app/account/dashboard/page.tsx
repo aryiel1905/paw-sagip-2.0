@@ -280,7 +280,7 @@ export default function AccountDashboardPage() {
         className="box-border overflow-hidden pt-2 px-4"
         style={{ height: "calc(99dvh - var(--nav-h, 64px))" }}
       >
-        <div className="max-w-full mx-auto h-full pt-2">
+        <div className="max-w-[90%] mx-auto h-full pt-7">
           <div className="py-2 mb-2 flex items-center justify-between">
             <h1
               className="text-3xl font-extrabold text-white tracking-wide
@@ -298,14 +298,6 @@ export default function AccountDashboardPage() {
                 Export data
               </a>
               */}
-              <button
-                className="btn btn-accent px-4 py-2"
-                onClick={() =>
-                  (window.location.href = "/report-form?from=account")
-                }
-              >
-                Create report
-              </button>
             </div>
           </div>
 

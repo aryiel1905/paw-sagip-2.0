@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 type Props = {
   firstName: string;
   setFirstName: (value: string) => void;
@@ -25,6 +27,12 @@ type Props = {
   setPronouns: (value: "she/her" | "he/him" | "they/them" | "") => void;
   adoptedBefore: boolean | null;
   setAdoptedBefore: (value: boolean | null) => void;
+  idDocumentType: string;
+  setIdDocumentType: (value: string) => void;
+  idDocumentFile: File | null;
+  setIdDocumentFile: (file: File | null) => void;
+  idDocumentPreviewUrl: string | null;
+  setIdDocumentPreviewUrl: (url: string | null) => void;
   showErrors?: boolean;
 };
 
@@ -53,6 +61,12 @@ export default function StepApplicant({
   setPronouns,
   adoptedBefore,
   setAdoptedBefore,
+  idDocumentType,
+  setIdDocumentType,
+  idDocumentFile,
+  setIdDocumentFile,
+  idDocumentPreviewUrl,
+  setIdDocumentPreviewUrl,
   showErrors = false,
 }: Props) {
   const firstNameError = showErrors && !firstName.trim();
@@ -64,6 +78,8 @@ export default function StepApplicant({
   const civilStatusError = showErrors && !civilStatus;
   const pronounsError = showErrors && !pronouns;
   const adoptedBeforeError = showErrors && adoptedBefore === null;
+  const idDocumentTypeError = showErrors && !idDocumentType.trim();
+  const idDocumentFileError = showErrors && !idDocumentFile;
 
   const requiredMark = <span className="text-red-500">*</span>;
 
@@ -73,6 +89,33 @@ export default function StepApplicant({
         ? "border-red-500 focus-visible:ring-2 focus-visible:ring-red-400"
         : "border-[var(--border-color)] focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]"
     }`;
+
+  const idInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleIdDocumentChange = (file: File | null) => {
+    if (idDocumentPreviewUrl) {
+      try {
+        URL.revokeObjectURL(idDocumentPreviewUrl);
+      } catch {}
+    }
+    setIdDocumentFile(file);
+    if (file) {
+      const preview = URL.createObjectURL(file);
+      setIdDocumentPreviewUrl(preview);
+    } else {
+      setIdDocumentPreviewUrl(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (idDocumentPreviewUrl) {
+        try {
+          URL.revokeObjectURL(idDocumentPreviewUrl);
+        } catch {}
+      }
+    };
+  }, [idDocumentPreviewUrl]);
 
   return (
     <div
@@ -381,6 +424,123 @@ export default function StepApplicant({
 
         <div className="hidden md:block" />
       </div>
+
+      <div
+        className="md:col-span-2 mt-6 rounded-2xl border p-4"
+        style={{ borderColor: "var(--border-color)" }}
+      >
+        <h3 className="font-semibold ink-heading mb-1">
+          Identity Verification {requiredMark}
+        </h3>
+        <p className="text-xs ink-subtle">
+          Please provide a valid government-issued ID or document so our team
+          can verify your identity.
+        </p>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium ink-heading">
+              Document Type {requiredMark}
+            </label>
+            <select
+              className={inputClass(idDocumentTypeError)}
+              value={idDocumentType}
+              onChange={(e) => setIdDocumentType(e.target.value)}
+              aria-invalid={idDocumentTypeError}
+            >
+              <option value="">Select document</option>
+              <option value="Driver's License">Driver&apos;s License</option>
+              <option value="National ID">National ID</option>
+              <option value="Passport">Passport</option>
+              <option value="Student ID">Student ID</option>
+              <option value="Other">Other</option>
+            </select>
+            {idDocumentTypeError ? (
+              <p className="mt-1 text-xs text-red-500">
+                Please select a document type.
+              </p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium ink-heading">
+              Document Upload {requiredMark}
+            </label>
+            <div
+              className="mt-1 rounded-xl border px-3 py-3 flex flex-col gap-2 items-start"
+              style={{ borderColor: idDocumentFileError ? "#ef4444" : "var(--border-color)" }}
+            >
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                className="hidden"
+                ref={idInputRef}
+                onChange={(e) =>
+                  handleIdDocumentChange(e.target.files?.[0] ?? null)
+                }
+              />
+              {!idDocumentFile ? (
+                <>
+                  <p className="text-sm ink-muted">
+                    Take a photo or upload a clear copy of your ID.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary px-3 py-1 text-sm"
+                    onClick={() => idInputRef.current?.click()}
+                  >
+                    Upload document
+                  </button>
+                </>
+              ) : (
+                <div className="w-full flex items-center gap-3">
+                  {idDocumentPreviewUrl && idDocumentFile.type.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={idDocumentPreviewUrl}
+                      alt="Document preview"
+                      className="h-20 w-32 object-cover rounded-lg border"
+                      style={{ borderColor: "var(--border-color)" }}
+                    />
+                  ) : (
+                    <div className="flex-1 text-sm ink-heading">
+                      {idDocumentFile.name} ({idDocumentFile.type || "file"})
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="pill px-3 py-1 text-sm"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      onClick={() => idInputRef.current?.click()}
+                    >
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      className="pill px-3 py-1 text-sm"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      onClick={() => handleIdDocumentChange(null)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-xs ink-subtle mt-1">
+              Accepted: JPG, PNG, or PDF. Max 8 MB.
+            </p>
+            {idDocumentFileError ? (
+              <p className="mt-1 text-xs text-red-500">
+                Please upload a valid ID or document.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+  

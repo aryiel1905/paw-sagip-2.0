@@ -52,6 +52,8 @@ export type AdoptionApplicationViewData = {
   civil_status?: string | null;
   pronouns?: string | null;
   adopted_before?: boolean | null;
+  id_document_type?: string | null;
+  id_document_path?: string | null;
   home_photo_paths?: string[] | null;
   adoption_pets?: {
     pet_name?: string | null;
@@ -72,6 +74,8 @@ type EditFormState = {
   civilStatus: (typeof CIVIL_STATUS_OPTIONS)[number] | "";
   pronouns: (typeof PRONOUN_OPTIONS)[number] | "";
   adoptedBefore: boolean | null;
+  idDocumentType: string;
+  idDocumentPath: string | null;
   homeType: "house" | "apartment" | "condo" | "other" | "";
   rents: boolean | null;
   movePlan: string;
@@ -112,6 +116,8 @@ function toFormState(data: AdoptionApplicationViewData): EditFormState {
     pronouns: (data.pronouns as EditFormState["pronouns"]) || "",
     adoptedBefore:
       typeof data.adopted_before === "boolean" ? data.adopted_before : null,
+    idDocumentType: data.id_document_type ?? "",
+    idDocumentPath: data.id_document_path ?? null,
     homeType: (data.home_type as EditFormState["homeType"]) || "",
     rents: typeof data.rents === "boolean" ? data.rents : null,
     movePlan: data.move_plan ?? "",
@@ -330,6 +336,14 @@ export default function AdoptionViewModal({
       .filter((url): url is string => Boolean(url));
   }, [effectiveData?.home_photo_paths, supabase]);
 
+  const idDocumentUrl = useMemo(() => {
+    if (!effectiveData?.id_document_path) return null;
+    const { data } = supabase.storage
+      .from(PET_MEDIA_BUCKET)
+      .getPublicUrl(effectiveData.id_document_path);
+    return data.publicUrl ?? null;
+  }, [effectiveData?.id_document_path, supabase]);
+
   const adoptNote = useMemo(() => {
     if (!effectiveData?.adopt_what) return "Applying for: --";
     const kind = effectiveData.adopt_what.toLowerCase();
@@ -387,6 +401,8 @@ export default function AdoptionViewModal({
         pronouns: form.pronouns || null,
         adopted_before:
           typeof form.adoptedBefore === "boolean" ? form.adoptedBefore : null,
+        id_document_type: form.idDocumentType || null,
+        id_document_path: form.idDocumentPath ?? null,
         home_type: form.homeType || null,
         rents: typeof form.rents === "boolean" ? form.rents : null,
         move_plan: form.movePlan || null,
@@ -749,6 +765,48 @@ export default function AdoptionViewModal({
                         ) : undefined
                       }
                     />
+                    <FieldRow
+                      editable={editingReady}
+                      label="Document Type"
+                      value={effectiveData.id_document_type || "-"}
+                      edit={
+                        editingReady ? (
+                          <input
+                            className="w-full bg-transparent outline-none"
+                            value={form?.idDocumentType ?? ""}
+                            onChange={(e) =>
+                              updateForm("idDocumentType", e.target.value)
+                            }
+                          />
+                        ) : undefined
+                      }
+                    />
+                    <div className="md:col-span-2">
+                      <div className="ink-subtle text-xs">
+                        Verification Document
+                      </div>
+                      <div
+                        className="mt-1 rounded-xl border px-3 py-2 flex items-center justify-between gap-3"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span className="text-sm ink-heading">
+                          {idDocumentUrl ? "Document uploaded" : "No document provided"}
+                        </span>
+                        {idDocumentUrl ? (
+                          <button
+                            type="button"
+                            className="pill px-3 py-1 text-sm"
+                            style={{ border: "1px solid var(--border-color)" }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewer({ urls: [idDocumentUrl], index: 0 });
+                            }}
+                          >
+                            View document
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </section>
 

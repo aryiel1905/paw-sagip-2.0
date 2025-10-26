@@ -63,6 +63,9 @@ export default function AdoptionApplicationPage() {
   >("");
   const [adoptedBefore, setAdoptedBefore] = useState<boolean | null>(null);
   const [promptedBy, setPromptedBy] = useState<string[]>([]);
+  const [idDocumentType, setIdDocumentType] = useState("");
+  const [idDocumentFile, setIdDocumentFile] = useState<File | null>(null);
+  const [idDocumentPreviewUrl, setIdDocumentPreviewUrl] = useState<string | null>(null);
 
   // Questionnaire state (Step 2)
   const [adoptWhat, setAdoptWhat] = useState<"cat" | "dog" | "">("");
@@ -136,6 +139,18 @@ export default function AdoptionApplicationPage() {
       paths.push(data?.path ?? path);
     }
     return paths;
+  };
+
+  const uploadIdDocument = async (): Promise<string | null> => {
+    if (!idDocumentFile) return null;
+    const supabase = getSupabaseClient();
+    const ext = idDocumentFile.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `adoption-applications/${crypto.randomUUID()}-id.${ext}`;
+    const { data, error } = await supabase.storage
+      .from(PET_MEDIA_BUCKET)
+      .upload(path, idDocumentFile, { cacheControl: "3600", upsert: false });
+    if (error) throw error;
+    return data?.path ?? path;
   };
 
   useEffect(() => {
@@ -339,6 +354,12 @@ export default function AdoptionApplicationPage() {
                 setPronouns={setPronouns}
                 adoptedBefore={adoptedBefore}
                 setAdoptedBefore={setAdoptedBefore}
+                idDocumentType={idDocumentType}
+                setIdDocumentType={setIdDocumentType}
+                idDocumentFile={idDocumentFile}
+                setIdDocumentFile={setIdDocumentFile}
+                idDocumentPreviewUrl={idDocumentPreviewUrl}
+                setIdDocumentPreviewUrl={setIdDocumentPreviewUrl}
                 showErrors={showApplicantErrors}
               />
               <div className="flex items-center justify-between">
@@ -364,7 +385,9 @@ export default function AdoptionApplicationPage() {
                       !birthDate ||
                       !civilStatus ||
                       !pronouns ||
-                      adoptedBefore === null;
+                      adoptedBefore === null ||
+                      !idDocumentType.trim() ||
+                      !idDocumentFile;
 
                     if (missingRequired) {
                       setShowApplicantErrors(true);
@@ -486,7 +509,10 @@ export default function AdoptionApplicationPage() {
                   }
                   setSubmitting(true);
                   try {
-                    const homePaths = await uploadHomePhotos();
+                    const [homePaths, idDocumentPath] = await Promise.all([
+                      uploadHomePhotos(),
+                      uploadIdDocument(),
+                    ]);
                     const payload = {
                       petId,
                       applicantName: `${firstName} ${lastName}`.trim(),
@@ -505,6 +531,8 @@ export default function AdoptionApplicationPage() {
                       pronouns,
                       adoptedBefore,
                       promptedBy,
+                      idDocumentType,
+                      idDocumentPath,
                       // questionnaire
                       adoptWhat,
                       homeType: homeTypeQ,
@@ -540,6 +568,14 @@ export default function AdoptionApplicationPage() {
                       "success",
                       "Application submitted! We'll email next steps."
                     );
+                    if (idDocumentPreviewUrl) {
+                      try {
+                        URL.revokeObjectURL(idDocumentPreviewUrl);
+                      } catch {}
+                    }
+                    setIdDocumentType("");
+                    setIdDocumentFile(null);
+                    setIdDocumentPreviewUrl(null);
                     router.push("/#adoption");
                   } catch (e: unknown) {
                     console.error(e);
