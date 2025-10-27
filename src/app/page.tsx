@@ -559,6 +559,7 @@ export default function Home() {
     reporterContact?: string | null;
     reporterName?: string | null;
     isAnonymous?: boolean;
+    petStatus?: "roaming" | "in_custody";
   };
 
   const handleSubmitReport = async (
@@ -645,6 +646,8 @@ export default function Home() {
       landmarkMediaPaths: uploadedLandmarkPaths,
       species: speciesValue || null,
       isAnonymous: draftAnon,
+      // iREPORT pet status
+      petStatus: reporter?.petStatus ?? "roaming",
       // Map quick reporter info (server will null these if anonymous)
       reporterContact: draftAnon
         ? null

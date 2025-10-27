@@ -34,6 +34,9 @@ type ReportPayload = {
   isFriendly?: boolean | null;
   isAnonymous?: boolean | null;
 
+  // iREPORT pet status: "roaming" | "in_custody" (client may send labels)
+  petStatus?: string | null;
+
   // server-preferred user context (client may omit; server derives from cookies)
   userId?: string | null;
   userEmail?: string | null;
@@ -105,6 +108,14 @@ export async function POST(request: Request) {
 
   const anonymous = !!payload.isAnonymous;
 
+  // Normalize pet status; accept label variants ("Roaming" / "In Custody")
+  const normalizePetStatus = (v: unknown): "roaming" | "in_custody" => {
+    if (typeof v !== "string") return "roaming";
+    const s = v.trim().toLowerCase().replace(/\s+/g, "_");
+    return s === "in_custody" ? "in_custody" : "roaming";
+  };
+  const petStatus = normalizePetStatus(payload.petStatus);
+
   const { data: inserted, error } = await supabase
     .from("reports")
     .insert([
@@ -117,6 +128,7 @@ export async function POST(request: Request) {
         landmark_media_paths: payload.landmarkMediaPaths ?? [],
         latitude,
         longitude,
+        pet_status: petStatus,
 
         // newly mapped fields
         pet_name: payload.petName ?? null,

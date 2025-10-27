@@ -19,7 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
-import { AlertType, ReportStatus } from "@/types/app";
+import { AlertType, ReportStatus, PetStatus } from "@/types/app";
 import { useEffect } from "react";
 import { showToast } from "@/lib/toast";
 import { useMemo } from "react";
@@ -46,6 +46,7 @@ type ReportSectionProps = {
       reporterContact?: string | null;
       reporterName?: string | null;
       isAnonymous?: boolean;
+      petStatus?: PetStatus;
     }
   ) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
@@ -91,6 +92,7 @@ export function ReportSection({
   const [qAggressive, setQAggressive] = useState(false);
   const [qAnon, setQAnon] = useState(false);
   const [qFriendly, setQFriendly] = useState(false);
+  const [qPetStatus, setQPetStatus] = useState("");
   const [showQuickValidation, setShowQuickValidation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   // Auth-derived identity for autofill
@@ -268,12 +270,14 @@ export function ReportSection({
     supabase.auth.getUser().then(({ data }) => {
       const u = data.user;
       setUserEmail(u?.email ?? null);
-      const fullName = (u?.user_metadata?.full_name as string | undefined) ?? null;
+      const fullName =
+        (u?.user_metadata?.full_name as string | undefined) ?? null;
       setUserName(fullName);
     });
     const { data } = supabase.auth.onAuthStateChange((_e, session) => {
       setUserEmail(session?.user?.email ?? null);
-      const fullName = (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
+      const fullName =
+        (session?.user?.user_metadata?.full_name as string | undefined) ?? null;
       setUserName(fullName);
     });
     unsub = () => {
@@ -445,12 +449,15 @@ export function ReportSection({
       // Build reporter info to mirror full form mapping
       const reporterContact = qAnon
         ? null
-        : (qContact?.trim() || userEmail || null);
+        : qContact?.trim() || userEmail || null;
       const reporterName = qAnon ? null : userName || null;
+      const toPetStatus = (label: string): PetStatus =>
+        label.trim().toLowerCase() === "in custody" ? "in_custody" : "roaming";
       handleSubmitReport(qSpecies, {
         reporterContact,
         reporterName,
         isAnonymous: qAnon,
+        petStatus: toPetStatus(qPetStatus || "Roaming"),
       });
     },
     [
@@ -495,299 +502,301 @@ export function ReportSection({
           <div className="md:hidden">
             <div className="rounded-[24px] bg-white shadow-soft p-4 space-y-4">
               {/* Photos */}
-            <div>
-              <label
-                className="mt-2 relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-                htmlFor="report-photo-mobile"
-                style={{ border: "2px dashed var(--border-color)" }}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  id="report-photo-mobile"
-                  onChange={handlePhotoChange}
-                  ref={reportPhotoInputRef}
-                />
-                {!reportPhotoPreviewUrl ? (
-                  <>
-                    <PawPrint
-                      size={30}
-                      strokeWidth={2}
-                      style={{
-                        color: "var(--primary-mintgreen)",
-                        opacity: 0.8,
-                      }}
-                    />
-                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      {reportPhotoName
-                        ? `Selected: ${reportPhotoName}`
-                        : "Upload one or more photos"}
-                    </span>
-                    <div className="mt-2">
-                      <div
-                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+              <div>
+                <label
+                  className="mt-2 relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                  htmlFor="report-photo-mobile"
+                  style={{ border: "2px dashed var(--border-color)" }}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="report-photo-mobile"
+                    onChange={handlePhotoChange}
+                    ref={reportPhotoInputRef}
+                  />
+                  {!reportPhotoPreviewUrl ? (
+                    <>
+                      <PawPrint
+                        size={30}
+                        strokeWidth={2}
+                        style={{
+                          color: "var(--primary-mintgreen)",
+                          opacity: 0.8,
+                        }}
+                      />
+                      <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                        {reportPhotoName
+                          ? `Selected: ${reportPhotoName}`
+                          : "Upload one or more photos"}
+                      </span>
+                      <div className="mt-2">
+                        <div
+                          className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                          style={{
+                            background: "var(--white)",
+                            border: "1px solid var(--border-color)",
+                          }}
+                        >
+                          +
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="relative h-full w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={reportPhotoPreviewUrl}
+                        alt="Selected photo preview"
+                        className="h-full w-full object-cover rounded-xl"
+                      />
+
+                      <button
+                        type="button"
+                        aria-label="Remove photo"
+                        className="absolute top-2 right-2 pill px-2 py-1 text-xs"
                         style={{
                           background: "var(--white)",
                           border: "1px solid var(--border-color)",
                         }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          clearMainPhoto();
+                        }}
                       >
-                        +
-                      </div>
+                        Remove
+                      </button>
                     </div>
-                  </>
-                ) : (
-                  <div className="relative h-full w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={reportPhotoPreviewUrl}
-                      alt="Selected photo preview"
-                      className="h-full w-full object-cover rounded-xl"
-                    />
+                  )}
+                </label>
+              </div>
 
+              {/* Landmark Photos (multiple) */}
+              <div>
+                <label
+                  className="mt-1 relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                  htmlFor="report-landmarks-mobile"
+                  style={{ border: "2px dashed var(--border-color)" }}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    id="report-landmarks-mobile"
+                    onChange={handleLandmarkPhotosChange}
+                    ref={landmarkInputMobileRef}
+                  />
+                  {landmarkPreviewUrls.length === 0 ? (
+                    <>
+                      <MapPinHouse
+                        size={30}
+                        strokeWidth={2}
+                        style={{
+                          color: "var(--primary-mintgreen)",
+                          opacity: 0.8,
+                        }}
+                      />
+                      <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
+                        Upload landmark photos (up to 5)
+                      </span>
+                      <div className="mt-2">
+                        <div
+                          className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
+                          style={{
+                            background: "var(--white)",
+                            border: "1px solid var(--border-color)",
+                          }}
+                        >
+                          +
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="relative h-full w-full">
+                      {/* Simple carousel: show current slide; use index in dataset */}
+                      <LandmarkCarousel
+                        urls={landmarkPreviewUrls}
+                        onRemove={(idx) => removeLandmarkAt(idx)}
+                        onClearAll={() => clearLandmarkPhotos()}
+                        onAdd={() => landmarkInputMobileRef.current?.click()}
+                      />
+                    </div>
+                  )}
+                  {/* When photos exist, the inner carousel shows its own add button. */}
+                </label>
+              </div>
+
+              {/* Group: Report Type / Species / Location / When */}
+              <div className="space-y-3">
+                <label className="block text-sm">
+                  Report Type
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={reportType}
+                    onChange={(e) =>
+                      setReportType(e.target.value as Exclude<AlertType, "all">)
+                    }
+                    required
+                  >
+                    <option value="found">Found</option>
+                    <option value="lost">Lost</option>
+                    <option value="cruelty">Cruelty</option>
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  Species
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qSpecies}
+                    onChange={(e) => setQSpecies(e.target.value)}
+                    required
+                  >
+                    <option>Dog</option>
+                    <option>Cat</option>
+                  </select>
+                </label>
+                <div className="grid col-end-2"></div>
+                <label className="block text-sm">
+                  Location
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
+                      placeholder="Use the pin to pick location"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportLocation}
+                      readOnly
+                      aria-readonly
+                      disabled
+                      required
+                    />
                     <button
                       type="button"
-                      aria-label="Remove photo"
-                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        clearMainPhoto();
-                      }}
+                      aria-label="Open map picker"
+                      onClick={() => setShowMapPicker(true)}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
                     >
-                      Remove
+                      Pin
                     </button>
                   </div>
-                )}
-              </label>
-            </div>
-
-            {/* Landmark Photos (multiple) */}
-            <div>
-              <label
-                className="mt-1 relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
-                htmlFor="report-landmarks-mobile"
-                style={{ border: "2px dashed var(--border-color)" }}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  id="report-landmarks-mobile"
-                  onChange={handleLandmarkPhotosChange}
-                  ref={landmarkInputMobileRef}
-                />
-                {landmarkPreviewUrls.length === 0 ? (
-                  <>
-                    <MapPinHouse
-                      size={30}
-                      strokeWidth={2}
-                      style={{
-                        color: "var(--primary-mintgreen)",
-                        opacity: 0.8,
+                  <p className="mt-1 text-xs ink-muted">
+                    Use the pin to pick an exact location.
+                  </p>
+                </label>
+                <label className="block text-sm">
+                  When
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-xl px-3 py-2"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={qWhen}
+                      onChange={(e) => setQWhen(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      aria-label="Set current date & time"
+                      onClick={() => {
+                        const now = new Date();
+                        const iso = new Date(
+                          now.getTime() - now.getTimezoneOffset() * 60000
+                        )
+                          .toISOString()
+                          .slice(0, 16);
+                        setQWhen(iso);
                       }}
+                      className="rounded-xl px-3 py-2 text-white"
+                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              {/* Group: Checkboxes / Features/Description / Contact */}
+              <div className="space-y-3">
+                {/* Flags moved to column 1 above */}
+                {isCruelty ? (
+                  <label className="block text-sm">
+                    Description
+                    <textarea
+                      rows={3}
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      placeholder="What happened? When/where?"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportDescription}
+                      onChange={(e) => setReportDescription(e.target.value)}
                     />
-                    <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      Upload landmark photos (up to 5)
-                    </span>
-                    <div className="mt-2">
-                      <div
-                        className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
-                        style={{
-                          background: "var(--white)",
-                          border: "1px solid var(--border-color)",
-                        }}
-                      >
-                        +
-                      </div>
-                    </div>
-                  </>
+                  </label>
                 ) : (
-                  <div className="relative h-full w-full">
-                    {/* Simple carousel: show current slide; use index in dataset */}
-                    <LandmarkCarousel
-                      urls={landmarkPreviewUrls}
-                      onRemove={(idx) => removeLandmarkAt(idx)}
-                      onClearAll={() => clearLandmarkPhotos()}
-                      onAdd={() => landmarkInputMobileRef.current?.click()}
+                  <label className="block text-sm">
+                    Distinctive Features (optional)
+                    <input
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      placeholder="e.g., blue collar"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      value={reportDescription}
+                      onChange={(e) => onQuickFeatureChange(e.target.value)}
                     />
+                  </label>
+                )}
+                <label className="block text-sm">
+                  Phone / Email (optional)
+                  <input
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    placeholder="0900 000 0000 / you@example.com"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qContact}
+                    onChange={(e) => setQContact(e.target.value)}
+                  />
+                </label>
+                {/* Submit anonymously checkbox (mobile) */}
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={qAnon}
+                    onChange={(e) => {
+                      setQAnon(e.target.checked);
+                      if (e.target.checked) showTipFor(e.target, "anonymous");
+                      else hideTip();
+                    }}
+                  />
+                  <span>Submit anonymously</span>
+                </label>
+                {isCruelty && (
+                  <div
+                    className="rounded-xl p-4"
+                    style={{
+                      background: "var(--card-bg)",
+                      border: "1px solid var(--border-color)",
+                    }}
+                  >
+                    <p className="font-semibold ink-heading">
+                      Safety & Welfare
+                    </p>
+                    <ul
+                      className="ink-muted mt-2 space-y-1 pl-5"
+                      style={{ listStyle: "disc" }}
+                    >
+                      <li>Do not intervene if unsafe.</li>
+                      <li>Share exact location details.</li>
+                      <li>Upload clear evidence if possible.</li>
+                    </ul>
                   </div>
                 )}
-                {/* When photos exist, the inner carousel shows its own add button. */}
-              </label>
-            </div>
-
-            {/* Group: Report Type / Species / Location / When */}
-            <div className="space-y-3">
-              <label className="block text-sm">
-                Report Type
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={reportType}
-                  onChange={(e) =>
-                    setReportType(e.target.value as Exclude<AlertType, "all">)
-                  }
-                  required
-                >
-                  <option value="found">Found</option>
-                  <option value="lost">Lost</option>
-                  <option value="cruelty">Cruelty</option>
-                </select>
-              </label>
-              <label className="block text-sm">
-                Species
-                <select
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={qSpecies}
-                  onChange={(e) => setQSpecies(e.target.value)}
-                  required
-                >
-                  <option>Dog</option>
-                  <option>Cat</option>
-                  <option>Other</option>
-                </select>
-              </label>
-              <label className="block text-sm">
-                Location
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
-                    placeholder="Use the pin to pick location"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={reportLocation}
-                    readOnly
-                    aria-readonly
-                    disabled
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Open map picker"
-                    onClick={() => setShowMapPicker(true)}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    Pin
-                  </button>
-                </div>
-                <p className="mt-1 text-xs ink-muted">
-                  Use the pin to pick an exact location.
-                </p>
-              </label>
-              <label className="block text-sm">
-                When
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="datetime-local"
-                    className="w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={qWhen}
-                    onChange={(e) => setQWhen(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    aria-label="Set current date & time"
-                    onClick={() => {
-                      const now = new Date();
-                      const iso = new Date(
-                        now.getTime() - now.getTimezoneOffset() * 60000
-                      )
-                        .toISOString()
-                        .slice(0, 16);
-                      setQWhen(iso);
-                    }}
-                    className="rounded-xl px-3 py-2 text-white"
-                    style={{ backgroundColor: "var(--primary-mintgreen)" }}
-                  >
-                    <Clock className="h-5 w-5" />
-                  </button>
-                </div>
-              </label>
-            </div>
-
-            {/* Group: Checkboxes / Features/Description / Contact */}
-            <div className="space-y-3">
-              {/* Flags moved to column 1 above */}
-              {isCruelty ? (
-                <label className="block text-sm">
-                  Description
-                  <textarea
-                    rows={3}
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    placeholder="What happened? When/where?"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={reportDescription}
-                    onChange={(e) => setReportDescription(e.target.value)}
-                  />
-                </label>
-              ) : (
-                <label className="block text-sm">
-                  Distinctive Features (optional)
-                  <input
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    placeholder="e.g., blue collar"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    value={reportDescription}
-                    onChange={(e) => onQuickFeatureChange(e.target.value)}
-                  />
-                </label>
-              )}
-              <label className="block text-sm">
-                Phone / Email (optional)
-                <input
-                  className="mt-1 w-full rounded-xl px-3 py-2"
-                  placeholder="0900 000 0000 / you@example.com"
-                  style={{ border: "1px solid var(--border-color)" }}
-                  value={qContact}
-                  onChange={(e) => setQContact(e.target.value)}
-                />
-              </label>
-              {/* Submit anonymously checkbox (mobile) */}
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={qAnon}
-                  onChange={(e) => {
-                    setQAnon(e.target.checked);
-                    if (e.target.checked) showTipFor(e.target, "anonymous");
-                    else hideTip();
-                  }}
-                />
-                <span>Submit anonymously</span>
-              </label>
-              {isCruelty && (
-                <div
-                  className="rounded-xl p-4"
-                  style={{
-                    background: "var(--card-bg)",
-                    border: "1px solid var(--border-color)",
-                  }}
-                >
-                  <p className="font-semibold ink-heading">Safety & Welfare</p>
-                  <ul
-                    className="ink-muted mt-2 space-y-1 pl-5"
-                    style={{ listStyle: "disc" }}
-                  >
-                    <li>Do not intervene if unsafe.</li>
-                    <li>Share exact location details.</li>
-                    <li>Upload clear evidence if possible.</li>
-                  </ul>
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Desktop: centered photo placeholders above columns */}
+          {/* Desktop: centered photo placeholders above columns */}
 
           {/* Desktop layout (new 3-column design) */}
           <div className="hidden md:grid grid-cols-13 gap-6 mb-4 ">
@@ -972,41 +981,113 @@ export function ReportSection({
                         >
                           <option>Dog</option>
                           <option>Cat</option>
-                          <option>Other</option>
                         </select>
                       </label>
                     </div>
                     {/* Species field moved into the 2-column header row */}
-                    <label className="block text-sm">
-                      Location
-                      <div className="mt-1 flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-1">
+                        <label className="block text-sm">
+                          Location
+                          <div className="mt-1 flex items-center gap-2">
+                            <input
+                              className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
+                              placeholder="Use the pin to pick location"
+                              style={{
+                                border: "1px solid var(--border-color)",
+                              }}
+                              value={reportLocation}
+                              readOnly
+                              aria-readonly
+                              disabled
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="pill px-3 py-2"
+                              style={{
+                                border: "1px solid var(--border-color)",
+                                background: "var(--primary-mintgreen)",
+                                color: "var(--white)",
+                              }}
+                              onClick={() => setShowMapPicker(true)}
+                            >
+                              Pin
+                            </button>
+                          </div>
+                          <div className="mt-1 text-xs ink-subtle">
+                            Use the pin to pick an exact location.
+                          </div>
+                        </label>
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-sm">
+                          When
+                          <div className="mt-1 flex items-center gap-2">
+                            <input
+                              type="datetime-local"
+                              className="w-full rounded-xl px-3 py-2"
+                              style={{
+                                border: "1px solid var(--border-color)",
+                              }}
+                              value={qWhen}
+                              onChange={(e) => setQWhen(e.target.value)}
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="pill px-3 py-2"
+                              style={{
+                                border: "1px solid var(--border-color)",
+                                background: "var(--primary-mintgreen)",
+                                color: "var(--white)",
+                              }}
+                              onClick={() => {
+                                const now = new Date();
+                                const iso = new Date(
+                                  now.getTime() -
+                                    now.getTimezoneOffset() * 60000
+                                )
+                                  .toISOString()
+                                  .slice(0, 16);
+                                setQWhen(iso);
+                              }}
+                            >
+                              Auto
+                            </button>
+                          </div>
+                          <div className="mt-1 text-xs ink-subtle">
+                            You can type a date/time or tap the auto to set now.
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-sm">
+                        Phone / Email (optional)
                         <input
-                          className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
-                          placeholder="Use the pin to pick location"
+                          className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
-                          value={reportLocation}
-                          readOnly
-                          aria-readonly
-                          disabled
-                          required
+                          placeholder="0900 000 0000 / you@example.com"
+                          value={qContact}
+                          onChange={(e) => setQContact(e.target.value)}
                         />
-                        <button
-                          type="button"
-                          className="pill px-3 py-2"
-                          style={{
-                            border: "1px solid var(--border-color)",
-                            background: "var(--primary-mintgreen)",
-                            color: "var(--white)",
-                          }}
-                          onClick={() => setShowMapPicker(true)}
+                      </label>
+                      <label className="block text-sm">
+                        Pet Status
+                        <select
+                          className="mt-1 w-full rounded-xl px-3 py-2"
+                          style={{ border: "1px solid var(--border-color)" }}
+                          value={qPetStatus}
+                          onChange={(e) => setQPetStatus(e.target.value)}
                         >
-                          Pin
-                        </button>
-                      </div>
-                      <div className="mt-1 text-xs ink-subtle">
-                        Use the pin to pick an exact location.
-                      </div>
-                    </label>
+                          <option value="Roaming">Roaming</option>
+                          <option value="In Custody">In Custody</option>
+                        </select>
+                      </label>
+                    </div>
+
                     <label className="block text-sm">
                       {isCruelty
                         ? "Description"
@@ -1023,57 +1104,7 @@ export function ReportSection({
                         onChange={(e) => onQuickFeatureChange(e.target.value)}
                       />
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block text-sm">
-                        When
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="datetime-local"
-                            className="w-full rounded-xl px-3 py-2"
-                            style={{
-                              border: "1px solid var(--border-color)",
-                            }}
-                            value={qWhen}
-                            onChange={(e) => setQWhen(e.target.value)}
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="pill px-3 py-2"
-                            style={{
-                              border: "1px solid var(--border-color)",
-                              background: "var(--primary-mintgreen)",
-                              color: "var(--white)",
-                            }}
-                            onClick={() => {
-                              const now = new Date();
-                              const iso = new Date(
-                                now.getTime() - now.getTimezoneOffset() * 60000
-                              )
-                                .toISOString()
-                                .slice(0, 16);
-                              setQWhen(iso);
-                            }}
-                          >
-                            Auto
-                          </button>
-                        </div>
-                        <div className="mt-1 text-xs ink-subtle">
-                          You can type a date/time or tap the auto to set now.
-                        </div>
-                      </label>
 
-                      <label className="block text-sm">
-                        Phone / Email (optional)
-                        <input
-                          className="mt-1 w-full rounded-xl px-3 py-2"
-                          style={{ border: "1px solid var(--border-color)" }}
-                          placeholder="0900 000 0000 / you@example.com"
-                          value={qContact}
-                          onChange={(e) => setQContact(e.target.value)}
-                        />
-                      </label>
-                    </div>
                     {/* Desktop: flags visible in Quick Submit */}
                     <div className="hidden md:flex mt-2 flex-wrap items-center gap-4">
                       <label
@@ -1270,7 +1301,6 @@ export function ReportSection({
                   >
                     <option>Dog</option>
                     <option>Cat</option>
-                    <option>Other</option>
                   </select>
                 </label>
                 <label className="block text-sm">
@@ -1279,7 +1309,9 @@ export function ReportSection({
                     <input
                       type="datetime-local"
                       className="w-full rounded-xl px-3 py-2"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                      }}
                       value={qWhen}
                       onChange={(e) => setQWhen(e.target.value)}
                       required

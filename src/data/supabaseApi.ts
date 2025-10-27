@@ -5,6 +5,7 @@ import {
   AdoptionPet,
   AdoptionRow,
   AlertType,
+  PetStatus,
 } from "@/types/app";
 
 export const PET_MEDIA_BUCKET = "pet-media";
@@ -75,6 +76,7 @@ function toAlert(row: AlertRow): Alert {
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     landmarkImageUrls,
+    petStatus: (row.pet_status as PetStatus | null) ?? "roaming",
   };
 }
 
@@ -101,6 +103,7 @@ function toAdoption(row: AdoptionRow): AdoptionPet {
     createdAt: row.created_at ?? null,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
+    petStatus: (row.pet_status as PetStatus | null) ?? "in_custody",
   };
 }
 
@@ -109,7 +112,7 @@ export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): 
   const base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -134,7 +137,7 @@ export async function fetchAlertsPaged(
   let base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description",
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status",
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
@@ -176,7 +179,7 @@ export async function searchAlerts(
   const base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description"
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status"
     )
     .or(orParts.join(","))
     .limit(limit);
@@ -195,7 +198,7 @@ export async function fetchAdoptionPets(
   const base = supabase
     .from("adoption_pets")
     .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude"
+      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
     )
     .eq("status", "available")
     .order("created_at", { ascending: false })
@@ -229,7 +232,7 @@ export async function searchAdoptionPets(
   const base = supabase
     .from("adoption_pets")
     .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude"
+      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
     )
     .or(orParts.join(","))
     .eq("status", "available")
@@ -254,7 +257,7 @@ export async function fetchAdoptionPetsPaged(
   const base = supabase
     .from("adoption_pets")
     .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude",
+      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status",
       { count: "exact" }
     )
     .eq("status", "available")

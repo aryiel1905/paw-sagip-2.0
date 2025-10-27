@@ -34,6 +34,8 @@ function DetailsModalInner({
   getMapsLink,
 }: DetailsModalProps) {
   const isAlert = item?.kind === "alert";
+  const fmtPetStatus = (s?: string | null) =>
+    s === "in_custody" ? "In Custody" : s === "roaming" ? "Roaming" : "-";
   const initialLm = useMemo(
     () => (item && isAlert ? item.alert.landmarkImageUrls ?? [] : []),
     [isAlert, item]
@@ -330,6 +332,7 @@ function DetailsModalInner({
                   />
 
                   <DetailsRow label="Status" value={item.alert.type} />
+                  <DetailsRow label="Pet Status" value={fmtPetStatus(item.alert.petStatus)} />
                   <DetailsRow
                     label="Distinctive Features"
                     value={reportDetails?.features || "-"}
@@ -354,6 +357,7 @@ function DetailsModalInner({
                     label="Kind"
                     value={item.adoption.kind.toUpperCase()}
                   />
+                  <DetailsRow label="Pet Status" value={fmtPetStatus(item.adoption.petStatus)} />
                   <DetailsRow label="Age" value={item.adoption.age} />
                   <DetailsRow label="Notes" value={item.adoption.note} />
                   <DetailsRow label="Location" value={item.adoption.location} />

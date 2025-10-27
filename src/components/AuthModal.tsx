@@ -444,19 +444,19 @@ export function AuthModal({
           <div className="relative hidden bg-muted md:block h-full aspect-[3/4] justify-self-end">
             {/* login image */}
             <img
-              src="/LoginImage.svg"
+              src="/LoginImage2.svg"
               alt="Login illustration"
               className={[
-                "absolute inset-0 h-full w-full object-cover object-center dark:brightness-[0.2] dark:grayscale",
+                "absolute inset-0 h-full w-full object-cover object-center ",
                 loginImageClasses,
               ].join(" ")}
             />
             {/* placeholder for signup (reuse same asset) */}
             <img
-              src="/placeholder.svg"
+              src="/SigninImage.svg"
               alt="Signup illustration"
               className={[
-                "absolute inset-0 h-full w-full object-cover object-center dark:brightness-[0.2] dark:grayscale",
+                "absolute inset-0 h-full w-full object-cover object-center ",
                 signupImageClasses,
               ].join(" ")}
             />

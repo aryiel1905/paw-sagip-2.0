@@ -1,5 +1,8 @@
 ﻿export type AlertType = "all" | "lost" | "found" | "cruelty" | "adoption";
 
+// Pet status tied to iREPORT field
+export type PetStatus = "roaming" | "in_custody";
+
 export type Alert = {
   id: string;
   type: Exclude<AlertType, "all">;
@@ -11,6 +14,8 @@ export type Alert = {
   latitude?: number | null;
   longitude?: number | null;
   landmarkImageUrls?: string[];
+  // iREPORT Pet Status (Roaming/In Custody)
+  petStatus?: PetStatus;
 };
 
 export type AdoptionPet = {
@@ -25,6 +30,8 @@ export type AdoptionPet = {
   createdAt?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  // iREPORT Pet Status mapped for adoptions (generally in_custody)
+  petStatus?: PetStatus;
 };
 
 export type ReportStatus = "idle" | "submitting" | "success" | "error";
@@ -42,6 +49,7 @@ export type AlertRow = {
   pet_name?: string | null;
   species?: string | null;
   description?: string | null;
+  pet_status?: PetStatus | null;
 };
 
 export type AdoptionRow = {
@@ -58,6 +66,7 @@ export type AdoptionRow = {
   latitude?: number | null;
   longitude?: number | null;
   landmark_media_paths?: string[] | null;
+  pet_status?: PetStatus | null;
 };
 
 // Shared modal item type for DetailsModal and global search
