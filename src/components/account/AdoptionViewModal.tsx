@@ -461,7 +461,16 @@ export default function AdoptionViewModal({
       effectiveData,
       { flatten: true }
     );
-    return new Blob([bytes], { type: "application/pdf" });
+    const buffer =
+      bytes.buffer instanceof ArrayBuffer
+        ? bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+          ? bytes.buffer
+          : bytes.buffer.slice(
+              bytes.byteOffset,
+              bytes.byteOffset + bytes.byteLength
+            )
+        : (bytes.slice().buffer as ArrayBuffer);
+    return new Blob([buffer], { type: "application/pdf" });
   };
 
   const handlePrint = async () => {

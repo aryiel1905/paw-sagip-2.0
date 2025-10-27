@@ -131,7 +131,11 @@ function safeSet(form: PDFForm, name: string, value: string) {
 function safeCheck(form: PDFForm, name: string, on: boolean) {
   try {
     const c = form.getCheckBox(name);
-    on ? c.check() : c.uncheck();
+    if (on) {
+      c.check();
+    } else {
+      c.uncheck();
+    }
   } catch {}
 }
 
