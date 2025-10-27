@@ -9,6 +9,7 @@ import { showToast } from "@/lib/toast";
 import { fillAdoptionApplicationPdf } from "@/lib/fillAdoptionForm";
 
 const EDITABLE_STATUSES = new Set(["pending", "reviewing", "in_review"]);
+const ADOPTION_FORM_TEMPLATE_PATH = "/pdfs/PawSagip_Form.pdf";
 
 const CIVIL_STATUS_OPTIONS = ["single", "married", "others"] as const;
 const PRONOUN_OPTIONS = ["she/her", "he/him", "they/them"] as const;
@@ -237,6 +238,7 @@ export default function AdoptionViewModal({
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [viewer, setViewer] = useState<{
     urls: string[];
     index: number;
@@ -443,17 +445,30 @@ export default function AdoptionViewModal({
     }
   };
 
+  const buildPdfBlob = async () => {
+    if (!effectiveData) {
+      throw new Error("Missing application data.");
+    }
+    const res = await fetch(ADOPTION_FORM_TEMPLATE_PATH);
+    if (!res.ok) {
+      throw new Error(
+        `Template not found at ${ADOPTION_FORM_TEMPLATE_PATH}.`
+      );
+    }
+    const templateBytes = await res.arrayBuffer();
+    const bytes = await fillAdoptionApplicationPdf(
+      templateBytes,
+      effectiveData,
+      { flatten: true }
+    );
+    return new Blob([bytes], { type: "application/pdf" });
+  };
+
   const handlePrint = async () => {
     if (!effectiveData) return;
     try {
       setPrinting(true);
-      const res = await fetch("/pdfs/PawSagip_Form.pdf");
-      if (!res.ok) throw new Error("Template not found at /pdfs/PawSagip_Form.pdf");
-      const templateBytes = await res.arrayBuffer();
-      const bytes = await fillAdoptionApplicationPdf(templateBytes, effectiveData, {
-        flatten: true,
-      });
-      const blob = new Blob([bytes], { type: "application/pdf" });
+      const blob = await buildPdfBlob();
       const url = URL.createObjectURL(blob);
 
       const iframe = document.createElement("iframe");
@@ -480,6 +495,27 @@ export default function AdoptionViewModal({
       showToast("error", "Could not generate PDF");
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!effectiveData) return;
+    try {
+      setDownloading(true);
+      const blob = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `PawSagip-Application-${effectiveData.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      console.error(e);
+      showToast("error", "Could not download PDF");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -532,8 +568,27 @@ export default function AdoptionViewModal({
                     type="button"
                     className="pill px-3 py-1.5"
                     style={{ border: "1px solid var(--border-color)" }}
+                    onClick={handleDownload}
+                    disabled={
+                      effectiveLoading ||
+                      !effectiveData ||
+                      downloading ||
+                      printing
+                    }
+                  >
+                    {downloading ? "Preparing..." : "Download"}
+                  </button>
+                  <button
+                    type="button"
+                    className="pill px-3 py-1.5"
+                    style={{ border: "1px solid var(--border-color)" }}
                     onClick={handlePrint}
-                    disabled={effectiveLoading || !effectiveData || printing}
+                    disabled={
+                      effectiveLoading ||
+                      !effectiveData ||
+                      printing ||
+                      downloading
+                    }
                   >
                     {printing ? "Preparing..." : "Print"}
                   </button>
