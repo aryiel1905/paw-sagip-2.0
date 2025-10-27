@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
+import type { PetStatus } from "@/types/app";
 
 export type ReportViewData = {
   id: string;
@@ -32,6 +33,7 @@ export type ReportViewData = {
   description?: string | null;
   created_at?: string | null;
   status?: string | null;
+  pet_status?: PetStatus | null;
   is_anonymous?: boolean | null;
   is_aggressive?: boolean | null;
   is_friendly?: boolean | null;
@@ -55,6 +57,7 @@ type EditFormState = {
   description: string;
   when: string;
   status: string | null;
+  petStatus: PetStatus;
   location: string;
   isAggressive: boolean;
   isFriendly: boolean;
@@ -98,13 +101,16 @@ function toFormState(data: ReportViewData): EditFormState {
   const incomingAge = (data.age_size || "").trim();
   let mappedAge = incomingAge;
   if (incomingAge === "Puppy/Kitten") {
-    mappedAge = (data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy";
+    mappedAge =
+      (data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy";
   }
   return {
     type: data.type?.toLowerCase?.() || "found",
     condition: data.condition || "Healthy",
     gender: data.gender || "Unknown",
-    ageSize: mappedAge || ((data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy"),
+    ageSize:
+      mappedAge ||
+      ((data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy"),
     petName: data.pet_name || "",
     species: data.species || "Dog",
     breed: data.breed || "",
@@ -112,6 +118,7 @@ function toFormState(data: ReportViewData): EditFormState {
     description: data.description || "",
     when: toLocalInput(data.event_at || data.created_at),
     status: data.status ?? null,
+    petStatus: (data.pet_status as PetStatus) ?? "roaming",
     location: data.location || "",
     isAggressive: !!data.is_aggressive,
     isFriendly: !!data.is_friendly,
@@ -260,6 +267,7 @@ export default function ReportViewModal({
         age_size: form.ageSize || null,
         features: form.features?.trim() ? form.features.trim() : null,
         description: form.description?.trim() ? form.description.trim() : null,
+        pet_status: form.petStatus,
         is_aggressive: form.isAggressive,
         is_friendly: form.isFriendly,
         is_anonymous: form.isAnonymous,
@@ -355,19 +363,65 @@ export default function ReportViewModal({
       : null;
 
   function formatWhen(): string {
-    const d = effectiveData?.event_at || effectiveData?.created_at;
-    if (!d) return "-";
+    const raw = effectiveData?.event_at || effectiveData?.created_at;
+    if (!raw) return "-";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "-";
+
+    const now = new Date();
+    let diffMs = now.getTime() - date.getTime();
+    const future = diffMs < 0;
+    diffMs = Math.abs(diffMs);
+
+    const seconds = Math.round(diffMs / 1000);
+    if (seconds < 45) {
+      return future ? "in a few seconds" : "a few seconds ago";
+    }
+
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) {
+      const value = Math.max(1, minutes);
+      return rtf.format(future ? value : -value, "minute");
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      const value = Math.max(1, hours);
+      return rtf.format(future ? value : -value, "hour");
+    }
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) {
+      const value = Math.max(1, days);
+      return rtf.format(future ? value : -value, "day");
+    }
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 4) {
+      const value = Math.max(1, weeks);
+      return rtf.format(future ? value : -value, "week");
+    }
+
+    const months = Math.floor(days / 30);
+    if (months < 12) {
+      const value = Math.max(1, months);
+      return rtf.format(future ? value : -value, "month");
+    }
+
+    const years = Math.floor(days / 365);
+    const value = Math.max(1, years);
+    return rtf.format(future ? value : -value, "year");
+  }
+
+  function formatSubmitted(): string {
+    const raw = effectiveData?.created_at;
+    if (!raw) return "-";
     try {
-      const date = new Date(d);
-      return date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      return new Date(raw).toLocaleString();
     } catch {
-      return d;
+      return raw;
     }
   }
 
@@ -378,17 +432,19 @@ export default function ReportViewModal({
         value,
         editNode,
         editable,
+        className = "",
       }: {
         label: string;
         value: ReactNode;
         editNode?: ReactNode;
         editable?: boolean;
+        className?: string;
       }) {
         const highlightClass = editable
           ? "border-neutral-700 bg-white"
           : "border-[var(--border-color)] bg-[var(--card-bg)]";
         return (
-          <div className="flex flex-col gap-1 text-sm min-w-0">
+          <div className={`flex flex-col gap-1 text-sm min-w-0 ${className}`}>
             <div className="ink-subtle flex items-center h-6">{label}</div>
             <div
               className={`rounded-lg border px-3 py-2 font-medium text-sm ink-heading break-words w-full min-w-0 transition-colors duration-150 ${highlightClass}`}
@@ -404,16 +460,6 @@ export default function ReportViewModal({
 
   const boolLabel = (value?: boolean | null) =>
     typeof value === "boolean" ? (value ? "Yes" : "No") : "-";
-
-  const createdAtDisplay = (() => {
-    const d = effectiveData?.created_at;
-    if (!d) return "-";
-    try {
-      return new Date(d).toLocaleString();
-    } catch {
-      return d;
-    }
-  })();
 
   const detailRows = useMemo(
     () => [
@@ -475,11 +521,16 @@ export default function ReportViewModal({
           editNode: (
             <select
               className="w-full bg-transparent outline-none"
-              value={form?.ageSize ?? ((form?.species || "Dog") === "Cat" ? "Kitten" : "Puppy")}
+              value={
+                form?.ageSize ??
+                ((form?.species || "Dog") === "Cat" ? "Kitten" : "Puppy")
+              }
               onChange={(e) => updateForm("ageSize", e.currentTarget.value)}
             >
               {getAgeOptions(form?.species).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
               ))}
             </select>
           ),
@@ -522,17 +573,25 @@ export default function ReportViewModal({
         },
       },
       {
-        id: "when-aggressive",
+        id: "petstatus-aggressive",
         left: {
-          label: "When",
-          value: formatWhen(),
+          label: "Pet Status",
+          value: (() => {
+            const v = effectiveData?.pet_status;
+            if (!v) return "-";
+            return v === "in_custody" ? "In Custody" : "Roaming";
+          })(),
           editNode: (
-            <input
-              type="datetime-local"
+            <select
               className="w-full bg-transparent outline-none"
-              value={form?.when ?? ""}
-              onChange={(e) => updateForm("when", e.currentTarget.value)}
-            />
+              value={form?.petStatus ?? "roaming"}
+              onChange={(e) =>
+                updateForm("petStatus", e.currentTarget.value as PetStatus)
+              }
+            >
+              <option value="roaming">Roaming</option>
+              <option value="in_custody">In Custody</option>
+            </select>
           ),
         },
         right: {
@@ -577,8 +636,16 @@ export default function ReportViewModal({
       {
         id: "submitted-friendly",
         left: {
-          label: "Submitted",
-          value: createdAtDisplay,
+          label: "When",
+          value: formatWhen(),
+          editNode: (
+            <input
+              type="datetime-local"
+              className="w-full bg-transparent outline-none"
+              value={form?.when ?? ""}
+              onChange={(e) => updateForm("when", e.currentTarget.value)}
+            />
+          ),
         },
         right: {
           label: "Friendly",
@@ -680,7 +747,7 @@ export default function ReportViewModal({
         },
       },
       {
-        id: "species-reportername",
+        id: "species-breed",
         left: {
           label: "Pet Type",
           value: effectiveData?.species || "-",
@@ -694,11 +761,31 @@ export default function ReportViewModal({
                   if (!prev) return prev;
                   let nextAge = prev.ageSize;
                   if (next === "Dog") {
-                    if (prev.ageSize === "Kitten" || prev.ageSize === "Puppy/Kitten") nextAge = "Puppy";
-                    if (!(getAgeOptions(next) as readonly string[]).includes(nextAge)) nextAge = "Puppy";
+                    if (
+                      prev.ageSize === "Kitten" ||
+                      prev.ageSize === "Puppy/Kitten"
+                    )
+                      nextAge = "Puppy";
+                    if (
+                      !(getAgeOptions(next) as readonly string[]).includes(
+                        nextAge
+                      )
+                    ) {
+                      nextAge = "Puppy";
+                    }
                   } else if (next === "Cat") {
-                    if (prev.ageSize === "Puppy" || prev.ageSize === "Puppy/Kitten") nextAge = "Kitten";
-                    if (!(getAgeOptions(next) as readonly string[]).includes(nextAge)) nextAge = "Kitten";
+                    if (
+                      prev.ageSize === "Puppy" ||
+                      prev.ageSize === "Puppy/Kitten"
+                    )
+                      nextAge = "Kitten";
+                    if (
+                      !(getAgeOptions(next) as readonly string[]).includes(
+                        nextAge
+                      )
+                    ) {
+                      nextAge = "Kitten";
+                    }
                   }
                   return { ...prev, species: next, ageSize: nextAge };
                 });
@@ -710,12 +797,29 @@ export default function ReportViewModal({
                 </option>
               ) : null}
               {SPECIES_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
               ))}
             </select>
           ),
         },
         right: {
+          label: "Breed",
+          value: effectiveData?.breed || "-",
+          editNode: (
+            <input
+              className="w-full bg-transparent outline-none"
+              value={form?.breed ?? ""}
+              onChange={(e) => updateForm("breed", e.currentTarget.value)}
+              placeholder="e.g., Aspin"
+            />
+          ),
+        },
+      },
+      {
+        id: "reporter-contact",
+        left: {
           label: "Reporter Name",
           value: effectiveData?.is_anonymous
             ? "-"
@@ -729,21 +833,6 @@ export default function ReportViewModal({
               }
               disabled={!!form?.isAnonymous}
               placeholder="Your name"
-            />
-          ),
-        },
-      },
-      {
-        id: "breed-contact",
-        left: {
-          label: "Breed",
-          value: effectiveData?.breed || "-",
-          editNode: (
-            <input
-              className="w-full bg-transparent outline-none"
-              value={form?.breed ?? ""}
-              onChange={(e) => updateForm("breed", e.currentTarget.value)}
-              placeholder="e.g., Aspin"
             />
           ),
         },
@@ -763,14 +852,6 @@ export default function ReportViewModal({
               placeholder="Phone or email"
             />
           ),
-        },
-      },
-      {
-        id: "report-id",
-        left: null,
-        right: {
-          label: "Report ID",
-          value: effectiveData?.id || "-",
         },
       },
     ],
@@ -821,14 +902,17 @@ export default function ReportViewModal({
                       }}
                       onClick={handleSave}
                       disabled={saving}
-                        >
-                          Save
-                        </button>
-                        {saving ? (
-                          <span className="text-xs ink-subtle ml-1" aria-live="polite">
-                            Saving...
-                          </span>
-                        ) : null}
+                    >
+                      Save
+                    </button>
+                    {saving ? (
+                      <span
+                        className="text-xs ink-subtle ml-1"
+                        aria-live="polite"
+                      >
+                        Saving...
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       className="pill px-3 py-1"
@@ -1014,7 +1098,7 @@ export default function ReportViewModal({
                       label="Report ID"
                       value={effectiveData?.custom_id ?? "-"}
                     />
-                    <DetailField label="Submitted" value={formatWhen()} />
+                    <DetailField label="Submitted" value={formatSubmitted()} />
                   </div>
                   {editing && actionError ? (
                     <div
@@ -1035,33 +1119,31 @@ export default function ReportViewModal({
                           value={row.left.value}
                           editNode={row.left.editNode}
                           editable={editing}
+                          className={row.right ? "" : "md:col-span-2"}
                         />
-                      ) : (
-                        <div className="hidden md:block" />
-                      )}
+                      ) : null}
                       {row.right ? (
                         <DetailField
                           label={row.right.label}
                           value={row.right.value}
                           editNode={row.right.editNode}
                           editable={editing}
+                          className={row.left ? "" : "md:col-span-2"}
                         />
-                      ) : (
-                        <div className="hidden md:block" />
-                      )}
+                      ) : null}
                     </div>
                   ))}
 
                   <div>
-                  <div className="ink-subtle text-sm mb-1">Features</div>
-                  <div
-                    className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
-                      editingReady
-                        ? "border-neutral-700 bg-white"
-                        : "border-[var(--border-color)] bg-[var(--card-bg)]"
-                    }`}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
+                    <div className="ink-subtle text-sm mb-1">Features</div>
+                    <div
+                      className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
+                        editingReady
+                          ? "border-neutral-700 bg-white"
+                          : "border-[var(--border-color)] bg-[var(--card-bg)]"
+                      }`}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
                       {editingReady ? (
                         <input
                           className="w-full bg-transparent outline-none"
@@ -1078,15 +1160,15 @@ export default function ReportViewModal({
                   </div>
 
                   <div>
-                  <div className="ink-subtle text-sm mb-1">Description</div>
-                  <div
-                    className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
-                      editingReady
-                        ? "border-neutral-700 bg-white"
-                        : "border-[var(--border-color)] bg-[var(--card-bg)]"
-                    }`}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
+                    <div className="ink-subtle text-sm mb-1">Description</div>
+                    <div
+                      className={`rounded-lg border px-3 py-2 text-sm ink-heading break-words transition-colors duration-150 ${
+                        editingReady
+                          ? "border-neutral-700 bg-white"
+                          : "border-[var(--border-color)] bg-[var(--card-bg)]"
+                      }`}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
                       {editingReady ? (
                         <textarea
                           rows={4}

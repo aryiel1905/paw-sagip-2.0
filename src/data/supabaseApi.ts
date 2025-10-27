@@ -494,6 +494,8 @@ export type AccountReportView = {
   description?: string | null;
   created_at?: string | null;
   status?: string | null;
+  // iREPORT pet status (roaming / in_custody)
+  pet_status?: PetStatus | null;
   is_anonymous?: boolean | null;
   is_aggressive?: boolean | null;
   is_friendly?: boolean | null;
@@ -563,6 +565,7 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
     description: (data as any).description ?? null,
     created_at: (data as any).created_at ?? null,
     status: (data as any).status ?? null,
+    pet_status: (data as any).pet_status ?? null,
     is_anonymous: (data as any).is_anonymous ?? null,
     is_aggressive: (data as any).is_aggressive ?? null,
     is_friendly: (data as any).is_friendly ?? null,

@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { PET_MEDIA_BUCKET } from "@/data/supabaseApi";
 import { showToast } from "@/lib/toast";
+import { fillAdoptionApplicationPdf } from "@/lib/fillAdoptionForm";
 
 const EDITABLE_STATUSES = new Set(["pending", "reviewing", "in_review"]);
 
@@ -235,6 +236,7 @@ export default function AdoptionViewModal({
   const [form, setForm] = useState<EditFormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
   const [viewer, setViewer] = useState<{
     urls: string[];
     index: number;
@@ -441,6 +443,46 @@ export default function AdoptionViewModal({
     }
   };
 
+  const handlePrint = async () => {
+    if (!effectiveData) return;
+    try {
+      setPrinting(true);
+      const res = await fetch("/pdfs/PawSagip_Form.pdf");
+      if (!res.ok) throw new Error("Template not found at /pdfs/PawSagip_Form.pdf");
+      const templateBytes = await res.arrayBuffer();
+      const bytes = await fillAdoptionApplicationPdf(templateBytes, effectiveData, {
+        flatten: true,
+      });
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = url;
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            iframe.remove();
+          }, 1000);
+        }, 200);
+      };
+      document.body.appendChild(iframe);
+    } catch (e) {
+      console.error(e);
+      showToast("error", "Could not generate PDF");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   if (!open) return null;
   const modal = (
     <div className="fixed inset-0 z-[70]">
@@ -485,14 +527,25 @@ export default function AdoptionViewModal({
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  className="btn btn-primary px-4 py-1.5"
-                  onClick={beginEdit}
-                  disabled={!canEditStatus || effectiveLoading}
-                >
-                  Edit
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="pill px-3 py-1.5"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    onClick={handlePrint}
+                    disabled={effectiveLoading || !effectiveData || printing}
+                  >
+                    {printing ? "Preparing..." : "Print"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary px-4 py-1.5"
+                    onClick={beginEdit}
+                    disabled={!canEditStatus || effectiveLoading}
+                  >
+                    Edit
+                  </button>
+                </>
               )}
               <button
                 type="button"
