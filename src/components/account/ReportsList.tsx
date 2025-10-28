@@ -157,7 +157,7 @@ export default function ReportsList({
                         View
                       </button>
                       <button
-                        className="btn px-3 py-1.5 border border-rose-600 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600 flex items-center justify-center gap-2"
+                        className="btn px-3 py-1.5 border border-[var(--primary-red)] bg-[var(--primary-red)] text-white transition-colors duration-200 hover:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-red)] flex items-center justify-center gap-2"
                         onClick={() => setConfirmId(r.id)}
                         type="button"
                       >
@@ -195,7 +195,7 @@ export default function ReportsList({
                 Cancel
               </button>
               <button
-                className="btn px-4 py-1.5 bg-rose-600 text-white hover:brightness-95 disabled:opacity-60"
+                className="btn px-4 py-1.5 bg-[var(--primary-red)] text-white hover:brightness-90 disabled:opacity-60"
                 onClick={async () => {
                   if (!confirmId) return;
                   setDeleting(true);

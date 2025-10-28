@@ -9,7 +9,7 @@ import {
   Pencil,
   Printer,
   Save as SaveIcon,
-  X,
+  CircleX,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { PET_MEDIA_BUCKET } from "@/data/supabaseApi";
@@ -706,69 +706,67 @@ export default function AdoptionViewModal({
       <div className="relative z-[71] mx-auto my-6 max-w-4xl px-4">
         <div className="surface rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
           <div
-            className="flex items-center justify-between border-b px-5 pb-2 pt-5 flex-none"
+            className="border-b px-5 pb-2 pt-5 flex-none"
             style={{ borderColor: "var(--border-color)" }}
           >
-            <div>
-              <h2 className="text-2xl font-semibold ink-heading">
-                {effectiveData?.adoption_pets?.pet_name || "Pet"}
-              </h2>
-              <p className="ink-subtle text-sm">
-                {effectiveData?.adoption_pets?.species || "--"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {editing ? (
-                <>
-                  <button
-                    type="button"
-                    className="pill px-3 py-1.5"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    onClick={cancelEdit}
-                    disabled={saving}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary px-4 py-1.5 flex items-center gap-2 transition-colors duration-200"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    <SaveIcon className="h-4 w-4" />
-                    {saving ? "Saving..." : "Save"}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#F7A144] border border-transparent transition-colors duration-200 hover:bg-[#F08F2A] disabled:opacity-60 disabled:cursor-not-allowed"
-                    onClick={handleDownload}
-                    disabled={
-                      effectiveLoading ||
-                      !effectiveData ||
-                      downloading ||
-                      printing
-                    }
-                  >
-                    <Download className="h-4 w-4" />
-                    {downloading ? "Preparing..." : "Download"}
-                  </button>
-                  <button
-                    type="button"
-                    className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#F4C542] border border-transparent transition-colors duration-200 hover:bg-[#E8AE1E] disabled:opacity-60 disabled:cursor-not-allowed"
-                    onClick={handlePrint}
-                    disabled={
-                      effectiveLoading ||
-                      !effectiveData ||
-                      printing ||
-                      downloading
-                    }
-                  >
-                    <Printer className="h-4 w-4" />
-                    {printing ? "Preparing..." : "Print"}
-                  </button>
+            <div className="grid gap-2 sm:grid-cols-2 sm:items-center">
+              <div className="flex flex-wrap items-center gap-2 min-h-[44px]">
+                {!editing ? (
+                  <>
+                    <button
+                      type="button"
+                      className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#333639] hover:bg-[#26282A] border border-transparent transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={handleDownload}
+                      disabled={
+                        effectiveLoading ||
+                        !effectiveData ||
+                        downloading ||
+                        printing
+                      }
+                    >
+                      <Download className="h-4 w-4" />
+                      {downloading ? "Preparing..." : "Download"}
+                    </button>
+                    <button
+                      type="button"
+                      className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#333639] hover:bg-[#26282A] border border-transparent transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={handlePrint}
+                      disabled={
+                        effectiveLoading ||
+                        !effectiveData ||
+                        printing ||
+                        downloading
+                      }
+                    >
+                      <Printer className="h-4 w-4" />
+                      {printing ? "Preparing..." : "Print"}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      className="pill px-3 py-1.5"
+                      style={{ border: "1px solid var(--border-color)" }}
+                      onClick={cancelEdit}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary px-4 py-1.5 flex items-center gap-2 transition-colors duration-200"
+                      onClick={handleSave}
+                      disabled={saving}
+                    >
+                      <SaveIcon className="h-4 w-4" />
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
                     className="btn btn-primary px-4 py-1.5 flex items-center gap-2 transition-colors duration-200"
@@ -778,17 +776,16 @@ export default function AdoptionViewModal({
                     <Pencil className="h-4 w-4" />
                     Edit
                   </button>
-                </>
-              )}
-              <button
-                type="button"
-                className="pill px-3 py-1.5 flex items-center gap-2 text-sm transition-colors duration-200"
-                style={{ border: "1px solid var(--border-color)" }}
-                onClick={onClose}
-              >
-                <X className="h-4 w-4" />
-                Close
-              </button>
+                )}
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm text-white bg-[var(--primary-red)] hover:brightness-90 transition-colors duration-200"
+                  onClick={onClose}
+                >
+                  <CircleX className="h-6 w-6" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1543,13 +1540,14 @@ export default function AdoptionViewModal({
           <div className="absolute inset-0 bg-black/90" />
           <button
             type="button"
-            className="absolute left-4 top-4 pill px-3 py-1 text-white border border-white/40"
+            aria-label="Close viewer"
+            className="absolute left-4 top-4 h-9 w-9 rounded-full text-white bg-[var(--primary-red)] hover:brightness-90 transition-colors duration-200 flex items-center justify-center"
             onClick={(event) => {
               event.stopPropagation();
               setViewer(null);
             }}
           >
-            Close
+            <CircleX className="h-6 w-6" />
           </button>
           {viewer.urls.length > 1 ? (
             <>

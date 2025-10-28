@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { fetchReportById } from "@/data/supabaseApi";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleX } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
@@ -371,7 +371,9 @@ export default function ReportViewModal({
 
   // Image error fallbacks
   const [mainBroken, setMainBroken] = useState(false);
-  const [lmBrokenBySrc, setLmBrokenBySrc] = useState<Record<string, boolean>>({});
+  const [lmBrokenBySrc, setLmBrokenBySrc] = useState<Record<string, boolean>>(
+    {}
+  );
 
   // removed early return; modal is conditionally portaled below to keep hook order stable
 
@@ -960,12 +962,12 @@ export default function ReportViewModal({
                   </button>
                 )}
                 <button
-                  className="pill px-3 py-1"
-                  style={{ border: "1px solid var(--border-color)" }}
+                  aria-label="Close"
+                  className="h-9 w-9 rounded-full text-white bg-[var(--primary-red)] hover:brightness-90 transition-colors duration-200 flex items-center justify-center"
                   onClick={onClose}
                   disabled={saving}
                 >
-                  Close
+                  <CircleX className="h-6 w-6" />
                 </button>
               </div>
             </div>
@@ -1039,7 +1041,9 @@ export default function ReportViewModal({
                             decoding="async"
                             onError={() =>
                               setLmBrokenBySrc((prev) =>
-                                currentLm ? { ...prev, [currentLm]: true } : prev
+                                currentLm
+                                  ? { ...prev, [currentLm]: true }
+                                  : prev
                               )
                             }
                           />
@@ -1230,14 +1234,14 @@ export default function ReportViewModal({
               <div className="absolute inset-0 bg-black/80" />
               <button
                 type="button"
-                className="absolute left-4 top-4 pill px-3 py-1 z-[82] text-white/90 border border-white/30 hover:bg-white hover:text-black hover:border-white transition-colors duration-200 ease-in-out flex items-center gap-2"
+                aria-label="Close viewer"
+                className="absolute left-4 top-4 z-[82] h-9 w-9 rounded-full text-white bg-[var(--primary-red)] hover:brightness-90 transition-colors duration-200 ease-in-out flex items-center justify-center"
                 onClick={(e) => {
                   e.stopPropagation();
                   setViewer(null);
                 }}
               >
-                <ChevronLeft />
-                Back
+                <CircleX className="h-6 w-6" />
               </button>
               {viewer.urls.length > 1 && (
                 <>
