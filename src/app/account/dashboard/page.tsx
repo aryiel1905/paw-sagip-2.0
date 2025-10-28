@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { PET_MEDIA_BUCKET } from "@/data/supabaseApi";
 import { showToast } from "@/lib/toast";
 import ProfileCard from "@/components/account/ProfileCard";
 import MetricCard from "@/components/account/MetricCard";
@@ -140,8 +141,11 @@ export default function AccountDashboardPage() {
 
       // Applications (email filter + future user linkage)
       try {
-        const baseSelect =
-          "id, created_at, status, email, phone, pet_id, user_id, adoption_pets:pet_id ( pet_name, species, location )";
+        const baseSelect = [
+          "id, created_at, status, email, phone, pet_id, user_id",
+          // Select all pet columns to avoid unknown-column errors across environments
+          "adoption_pets:pet_id ( * )",
+        ].join(", ");
         const buildQuery = () =>
           supabase
             .from("adoption_applications")
@@ -150,59 +154,116 @@ export default function AccountDashboardPage() {
             .limit(100);
 
         let rows: any[] | null = null;
-        let appsError: any = null;
+        let appsErrorMsg: string | null = null;
 
-        const query = buildQuery();
-        if (user.email) {
-          const { data, error } = await query.or(
-            `user_id.eq.${user.id},email.eq.${user.email}`
-          );
+        try {
+          const query = buildQuery();
+          const q = user.email
+            ? query.or(`user_id.eq.${user.id},email.eq.${user.email}`)
+            : query.eq("user_id", user.id);
+          const { data } = await (q as any).throwOnError();
           rows = data ?? null;
-          appsError = error ?? null;
-        } else {
-          const { data, error } = await query.eq("user_id", user.id);
-          rows = data ?? null;
-          appsError = error ?? null;
+        } catch (e) {
+          appsErrorMsg = e instanceof Error ? e.message : String(e ?? "");
         }
 
-        if (appsError?.message?.includes?.("user_id")) {
+        if (appsErrorMsg?.includes?.("user_id")) {
           // Fallback for environments without user_id column yet.
-          let fallback = supabase
-            .from("adoption_applications")
-            .select(
-              "id, created_at, status, email, phone, pet_id, adoption_pets:pet_id ( pet_name, species, location )"
-            )
-            .order("created_at", { ascending: false })
-            .limit(100);
-          if (user.email) {
-            fallback = fallback.eq("email", user.email);
-          } else {
-            fallback = fallback.limit(0);
+          try {
+            let fallback = supabase
+              .from("adoption_applications")
+              .select(
+                [
+                  "id, created_at, status, email, phone, pet_id",
+                  "adoption_pets:pet_id ( * )",
+                ].join(", ")
+              )
+              .order("created_at", { ascending: false })
+              .limit(100);
+            if (user.email) {
+              fallback = fallback.eq("email", user.email);
+            } else {
+              fallback = fallback.limit(0);
+            }
+            const { data: fbRows } = await (fallback as any).throwOnError();
+            rows = fbRows ?? null;
+            appsErrorMsg = null;
+          } catch (e) {
+            appsErrorMsg = e instanceof Error ? e.message : String(e ?? "");
           }
-          const { data: fbRows, error: fbError } = await fallback;
-          rows = fbRows ?? null;
-          appsError = fbError ?? null;
         }
 
-        if (appsError) {
-          console.error("Applications load failed", appsError);
+        if (appsErrorMsg) {
+          console.error("Applications load failed", appsErrorMsg);
         }
         if (!cancelled && Array.isArray(rows)) {
           setMyApps(
-            rows.map((row: any) => ({
-              id: row.id,
-              created_at: row.created_at ?? null,
-              status: row.status ?? "pending",
-              petId: row.pet_id ?? null,
-              petName: row.adoption_pets?.pet_name ?? "",
-              species: row.adoption_pets?.species ?? "",
-              shelterContactName:
-                row.adoption_pets?.shelter_contact_name ?? undefined,
-              shelterEmail:
-                row.adoption_pets?.shelter_contact_email ?? undefined,
-              shelterPhone:
-                row.adoption_pets?.shelter_contact_phone ?? undefined,
-            }))
+            rows.map((row: any) => {
+              const ap = (
+                Array.isArray(row.adoption_pets)
+                  ? row.adoption_pets[0]
+                  : row.adoption_pets
+              ) as
+                | {
+                    pet_name?: string | null;
+                    species?: string | null;
+                    photo_path?: string | null;
+                    main_photo_path?: string | null;
+                    primary_photo_path?: string | null;
+                    photo_url?: string | null;
+                    main_photo_url?: string | null;
+                    primary_photo_url?: string | null;
+                    shelter_contact_name?: string | null;
+                    shelter_contact_email?: string | null;
+                    shelter_contact_phone?: string | null;
+                  }
+                | null
+                | undefined;
+              // Resolve a useful photo URL for the card:
+              // Prefer storage paths → public URL; then fall back to any direct URL.
+              const supa = getSupabaseClient();
+              const pathCandidates = [
+                ap?.photo_path,
+                ap?.main_photo_path,
+                ap?.primary_photo_path,
+              ].filter(Boolean) as string[];
+              let petPhotoUrl: string | null = null;
+              for (const p of pathCandidates) {
+                const { data } = supa.storage
+                  .from(PET_MEDIA_BUCKET)
+                  .getPublicUrl(p);
+                if (data.publicUrl) {
+                  petPhotoUrl = data.publicUrl;
+                  break;
+                }
+              }
+              if (!petPhotoUrl) {
+                const urlCandidates = [
+                  ap?.photo_url,
+                  ap?.main_photo_url,
+                  ap?.primary_photo_url,
+                ].filter(
+                  (u): u is string => typeof u === "string" && u.length > 0
+                );
+                petPhotoUrl =
+                  urlCandidates.find((u) => /^https?:\/\//i.test(u)) ||
+                  urlCandidates[0] ||
+                  null;
+              }
+              return {
+                id: row.id,
+                created_at: row.created_at ?? null,
+                status: row.status ?? "pending",
+                petId: row.pet_id ?? null,
+                petName: ap?.pet_name ?? "",
+                species: ap?.species ?? "",
+                shelterContactName: ap?.shelter_contact_name ?? undefined,
+                shelterEmail: ap?.shelter_contact_email ?? undefined,
+                shelterPhone: ap?.shelter_contact_phone ?? undefined,
+                // Helps ApplicationsList resolve the image immediately
+                petPhotoUrl,
+              } as SimpleApplication & { petPhotoUrl?: string | null };
+            })
           );
         }
       } catch {}
@@ -337,7 +398,7 @@ export default function AccountDashboardPage() {
                 tabs={[
                   { key: "reports", label: "My Reports" },
                   { key: "apps", label: "Adoption Apps" },
-                  { key: "settings", label: "Settings" },
+                  // { key: "settings", label: "Settings" },
                 ]}
               />
 
@@ -347,6 +408,9 @@ export default function AccountDashboardPage() {
                     items={myReports}
                     loading={dataLoading}
                     onView={(id) => openViewReport(id)}
+                    onDeleted={(id) =>
+                      setMyReports((prev) => prev.filter((r) => r.id !== id))
+                    }
                   />
                   <ReportViewModal
                     open={viewOpen}
@@ -361,6 +425,9 @@ export default function AccountDashboardPage() {
                     items={myApps}
                     loading={dataLoading}
                     onView={(id) => openViewApplication(id)}
+                    onDeleted={(id) =>
+                      setMyApps((prev) => prev.filter((a) => a.id !== id))
+                    }
                   />
                   <AdoptionViewModal
                     open={appViewOpen}
@@ -369,9 +436,9 @@ export default function AccountDashboardPage() {
                   />
                 </>
               )}
-              {active === "settings" && (
+              {/* {active === "settings" && (
                 <SettingsPanel userEmail={user.email ?? ""} />
-              )}
+              )} */}
             </div>
           </div>
         </div>

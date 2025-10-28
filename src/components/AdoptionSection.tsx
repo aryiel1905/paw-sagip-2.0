@@ -10,6 +10,27 @@ type AdoptionSectionProps = {
   setAdoptionSort: (value: "nearest" | "newest") => void;
 };
 
+function petFallbackTheme(kind?: string | null) {
+  const value = (kind || "").toLowerCase();
+  if (value.includes("dog"))
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)",
+      color: "#8C4F22",
+    } as const;
+  if (value.includes("cat"))
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)",
+      color: "#8C6B00",
+    } as const;
+  return {
+    background:
+      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    color: "#4A55C2",
+  } as const;
+}
+
 export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
   return (
     <section
@@ -69,11 +90,8 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                           />
                         ) : (
                           <div
-                            className="grid place-content-center h-32 text-3xl"
-                            style={{
-                              background:
-                                "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                            }}
+                            className="grid place-content-center h-32 text-6xl md:text-6xl"
+                            style={petFallbackTheme(pet.kind)}
                           >
                             {pet.emoji}
                           </div>

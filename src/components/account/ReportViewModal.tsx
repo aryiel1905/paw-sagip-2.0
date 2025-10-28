@@ -97,6 +97,24 @@ function toLocalInput(value?: string | null): string {
   }
 }
 
+function petEmojiFor(species?: string | null) {
+  const s = (species || "").toLowerCase();
+  if (s.includes("dog")) return "🐶";
+  if (s.includes("cat")) return "🐱";
+  return "🐾";
+}
+
+function petFallbackBackground(species?: string | null): string {
+  const s = (species || "").toLowerCase();
+  if (s.includes("dog")) {
+    return "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)";
+  }
+  if (s.includes("cat")) {
+    return "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)";
+  }
+  return "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)";
+}
+
 function toFormState(data: ReportViewData): EditFormState {
   const incomingAge = (data.age_size || "").trim();
   let mappedAge = incomingAge;
@@ -350,6 +368,10 @@ export default function ReportViewModal({
     () => (lmCount ? displayLandmarks[Math.min(lmIndex, lmCount - 1)] : null),
     [displayLandmarks, lmIndex, lmCount]
   );
+
+  // Image error fallbacks
+  const [mainBroken, setMainBroken] = useState(false);
+  const [lmBrokenBySrc, setLmBrokenBySrc] = useState<Record<string, boolean>>({});
 
   // removed early return; modal is conditionally portaled below to keep hook order stable
 
@@ -955,7 +977,7 @@ export default function ReportViewModal({
                     <div className="ink-muted text-sm">Loading details…</div>
                   ) : effectiveError ? (
                     <div className="ink-muted text-sm">{effectiveError}</div>
-                  ) : lmCount > 0 ? (
+                  ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div
                         className="relative w-full rounded-xl overflow-hidden"
@@ -963,7 +985,7 @@ export default function ReportViewModal({
                       >
                         {/* main photo */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {effectiveData?.mainUrl ? (
+                        {effectiveData?.mainUrl && !mainBroken ? (
                           <img
                             src={effectiveData.mainUrl}
                             alt="report"
@@ -977,13 +999,18 @@ export default function ReportViewModal({
                             }}
                             loading="lazy"
                             decoding="async"
+                            onError={() => setMainBroken(true)}
                           />
                         ) : (
                           <div
-                            className="absolute inset-0 grid place-content-center text-4xl"
-                            style={{ background: "var(--card-bg)" }}
+                            className="absolute inset-0 grid place-content-center text-6xl"
+                            style={{
+                              background: petFallbackBackground(
+                                effectiveData?.species
+                              ),
+                            }}
                           >
-                            🐾
+                            {petEmojiFor(effectiveData?.species)}
                           </div>
                         )}
                       </div>
@@ -992,7 +1019,7 @@ export default function ReportViewModal({
                         style={{ aspectRatio: "4 / 3" }}
                       >
                         {/* landmark carousel */}
-                        {currentLm && (
+                        {currentLm && !lmBrokenBySrc[currentLm] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={currentLm}
@@ -1010,7 +1037,22 @@ export default function ReportViewModal({
                             }}
                             loading="lazy"
                             decoding="async"
+                            onError={() =>
+                              setLmBrokenBySrc((prev) =>
+                                currentLm ? { ...prev, [currentLm]: true } : prev
+                              )
+                            }
                           />
+                        ) : (
+                          <div
+                            className="absolute inset-0 grid place-content-center text-6xl"
+                            style={{
+                              background:
+                                "radial-gradient(circle at 50% 50%, #FFF8D6 0%, #FFE08A 45%, #FFC107 100%)",
+                            }}
+                          >
+                            📍
+                          </div>
                         )}
                         {lmCount > 1 && (
                           <>
@@ -1044,50 +1086,19 @@ export default function ReportViewModal({
                             </button>
                           </>
                         )}
-                        <div
-                          className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
-                          style={{
-                            background: "rgba(0,0,0,0.5)",
-                            color: "#fff",
-                          }}
-                        >
-                          {Math.min(lmIndex + 1, lmCount)}/{lmCount}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* main photo only */}
-                      <div
-                        className="relative w-full rounded-xl overflow-hidden"
-                        style={{ aspectRatio: "4 / 3" }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {effectiveData?.mainUrl ? (
-                          <img
-                            src={effectiveData.mainUrl}
-                            alt="report"
-                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewer({
-                                urls: [effectiveData.mainUrl as string],
-                                index: 0,
-                              });
-                            }}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : (
+                        {lmCount > 0 && (
                           <div
-                            className="absolute inset-0 grid place-content-center text-4xl"
-                            style={{ background: "var(--card-bg)" }}
+                            className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+                            style={{
+                              background: "rgba(0,0,0,0.5)",
+                              color: "#fff",
+                            }}
                           >
-                            🐾
+                            {Math.min(lmIndex + 1, lmCount)}/{lmCount}
                           </div>
                         )}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
 

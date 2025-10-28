@@ -120,7 +120,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-white/20 border border-dashed shadow-soft"
+                      className="rounded-2xl bg-white border border-dashed shadow-soft"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
@@ -168,11 +168,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                             />
                           ) : (
                             <div
-                              className="grid place-content-center h-28 text-3xl"
-                              style={{
-                                background:
-                                  "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                              }}
+                              className="grid place-content-center h-28 text-6xl font-semibold md:text-6xl"
+                              style={alertFallbackTheme(alert, col.base)}
                             >
                               {alert.emoji}
                             </div>
@@ -192,7 +189,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-[white/80] border border-dashed shadow-soft"
+                      className="rounded-2xl bg-white border border-dashed shadow-soft"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
@@ -235,5 +232,63 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
         getMapsLink={(a) => getMapsLink(a)}
       />
     </section>
+  );
+}
+
+const DOG_FALLBACK = {
+  background:
+    "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)",
+  color: "#8C4F22",
+} as const;
+const CAT_FALLBACK = {
+  background:
+    "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)",
+  color: "#8C6B00",
+} as const;
+
+function petFallbackTheme(kind?: string | null) {
+  const value = (kind || "").toLowerCase();
+  if (value.includes("dog")) return DOG_FALLBACK;
+  if (value.includes("cat")) return CAT_FALLBACK;
+  return null;
+}
+
+function speciesHint(a: Alert): "dog" | "cat" | "" {
+  const raw = [
+    (a as any).animal,
+    (a as any).pet_kind,
+    (a as any).petType,
+    (a as any).species,
+    (a as any).kind,
+    (a as any).title,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const emoji = (a as any).emoji as string | undefined;
+  if (raw.includes("dog") || emoji === "🐶") return "dog";
+  if (raw.includes("cat") || emoji === "🐱") return "cat";
+  return "";
+}
+
+function alertFallbackTheme(alert: Alert, base: string) {
+  const direct =
+    (alert as any).animal ??
+    (alert as any).pet_kind ??
+    (alert as any).petType ??
+    (alert as any).species ??
+    (alert as any).kind ??
+    "";
+  const themed = petFallbackTheme(direct) ??
+    (speciesHint(alert) === "dog"
+      ? DOG_FALLBACK
+      : speciesHint(alert) === "cat"
+      ? CAT_FALLBACK
+      : null);
+  return (
+    themed ?? {
+      backgroundColor: `color-mix(in srgb, ${base} 22%, white)`,
+      color: base,
+    }
   );
 }

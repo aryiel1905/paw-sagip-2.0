@@ -171,7 +171,11 @@ function liveWithLabel(values?: string[] | null) {
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   } catch {
     return value;
   }
@@ -376,65 +380,60 @@ export default function AdoptionViewModal({
   }, [effectiveData?.adopt_what]);
 
   const petProfile = useMemo(() => {
-    const pet = effectiveData?.adoption_pets ?? petDetails ?? null;
+    const ap = effectiveData?.adoption_pets ?? petDetails ?? null;
+    const pet: any = Array.isArray(ap) ? ap[0] ?? null : ap;
     if (!pet) return null;
     const name = pet.pet_name?.trim() || "Unnamed Pet";
     const species =
       pet.species?.trim() || effectiveData?.adopt_what?.trim() || "--";
     const location = pet.location?.trim() || "--";
-    const breed = pet.breed?.trim() || "";
-    const sex = pet.sex?.trim() || "";
-    const age = pet.age?.trim() || "";
-    const candidateUrls = [
+    const breed = (pet.breed ?? pet.breeds)?.toString().trim() || "--";
+    const sex = (pet.sex ?? pet.gender)?.toString().trim() || "--";
+    const age = (pet.age_size ?? pet.age)?.toString().trim() || "--";
+
+    const pathCandidates = [
+      pet.photo_path,
+      pet.main_photo_path,
+      pet.primary_photo_path,
+      pet.cover_photo_path,
+      pet.image_path,
+      pet.media_paths?.[0],
+      pet.gallery_paths?.[0],
+    ].filter(Boolean) as string[];
+    const urlCandidates = [
       pet.photo_url,
       pet.main_photo_url,
       pet.primary_photo_url,
+      pet.cover_photo_url,
+      pet.image_url,
       pet.media_urls?.[0],
       pet.gallery_urls?.[0],
       pet.photos?.[0],
       pet.images?.[0],
     ].filter(Boolean) as string[];
-    const candidatePaths = [
-      pet.photo_path,
-      pet.main_photo_path,
-      pet.primary_photo_path,
-      pet.media_paths?.[0],
-      pet.gallery_paths?.[0],
-    ].filter(Boolean) as string[];
 
     let photo: string | null = null;
-    photo =
-      candidateUrls.find((url) => url && url.startsWith("http")) ??
-      candidateUrls.find(Boolean) ??
-      null;
-    if (photo && !photo.startsWith("http")) {
-      const { data } = supabase.storage
-        .from(PET_MEDIA_BUCKET)
-        .getPublicUrl(photo);
-      photo = data.publicUrl ?? null;
-    }
-    if (!photo && candidatePaths.length) {
-      for (const path of candidatePaths) {
-        const { data } = supabase.storage
-          .from(PET_MEDIA_BUCKET)
-          .getPublicUrl(path);
-        if (data.publicUrl) {
-          photo = data.publicUrl;
-          break;
-        }
+    for (const p of pathCandidates) {
+      const { data } = supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p);
+      if (data.publicUrl) {
+        photo = data.publicUrl;
+        break;
       }
     }
+    if (!photo) {
+      photo =
+        urlCandidates.find(
+          (u) => typeof u === "string" && /^https?:\/\//i.test(u)
+        ) || null;
+    }
 
-    return {
-      name,
-      species,
-      location,
-      breed,
-      sex,
-      age,
-      photo,
-    };
-  }, [effectiveData?.adoption_pets, effectiveData?.adopt_what, supabase]);
+    return { name, species, location, breed, sex, age, photo };
+  }, [
+    effectiveData?.adoption_pets,
+    effectiveData?.adopt_what,
+    supabase,
+    petDetails,
+  ]);
 
   const canEditStatus = effectiveData?.status
     ? EDITABLE_STATUSES.has(effectiveData.status.toLowerCase())
@@ -556,9 +555,10 @@ export default function AdoptionViewModal({
     const templateBytes = await res.arrayBuffer();
     // Load up to 6 photos for embedding (if available)
     let photos: { data: ArrayBuffer; mimeType?: string }[] = [];
+    let petPhoto: { data: ArrayBuffer; mimeType?: string } | undefined;
     try {
       if (Array.isArray(imageUrls) && imageUrls.length) {
-        const limited = imageUrls.filter(Boolean).slice(0, 6);
+        const limited = imageUrls.filter(Boolean).slice(0, 3);
         const blobs = await Promise.all(
           limited.map(async (url) => {
             const r = await fetch(url);
@@ -572,6 +572,20 @@ export default function AdoptionViewModal({
         );
         photos = blobs;
       }
+      if (petProfile?.photo) {
+        const pr = await fetch(petProfile.photo);
+        if (pr.ok) {
+          const pb = await pr.blob();
+          petPhoto = {
+            data: await pb.arrayBuffer(),
+            mimeType: pb.type || undefined,
+          };
+        }
+      }
+      // Fallback: if no dedicated pet photo, reuse first home photo
+      if (!petPhoto && photos.length > 0) {
+        petPhoto = photos[0];
+      }
     } catch {
       // ignore image failures and continue with text-only
     }
@@ -579,7 +593,7 @@ export default function AdoptionViewModal({
     const bytes = await fillAdoptionApplicationPdf(
       templateBytes,
       effectiveData,
-      { flatten: true, photos }
+      { flatten: true, photos, petPhoto }
     );
     const buffer =
       bytes.buffer instanceof ArrayBuffer
@@ -604,21 +618,46 @@ export default function AdoptionViewModal({
       iframe.style.position = "fixed";
       iframe.style.right = "0";
       iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
+      iframe.style.width = "1px"; // non-zero helps some engines
+      iframe.style.height = "1px";
+      iframe.style.opacity = "0";
       iframe.style.border = "0";
-      iframe.src = url;
-      iframe.onload = () => {
-        setTimeout(() => {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-          setTimeout(() => {
-            URL.revokeObjectURL(url);
-            iframe.remove();
-          }, 1000);
-        }, 200);
+
+      const cleanup = () => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+        try {
+          iframe.remove();
+        } catch {}
+        window.removeEventListener("afterprint", cleanup);
+        document.removeEventListener("visibilitychange", onVis);
       };
+
+      const onVis = () => {
+        if (document.visibilityState === "visible") {
+          setTimeout(cleanup, 300);
+        }
+      };
+
+      iframe.onload = () => {
+        const iw = iframe.contentWindow;
+        iw?.addEventListener?.("afterprint", cleanup);
+        window.addEventListener("afterprint", cleanup);
+        document.addEventListener("visibilitychange", onVis);
+        setTimeout(() => {
+          try {
+            iw?.focus?.();
+            iw?.print?.();
+          } catch {
+            const w = window.open(url, "_blank", "noopener,noreferrer");
+            if (!w) cleanup();
+          }
+        }, 250);
+      };
+
       document.body.appendChild(iframe);
+      iframe.src = url;
     } catch (e) {
       console.error(e);
       showToast("error", "Could not generate PDF");
@@ -757,69 +796,105 @@ export default function AdoptionViewModal({
 
                 {petProfile ? (
                   <div
-                    className="flex items-center gap-4 rounded-xl border px-4 py-3"
+                    className="rounded-2xl border px-5 py-4"
                     style={{
                       borderColor: "var(--border-color)",
                       background: "var(--card-bg)",
                     }}
                   >
-                    <div className="h-16 w-16 overflow-hidden rounded-2xl bg-[var(--soft-bg)] flex items-center justify-center text-lg font-semibold ink-heading">
-                      {petProfile.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={petProfile.photo}
-                          alt={petProfile.name}
-                          className="h-full w-full object-cover"
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-[250px_minmax(0,1fr)] md:items-start">
+                      <div className="relative overflow-hidden rounded-[18px] bg-[var(--soft-bg)] min-h-[200px] md:min-h-[250px]">
+                        {petProfile.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={petProfile.photo}
+                            alt={petProfile.name}
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="absolute inset-0 flex items-center justify-center text-6xl font-semibold"
+                            style={petFallbackTheme(petProfile.species)}
+                          >
+                            <span aria-hidden="true">
+                              {petEmojiFor(petProfile.species)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <div className="text-xl font-semibold ink-heading md:text-2xl">
+                            {petProfile.name}
+                          </div>
+                          <div className="text-lg ink-subtle md:text-xl">
+                            {petProfile.location || "--"}
+                          </div>
+                        </div>
+
+                        <div
+                          className="h-px w-full"
+                          style={{ background: "var(--border-color)" }}
                         />
-                      ) : (
-                        petProfile.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="text-sm font-semibold ink-heading">
-                        {petProfile.name}
-                      </div>
-                      <div className="text-xs ink-subtle">
-                        {[petProfile.species, petProfile.breed]
-                          .filter(Boolean)
-                          .join(" • ") || "--"}
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {petProfile.sex ? (
-                          <span className="pill px-2 py-0.5">
-                            {petProfile.sex}
-                          </span>
-                        ) : null}
-                        {petProfile.age ? (
-                          <span className="pill px-2 py-0.5">
-                            {petProfile.age}
-                          </span>
-                        ) : null}
-                        <span className="pill px-2 py-0.5">
-                          {petProfile.location}
-                        </span>
+                        <div className="grid gap-3 text-lg sm:grid-cols-2 md:text-xl">
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Pet type
+                            </p>
+                            <p className="ink-heading">
+                              {petProfile.species || "--"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Breed
+                            </p>
+                            <p className="ink-heading">
+                              {petProfile.breed || "--"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Sex
+                            </p>
+                            <p className="ink-heading">
+                              {petProfile.sex || "--"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Age / Size
+                            </p>
+                            <p className="ink-heading">
+                              {petProfile.age || "--"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Submitted
+                            </p>
+                            <p className="ink-heading text-md">
+                              {formatDateTime(effectiveData?.created_at)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ink-subtle text-xs uppercase tracking-wide md:text-sm">
+                              Application status
+                            </p>
+                            <p className="ink-heading">
+                              {effectiveData?.status || "--"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="mt-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <p className="ink-subtle text-xs">
                     Submitted {formatDateTime(effectiveData.created_at)}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs md:justify-end">
-                    <span
-                      className={
-                        "pill px-2 py-0.5 font-medium " +
-                        statusTone(effectiveData.status)
-                      }
-                    >
-                      {effectiveData.status || "unknown"}
-                    </span>
-                    <span className="pill px-2 py-0.5" aria-live="polite">
-                      {adoptNote}
-                    </span>
-                  </div>
                 </div>
 
                 <div className="columns-2">
@@ -1519,4 +1594,34 @@ export default function AdoptionViewModal({
   );
 
   return createPortal(modal, document.body);
+}
+
+function petEmojiFor(species?: string | null) {
+  const value = (species || "").toLowerCase();
+  if (value.includes("dog") || value.includes("canine")) return "🐶";
+  if (value.includes("cat") || value.includes("feline")) return "🐱";
+  return "🐾";
+}
+
+function petFallbackTheme(species?: string | null) {
+  const value = (species || "").toLowerCase();
+  if (value.includes("dog") || value.includes("canine")) {
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)",
+      color: "#8C4F22",
+    } as const;
+  }
+  if (value.includes("cat") || value.includes("feline")) {
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)",
+      color: "#8C6B00",
+    } as const;
+  }
+  return {
+    background:
+      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    color: "#4A55C2",
+  } as const;
 }

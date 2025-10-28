@@ -81,6 +81,64 @@ function buildPages(current: number, totalPages: number): (number | string)[] {
   return pages;
 }
 
+const DOG_FALLBACK = {
+  background:
+    "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)",
+  color: "#8C4F22",
+} as const;
+const CAT_FALLBACK = {
+  background:
+    "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)",
+  color: "#8C6B00",
+} as const;
+
+function petFallbackTheme(kind?: string | null) {
+  const value = (kind || "").toLowerCase();
+  if (value.includes("dog")) return DOG_FALLBACK;
+  if (value.includes("cat")) return CAT_FALLBACK;
+  return null;
+}
+
+function speciesHint(a: Alert): "dog" | "cat" | "" {
+  const raw = [
+    (a as any).animal,
+    (a as any).pet_kind,
+    (a as any).petType,
+    (a as any).species,
+    (a as any).kind,
+    (a as any).title,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const emoji = (a as any).emoji as string | undefined;
+  if (raw.includes("dog") || emoji === "🐶") return "dog";
+  if (raw.includes("cat") || emoji === "🐱") return "cat";
+  return "";
+}
+
+function alertFallbackTheme(base: string, alert: Alert) {
+  const direct =
+    (alert as any).animal ??
+    (alert as any).pet_kind ??
+    (alert as any).petType ??
+    (alert as any).species ??
+    (alert as any).kind ??
+    "";
+  const themed = petFallbackTheme(direct) ??
+    (speciesHint(alert) === "dog"
+      ? DOG_FALLBACK
+      : speciesHint(alert) === "cat"
+      ? CAT_FALLBACK
+      : null);
+  return (
+    themed ?? {
+      backgroundColor: `color-mix(in srgb, ${base} 22%, white)`,
+      color: base,
+    }
+  );
+}
+
 export default function AlertsBrowse() {
   const router = useRouter();
   const params = useSearchParams();
@@ -177,7 +235,7 @@ export default function AlertsBrowse() {
             ? Array.from({ length: 12 }).map((_, idx) => (
                 <div
                   key={`ph-${idx}`}
-                  className="rounded-2xl bg-white/70 border border-dashed shadow-soft"
+                  className="rounded-2xl bg-white border border-dashed shadow-soft"
                   style={{
                     borderColor: `color-mix(in srgb, ${accent} 35%, white)`,
                   }}
@@ -220,11 +278,8 @@ export default function AlertsBrowse() {
                         />
                       ) : (
                         <div
-                          className="grid place-content-center h-28 text-3xl"
-                          style={{
-                            background:
-                              "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                          }}
+                          className="grid place-content-center h-28 text-6xl font-semibold md:text-6xl"
+                          style={alertFallbackTheme(accent, alert)}
                         >
                           {alert.emoji}
                         </div>

@@ -57,7 +57,7 @@ export default function ProfileCard({
   return (
     <section className="surface rounded-2xl shadow-soft p-5">
       <div className="flex items-start gap-4">
-        <div className="aspect-ratio-1/1 w-18 h-18 rounded-full bg-[var(--primary-mintgreen)] text-white flex items-center justify-center text-2xl font-semibold">
+        <div className="aspect-ratio-1/1 w-12 h-12 rounded-full bg-[var(--primary-mintgreen)] text-white flex items-center justify-center text-2xl font-semibold">
           {initial}
         </div>
         <div className="flex-1 min-w-0">

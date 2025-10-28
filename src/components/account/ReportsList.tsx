@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { showToast } from "@/lib/toast";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export type SimpleReport = {
   id: string;
@@ -16,6 +18,7 @@ type Props = {
   items: SimpleReport[];
   loading?: boolean;
   onView?: (id: string) => void;
+  onDeleted?: (id: string) => void;
 };
 
 function dateShort(d: string | null) {
@@ -33,9 +36,16 @@ function dateShort(d: string | null) {
 
 const TYPES = ["all", "lost", "found", "cruelty", "adoption"] as const;
 
-export default function ReportsList({ items, loading, onView }: Props) {
+export default function ReportsList({
+  items,
+  loading,
+  onView,
+  onDeleted,
+}: Props) {
   const [q, setQ] = useState("");
   const [type, setType] = useState<(typeof TYPES)[number]>("all");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = q.toLowerCase().trim();
@@ -82,7 +92,7 @@ export default function ReportsList({ items, loading, onView }: Props) {
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="ink-subtle text-left border-b">
+            <tr className=" text-left border-b">
               <th className="py-2 pr-3">Report</th>
               <th className="py-2 pr-3">Date</th>
               <th className="py-2 pr-3">Location</th>
@@ -142,6 +152,13 @@ export default function ReportsList({ items, loading, onView }: Props) {
                     >
                       View
                     </button>
+                    <button
+                      className="inline-block btn px-3 py-1.5 ml-2 border border-rose-600 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600"
+                      onClick={() => setConfirmId(r.id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))
@@ -149,6 +166,85 @@ export default function ReportsList({ items, loading, onView }: Props) {
           </tbody>
         </table>
       </div>
+
+      {confirmId ? (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => (deleting ? undefined : setConfirmId(null))}
+          />
+          <div className="relative surface rounded-2xl shadow-2xl p-5 w-[92%] max-w-md">
+            <h3 className="ink-heading font-semibold mb-2">Delete report?</h3>
+            <p className="ink-subtle text-sm mb-4">
+              This action cannot be undone. The report and its media will be
+              permanently removed.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                className="pill px-3 py-1.5"
+                style={{ border: "1px solid var(--border-color)" }}
+                onClick={() => setConfirmId(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn px-4 py-1.5 bg-rose-600 text-white hover:brightness-95 disabled:opacity-60"
+                onClick={async () => {
+                  if (!confirmId) return;
+                  setDeleting(true);
+                  try {
+                    // Pass the Supabase access token so the API can run DELETE under RLS as the user
+                    const supabase = getSupabaseClient();
+                    const { data: sessionData } =
+                      await supabase.auth.getSession();
+                    const token = sessionData?.session?.access_token ?? null;
+                    const resp = await fetch(`/api/reports/${confirmId}`, {
+                      method: "DELETE",
+                      headers: token
+                        ? { Authorization: `Bearer ${token}` }
+                        : undefined,
+                      credentials: "same-origin",
+                    });
+                    if (!resp.ok) {
+                      if (resp.status === 401 || resp.status === 403) {
+                        showToast(
+                          "error",
+                          "You don't have permission to delete this report"
+                        );
+                      } else {
+                        const t = await resp.text().catch(() => "");
+                        showToast("error", t || "Could not delete the report");
+                      }
+                      return;
+                    }
+                    showToast("success", "Report deleted");
+                    onDeleted?.(confirmId);
+                    if (!onDeleted) {
+                      // Fallback: light reload to refresh data
+                      try {
+                        window.location.reload();
+                      } catch {}
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    showToast(
+                      "error",
+                      "Could not delete the report. Please try again."
+                    );
+                  } finally {
+                    setDeleting(false);
+                    setConfirmId(null);
+                  }
+                }}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

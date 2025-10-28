@@ -13,6 +13,27 @@ function gradient(base: string) {
   return `radial-gradient(circle at 50% 55%, color-mix(in srgb, ${base} 60%, white 85%) 0%, color-mix(in srgb, ${base} 80%, white 45%) 35%, ${base} 65%, color-mix(in srgb, ${base} 95%, black 10%) 100%)`;
 }
 
+function petFallbackTheme(kind?: string | null) {
+  const value = (kind || "").toLowerCase();
+  if (value.includes("dog"))
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)",
+      color: "#8C4F22",
+    } as const;
+  if (value.includes("cat"))
+    return {
+      background:
+        "radial-gradient(circle at 50% 50%, #FFF3C4 0%, #FFE08A 45%, #FFB74A 100%)",
+      color: "#8C6B00",
+    } as const;
+  return {
+    background:
+      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    color: "#4A55C2",
+  } as const;
+}
+
 function buildPages(current: number, totalPages: number): (number | string)[] {
   const pages: (number | string)[] = [];
   if (totalPages <= 7) {
@@ -165,11 +186,8 @@ export default function AdoptionBrowse() {
                         />
                       ) : (
                         <div
-                          className="grid place-content-center h-32 text-3xl"
-                          style={{
-                            background:
-                              "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                          }}
+                          className="grid place-content-center h-32 text-6xl md:text-6xl font-semibold"
+                          style={petFallbackTheme(pet.kind)}
                         >
                           {pet.emoji}
                         </div>
