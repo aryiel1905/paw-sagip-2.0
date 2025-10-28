@@ -164,8 +164,13 @@ export async function GET(
       }
     );
 
+    // Normalize to ArrayBuffer (avoid ArrayBufferLike/SharedArrayBuffer typing issues)
+    const pdfArrayBuffer = (bytes.buffer as ArrayBuffer).slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    );
     // Create a Blob once so we can reuse for storage + HTTP response
-    const pdfBlob = new Blob([bytes], { type: "application/pdf" });
+    const pdfBlob = new Blob([pdfArrayBuffer], { type: "application/pdf" });
 
     // Optionally persist to Supabase Storage (bucket: generated-pdfs)
     let savedPath: string | null = null;
