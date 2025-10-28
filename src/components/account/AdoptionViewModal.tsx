@@ -58,9 +58,25 @@ export type AdoptionApplicationViewData = {
   id_document_path?: string | null;
   home_photo_paths?: string[] | null;
   adoption_pets?: {
+    id?: string | null;
     pet_name?: string | null;
     species?: string | null;
+    breed?: string | null;
+    sex?: string | null;
+    age?: string | null;
     location?: string | null;
+    photo_url?: string | null;
+    photo_path?: string | null;
+    main_photo_path?: string | null;
+    main_photo_url?: string | null;
+    primary_photo_url?: string | null;
+    primary_photo_path?: string | null;
+    media_urls?: string[] | null;
+    media_paths?: string[] | null;
+    gallery_urls?: string[] | null;
+    gallery_paths?: string[] | null;
+    photos?: string[] | null;
+    images?: string[] | null;
   } | null;
 };
 
@@ -165,7 +181,7 @@ async function fetchAdoptionApplicationById(id: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("adoption_applications")
-    .select("*, adoption_pets:pet_id ( pet_name, species, location )")
+    .select("*, adoption_pets:pet_id ( * )")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -233,6 +249,9 @@ export default function AdoptionViewModal({
   const [localError, setLocalError] = useState<string | null>(null);
   const [localData, setLocalData] =
     useState<AdoptionApplicationViewData | null>(null);
+  const [petDetails, setPetDetails] = useState<
+    AdoptionApplicationViewData["adoption_pets"] | null
+  >(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditFormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -356,6 +375,67 @@ export default function AdoptionViewModal({
     return "Applying for: " + effectiveData.adopt_what;
   }, [effectiveData?.adopt_what]);
 
+  const petProfile = useMemo(() => {
+    const pet = effectiveData?.adoption_pets ?? petDetails ?? null;
+    if (!pet) return null;
+    const name = pet.pet_name?.trim() || "Unnamed Pet";
+    const species =
+      pet.species?.trim() || effectiveData?.adopt_what?.trim() || "--";
+    const location = pet.location?.trim() || "--";
+    const breed = pet.breed?.trim() || "";
+    const sex = pet.sex?.trim() || "";
+    const age = pet.age?.trim() || "";
+    const candidateUrls = [
+      pet.photo_url,
+      pet.main_photo_url,
+      pet.primary_photo_url,
+      pet.media_urls?.[0],
+      pet.gallery_urls?.[0],
+      pet.photos?.[0],
+      pet.images?.[0],
+    ].filter(Boolean) as string[];
+    const candidatePaths = [
+      pet.photo_path,
+      pet.main_photo_path,
+      pet.primary_photo_path,
+      pet.media_paths?.[0],
+      pet.gallery_paths?.[0],
+    ].filter(Boolean) as string[];
+
+    let photo: string | null = null;
+    photo =
+      candidateUrls.find((url) => url && url.startsWith("http")) ??
+      candidateUrls.find(Boolean) ??
+      null;
+    if (photo && !photo.startsWith("http")) {
+      const { data } = supabase.storage
+        .from(PET_MEDIA_BUCKET)
+        .getPublicUrl(photo);
+      photo = data.publicUrl ?? null;
+    }
+    if (!photo && candidatePaths.length) {
+      for (const path of candidatePaths) {
+        const { data } = supabase.storage
+          .from(PET_MEDIA_BUCKET)
+          .getPublicUrl(path);
+        if (data.publicUrl) {
+          photo = data.publicUrl;
+          break;
+        }
+      }
+    }
+
+    return {
+      name,
+      species,
+      location,
+      breed,
+      sex,
+      age,
+      photo,
+    };
+  }, [effectiveData?.adoption_pets, effectiveData?.adopt_what, supabase]);
+
   const canEditStatus = effectiveData?.status
     ? EDITABLE_STATUSES.has(effectiveData.status.toLowerCase())
     : false;
@@ -449,17 +529,57 @@ export default function AdoptionViewModal({
     if (!effectiveData) {
       throw new Error("Missing application data.");
     }
+
+    // Prefer server-side PDF generation, fallback to client-side fill
+    try {
+      const apiUrl = `/api/forms/adoption/${effectiveData.id}?flatten=1`;
+      const resp = await fetch(apiUrl, {
+        headers: { Accept: "application/pdf" },
+      });
+      const ct =
+        resp.headers.get("content-type") ||
+        resp.headers.get("Content-Type") ||
+        "";
+      if (resp.ok && ct.includes("application/pdf")) {
+        const buf = await resp.arrayBuffer();
+        return new Blob([buf], { type: "application/pdf" });
+      }
+    } catch {
+      // ignore and fallback
+    }
+
+    // Fallback: generate on the client using pdf-lib and the public template
     const res = await fetch(ADOPTION_FORM_TEMPLATE_PATH);
     if (!res.ok) {
-      throw new Error(
-        `Template not found at ${ADOPTION_FORM_TEMPLATE_PATH}.`
-      );
+      throw new Error(`Template not found at ${ADOPTION_FORM_TEMPLATE_PATH}.`);
     }
     const templateBytes = await res.arrayBuffer();
+    // Load up to 6 photos for embedding (if available)
+    let photos: { data: ArrayBuffer; mimeType?: string }[] = [];
+    try {
+      if (Array.isArray(imageUrls) && imageUrls.length) {
+        const limited = imageUrls.filter(Boolean).slice(0, 6);
+        const blobs = await Promise.all(
+          limited.map(async (url) => {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error("Photo fetch failed");
+            const b = await r.blob();
+            return {
+              data: await b.arrayBuffer(),
+              mimeType: b.type || undefined,
+            };
+          })
+        );
+        photos = blobs;
+      }
+    } catch {
+      // ignore image failures and continue with text-only
+    }
+
     const bytes = await fillAdoptionApplicationPdf(
       templateBytes,
       effectiveData,
-      { flatten: true }
+      { flatten: true, photos }
     );
     const buffer =
       bytes.buffer instanceof ArrayBuffer
@@ -633,6 +753,54 @@ export default function AdoptionViewModal({
               <div className="flex flex-col gap-4">
                 {actionError ? (
                   <div className="text-sm text-red-500">{actionError}</div>
+                ) : null}
+
+                {petProfile ? (
+                  <div
+                    className="flex items-center gap-4 rounded-xl border px-4 py-3"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      background: "var(--card-bg)",
+                    }}
+                  >
+                    <div className="h-16 w-16 overflow-hidden rounded-2xl bg-[var(--soft-bg)] flex items-center justify-center text-lg font-semibold ink-heading">
+                      {petProfile.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={petProfile.photo}
+                          alt={petProfile.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        petProfile.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-semibold ink-heading">
+                        {petProfile.name}
+                      </div>
+                      <div className="text-xs ink-subtle">
+                        {[petProfile.species, petProfile.breed]
+                          .filter(Boolean)
+                          .join(" • ") || "--"}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {petProfile.sex ? (
+                          <span className="pill px-2 py-0.5">
+                            {petProfile.sex}
+                          </span>
+                        ) : null}
+                        {petProfile.age ? (
+                          <span className="pill px-2 py-0.5">
+                            {petProfile.age}
+                          </span>
+                        ) : null}
+                        <span className="pill px-2 py-0.5">
+                          {petProfile.location}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
 
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -907,7 +1075,9 @@ export default function AdoptionViewModal({
                         style={{ borderColor: "var(--border-color)" }}
                       >
                         <span className="text-sm ink-heading">
-                          {idDocumentUrl ? "Document uploaded" : "No document provided"}
+                          {idDocumentUrl
+                            ? "Document uploaded"
+                            : "No document provided"}
                         </span>
                         {idDocumentUrl ? (
                           <button
