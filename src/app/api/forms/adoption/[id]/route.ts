@@ -22,9 +22,9 @@ async function readPublicAsset(relPath: string): Promise<ArrayBuffer> {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const id = params?.id;
+  const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const url = new URL(req.url);
