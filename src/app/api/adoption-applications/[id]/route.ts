@@ -19,7 +19,7 @@ export async function DELETE(
   let dbAsUser: SupabaseClient | null = null;
 
   try {
-    const jar = cookies();
+    const jar = await cookies();
     // Prefer Authorization header if provided by the client
     const headerAuth = request.headers.get("authorization") || request.headers.get("Authorization");
     const headerToken = headerAuth && /^Bearer\s+(.+)$/i.test(headerAuth)
@@ -44,7 +44,7 @@ export async function DELETE(
       return null;
     };
 
-    const accessToken = headerToken || jar.get("sb-access-token")?.value || getFromAuthTokenCookie();
+    const accessToken = headerToken || (jar.get("sb-access-token")?.value ?? null) || getFromAuthTokenCookie();
     if (!accessToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

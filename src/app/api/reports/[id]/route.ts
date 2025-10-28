@@ -34,7 +34,7 @@ export async function DELETE(
   // Resolve current user from cookies
   let currentUser: any = null;
   try {
-    const jar = cookies();
+    const jar = await cookies();
     // Prefer Authorization header if the client provided it
     const headerAuth = request.headers.get("authorization") || request.headers.get("Authorization");
     const headerToken = headerAuth && /^Bearer\s+(.+)$/i.test(headerAuth)
@@ -60,7 +60,7 @@ export async function DELETE(
     };
 
     const accessToken =
-      headerToken || jar.get("sb-access-token")?.value || getFromAuthTokenCookie();
+      headerToken || (jar.get("sb-access-token")?.value ?? null) || getFromAuthTokenCookie();
     if (accessToken) {
       // Also build a DB client that runs with the user's token (so RLS applies)
       const supabaseUrl =
