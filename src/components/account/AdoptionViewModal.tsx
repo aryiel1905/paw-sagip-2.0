@@ -590,10 +590,7 @@ export default function AdoptionViewModal({
           };
         }
       }
-      // Fallback: if no dedicated pet photo, reuse first home photo
-      if (!petPhoto && photos.length > 0) {
-        petPhoto = photos[0];
-      }
+      // No further fallback; leave Pet_Photo field blank if we have no image
     } catch {
       // ignore image failures and continue with text-only
     }

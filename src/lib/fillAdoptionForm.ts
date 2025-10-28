@@ -258,12 +258,9 @@ export async function fillAdoptionApplicationPdf(
     safeCheck(form, name, !!checked)
   );
 
-  // Fill dedicated pet photo field if provided (fallback to first home photo if not provided)
+  // Fill dedicated pet photo field if provided (no longer fallback to home photo)
   const petPhotoInput: PhotoInput | null =
-    (options?.petPhoto as PhotoInput | null) ??
-    ((options?.photos && options.photos.length > 0
-      ? options.photos[0]
-      : null) as PhotoInput | null);
+    (options?.petPhoto as PhotoInput | null) ?? null;
   if (petPhotoInput) {
     try {
       const bytes = new Uint8Array(petPhotoInput.data);

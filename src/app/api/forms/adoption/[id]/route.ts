@@ -97,7 +97,7 @@ export async function GET(
       }
     }
 
-    // Prepare pet photo if available (from adoption_pets.photo_path)
+    // Prepare pet photo if available (from adoption_pets.photo_path); otherwise try emoji fallback
     let petPhoto: PhotoInput | null = null;
     try {
       const ap = (data as any)?.adoption_pets;
@@ -146,10 +146,7 @@ export async function GET(
       // ignore pet photo errors
     }
 
-    // If pet photo not found, fallback to the first home photo
-    if (!petPhoto && photos.length > 0) {
-      petPhoto = photos[0];
-    }
+    // No further fallback; leave Pet_Photo field blank if we have no image
 
     const bytes = await fillAdoptionApplicationPdf(
       template,
