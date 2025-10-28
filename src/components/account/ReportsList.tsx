@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Eye, Trash2, FilePlus } from "lucide-react";
 import { showToast } from "@/lib/toast";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
@@ -64,9 +65,10 @@ export default function ReportsList({
         <h2 className="font-semibold ink-heading">My Reports</h2>
         <div className="flex gap-2 w-full sm:w-auto">
           <button
-            className="btn btn-accent px-4 py-2"
+            className="btn btn-accent px-4 py-2 flex items-center gap-2"
             onClick={() => (window.location.href = "/report-form?from=account")}
           >
+            <FilePlus className="h-4 w-4" />
             Create report
           </button>
           <input
@@ -143,22 +145,26 @@ export default function ReportsList({
                       {r.status ?? "—"}
                     </span>
                   </td>
-                  <td className="py-3 pr-3 whitespace-nowrap">
-                    <button
-                      className="inline-block btn px-3 py-1.5 border border-[var(--primary-mintgreen)] bg-[var(--primary-mintgreen)] text-white hover:brightness-95 hover:shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)]"
-                      onClick={() => onView?.(r.id)}
-                      disabled={!onView}
-                      type="button"
-                    >
-                      View
-                    </button>
-                    <button
-                      className="inline-block btn px-3 py-1.5 ml-2 border border-rose-600 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600"
-                      onClick={() => setConfirmId(r.id)}
-                      type="button"
-                    >
-                      Delete
-                    </button>
+                  <td className="py-3 pr-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        className="btn px-3 py-1.5 border border-[var(--primary-mintgreen)] bg-[var(--primary-mintgreen)] text-white hover:brightness-95 hover:shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)] flex items-center justify-center gap-2"
+                        onClick={() => onView?.(r.id)}
+                        disabled={!onView}
+                        type="button"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </button>
+                      <button
+                        className="btn px-3 py-1.5 border border-rose-600 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600 flex items-center justify-center gap-2"
+                        onClick={() => setConfirmId(r.id)}
+                        type="button"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

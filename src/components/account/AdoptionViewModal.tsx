@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Pencil,
+  Printer,
+  Save as SaveIcon,
+  X,
+} from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { PET_MEDIA_BUCKET } from "@/data/supabaseApi";
 import { showToast } from "@/lib/toast";
@@ -723,10 +731,11 @@ export default function AdoptionViewModal({
                   </button>
                   <button
                     type="button"
-                    className="btn btn-primary px-4 py-1.5"
+                    className="btn btn-primary px-4 py-1.5 flex items-center gap-2 transition-colors duration-200"
                     onClick={handleSave}
                     disabled={saving}
                   >
+                    <SaveIcon className="h-4 w-4" />
                     {saving ? "Saving..." : "Save"}
                   </button>
                 </>
@@ -734,8 +743,7 @@ export default function AdoptionViewModal({
                 <>
                   <button
                     type="button"
-                    className="pill px-3 py-1.5"
-                    style={{ border: "1px solid var(--border-color)" }}
+                    className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#F7A144] border border-transparent transition-colors duration-200 hover:bg-[#F08F2A] disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={handleDownload}
                     disabled={
                       effectiveLoading ||
@@ -744,12 +752,12 @@ export default function AdoptionViewModal({
                       printing
                     }
                   >
+                    <Download className="h-4 w-4" />
                     {downloading ? "Preparing..." : "Download"}
                   </button>
                   <button
                     type="button"
-                    className="pill px-3 py-1.5"
-                    style={{ border: "1px solid var(--border-color)" }}
+                    className="pill px-3 py-1.5 flex items-center gap-2 text-sm font-medium text-white bg-[#F4C542] border border-transparent transition-colors duration-200 hover:bg-[#E8AE1E] disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={handlePrint}
                     disabled={
                       effectiveLoading ||
@@ -758,24 +766,27 @@ export default function AdoptionViewModal({
                       downloading
                     }
                   >
+                    <Printer className="h-4 w-4" />
                     {printing ? "Preparing..." : "Print"}
                   </button>
                   <button
                     type="button"
-                    className="btn btn-primary px-4 py-1.5"
+                    className="btn btn-primary px-4 py-1.5 flex items-center gap-2 transition-colors duration-200"
                     onClick={beginEdit}
                     disabled={!canEditStatus || effectiveLoading}
                   >
+                    <Pencil className="h-4 w-4" />
                     Edit
                   </button>
                 </>
               )}
               <button
                 type="button"
-                className="pill px-3 py-1.5"
+                className="pill px-3 py-1.5 flex items-center gap-2 text-sm transition-colors duration-200"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={onClose}
               >
+                <X className="h-4 w-4" />
                 Close
               </button>
             </div>
@@ -1620,8 +1631,7 @@ function petFallbackTheme(species?: string | null) {
     } as const;
   }
   return {
-    background:
-      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    background: "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
     color: "#4A55C2",
   } as const;
 }

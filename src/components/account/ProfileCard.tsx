@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
+import { LogOut } from "lucide-react";
 
 type Props = {
   name: string | null | undefined;
@@ -69,7 +70,7 @@ export default function ProfileCard({
       </div>
       <div className=" flex mt-4 text-right gap-4">
         <button
-          className=" w-full pill px-3 py-2 text-sm"
+          className="w-full pill px-3 py-2 text-sm flex items-center justify-center gap-2"
           style={{
             border: "1px solid var(--border-color)",
             backgroundColor: "var(--primary-red)",
@@ -79,6 +80,7 @@ export default function ProfileCard({
           type="button"
           disabled={busy}
         >
+          <LogOut className="h-4 w-4" />
           {busy ? "Logging out…" : "Log out"}
         </button>
       </div>

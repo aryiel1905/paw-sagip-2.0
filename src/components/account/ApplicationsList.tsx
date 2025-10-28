@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Eye, Trash2 } from "lucide-react";
 import { PET_MEDIA_BUCKET } from "@/data/supabaseApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
@@ -58,8 +59,7 @@ function petFallbackTheme(species?: string) {
   }
   // Neutral soft gray radial
   return {
-    background:
-      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    background: "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
     color: "#4A55C2",
   } as const;
 }
@@ -263,36 +263,31 @@ export default function ApplicationsList({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid w-full grid-cols-2 gap-2">
                     {onView ? (
                       <button
                         type="button"
-                        className="btn px-3 py-1 border border-transparent bg-[var(--primary-mintgreen)] text-white transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)]"
+                        className="btn px-3 py-1 border border-transparent bg-[var(--primary-mintgreen)] text-white transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)] flex items-center justify-center gap-2"
                         onClick={() => onView(a.id)}
                       >
+                        <Eye className="h-4 w-4" />
                         View
                       </button>
                     ) : (
                       <a
-                        className="btn px-3 py-1 border border-transparent bg-[var(--primary-mintgreen)] text-white transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)]"
+                        className="btn px-3 py-1 border border-transparent bg-[var(--primary-mintgreen)] text-white transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--primary-mintgreen)] flex items-center justify-center gap-2"
                         href={a.petId ? `/adopt/${a.petId}` : "#"}
                       >
+                        <Eye className="h-4 w-4" />
                         View
                       </a>
                     )}
-                    {/* <a
-                      className={`btn btn-primary px-3 py-1 ${
-                        a.shelterEmail ? "" : "opacity-50 pointer-events-none"
-                      }`}
-                      href={a.shelterEmail ? `mailto:${a.shelterEmail}` : "#"}
-                    >
-                      Email shelter
-                    </a> */}
                     <button
                       type="button"
-                      className="inline-block btn px-3 py-1.5 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600"
+                      className="btn px-3 py-1.5 bg-rose-600 text-white transition-colors duration-200 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-rose-600 flex items-center justify-center gap-2"
                       onClick={() => setConfirmId(a.id)}
                     >
+                      <Trash2 className="h-4 w-4" />
                       Delete
                     </button>
                   </div>
@@ -302,90 +297,6 @@ export default function ApplicationsList({
           ))}
         </div>
       )}
-
-      {confirmId ? (
-        <div className="fixed inset-0 z-[75] flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => (deleting ? undefined : setConfirmId(null))}
-          />
-          <div className="relative surface rounded-2xl shadow-2xl p-5 w-[92%] max-w-md">
-            <h3 className="ink-heading font-semibold mb-2">
-              Delete application?
-            </h3>
-            <p className="ink-subtle text-sm mb-4">
-              This action cannot be undone. The application and its uploaded
-              documents/photos will be permanently removed.
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                className="pill px-3 py-1.5"
-                style={{ border: "1px solid var(--border-color)" }}
-                onClick={() => setConfirmId(null)}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn px-4 py-1.5 bg-rose-600 text-white hover:brightness-95 disabled:opacity-60"
-                onClick={async () => {
-                  if (!confirmId) return;
-                  setDeleting(true);
-                  try {
-                    const { data: sessionData } =
-                      await supabase.auth.getSession();
-                    const token = sessionData?.session?.access_token ?? null;
-                    const resp = await fetch(
-                      `/api/adoption-applications/${confirmId}`,
-                      {
-                        method: "DELETE",
-                        headers: token
-                          ? { Authorization: `Bearer ${token}` }
-                          : undefined,
-                        credentials: "same-origin",
-                      }
-                    );
-                    if (!resp.ok) {
-                      if (resp.status === 401 || resp.status === 403) {
-                        showToast(
-                          "error",
-                          "You don't have permission to delete this application"
-                        );
-                      } else {
-                        const t = await resp.text().catch(() => "");
-                        showToast(
-                          "error",
-                          t || "Could not delete the application"
-                        );
-                      }
-                      return;
-                    }
-                    showToast("success", "Application deleted");
-                    onDeleted?.(confirmId);
-                    if (!onDeleted) {
-                      try {
-                        window.location.reload();
-                      } catch {}
-                    }
-                  } catch (e) {
-                    console.error(e);
-                    showToast(
-                      "error",
-                      "Could not delete the application. Please try again."
-                    );
-                  } finally {
-                    setDeleting(false);
-                    setConfirmId(null);
-                  }
-                }}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

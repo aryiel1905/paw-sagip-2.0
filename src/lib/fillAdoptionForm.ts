@@ -245,6 +245,10 @@ export async function fillAdoptionApplicationPdf(
   }
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(templateBytes);
+  // Force all pages to A4 size (points). 1pt = 1/72in; A4 = 210mm x 297mm ≈ 595.28 x 841.89pt
+  const A4_WIDTH = 595.28;
+  const A4_HEIGHT = 841.89;
+  pdfDoc.getPages().forEach((p) => p.setSize(A4_WIDTH, A4_HEIGHT));
   const form = pdfDoc.getForm();
   const map = buildMapping(data);
 
