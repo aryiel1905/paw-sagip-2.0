@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -22,10 +22,10 @@ function isPrivileged(user: any): boolean {
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const id = params?.id;
+  const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   // Service client (for storage) and DB-as-user client (RLS enforced)
   const storageAdmin = createServerSupabaseClient();
