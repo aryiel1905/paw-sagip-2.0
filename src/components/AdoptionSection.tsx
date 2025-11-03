@@ -1,6 +1,10 @@
-﻿import { AdoptionPet } from "@/types/app";
+﻿"use client";
+
+import { AdoptionPet } from "@/types/app";
 import Link from "next/link";
 import { HeartHandshake } from "lucide-react";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import { showToast } from "@/lib/toast";
 
 type AdoptionSectionProps = {
   adoptionResults: AdoptionPet[];
@@ -25,13 +29,40 @@ function petFallbackTheme(kind?: string | null) {
       color: "#8C6B00",
     } as const;
   return {
-    background:
-      "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+    background: "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
     color: "#4A55C2",
   } as const;
 }
 
 export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
+  async function goOrPrompt(to: string) {
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user ?? null;
+      if (!user) {
+        try {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("auth:postLoginRedirect", to);
+          }
+        } catch {}
+        showToast(
+          "success",
+          "Please sign in to start an adoption application."
+        );
+        try {
+          window.dispatchEvent(
+            new CustomEvent("app:signin", { detail: { mode: "login" } })
+          );
+        } catch {}
+        return;
+      }
+      window.location.href = to;
+    } catch {
+      // Fallback to navigation if auth fails to initialize for some reason
+      window.location.href = to;
+    }
+  }
   return (
     <section
       id="adoption"
@@ -75,6 +106,10 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                     style={{
                       border: `1px solid color-mix(in srgb, #F57C00 25%, white)`,
                       boxShadow: `0 12px 20px -12px color-mix(in srgb, #F57C00 40%, transparent)`,
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      goOrPrompt(`/adopt/${pet.id}`);
                     }}
                   >
                     <div className="p-3">

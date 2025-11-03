@@ -105,13 +105,25 @@ export function Navbar({
     let unsub: (() => void) | undefined;
     try {
       const supabase = getSupabaseClient();
-      supabase.auth.getUser().then(({ data }) => {
-        setIsLoggedIn(!!data.user);
-        setUserEmail(data.user?.email ?? null);
+      supabase.auth.getSession().then(({ data }) => {
+        const u = data.session?.user ?? null;
+        setIsLoggedIn(!!u);
+        setUserEmail(u?.email ?? null);
         const fullName =
-          (data.user?.user_metadata?.full_name as string | undefined) ?? null;
+          (u?.user_metadata?.full_name as string | undefined) ?? null;
         setUserName(fullName);
         setIsReady(true);
+        // If a post-login redirect target is present, navigate
+        try {
+          if (u) {
+            const dest = sessionStorage.getItem("auth:postLoginRedirect");
+            if (dest) {
+              sessionStorage.removeItem("auth:postLoginRedirect");
+              deferObserverUntil.current = performance.now() + 1500;
+              router.push(dest);
+            }
+          }
+        } catch {}
       });
       const { data } = supabase.auth.onAuthStateChange((_e, session) => {
         setIsLoggedIn(!!session?.user);
@@ -120,6 +132,17 @@ export function Navbar({
           (session?.user?.user_metadata?.full_name as string | undefined) ??
           null;
         setUserName(fullName);
+        // Handle post-login redirect immediately when session becomes available
+        try {
+          if (session?.user) {
+            const dest = sessionStorage.getItem("auth:postLoginRedirect");
+            if (dest) {
+              sessionStorage.removeItem("auth:postLoginRedirect");
+              deferObserverUntil.current = performance.now() + 1500;
+              router.push(dest);
+            }
+          }
+        } catch {}
       });
       unsub = () => {
         try {
@@ -154,6 +177,15 @@ export function Navbar({
       return;
     }
     const updateFromHash = () => {
+      // If a modal is open, ignore hash updates
+      try {
+        if (
+          typeof document !== "undefined" &&
+          document.body.classList.contains("modal-open")
+        ) {
+          return;
+        }
+      } catch {}
       // Ignore hash updates while we're deferring
       if (performance.now() < deferObserverUntil.current) return;
       const hash = window.location.hash || "#home";
@@ -207,6 +239,15 @@ export function Navbar({
     const observer = new IntersectionObserver(
       (entries) => {
         if (performance.now() < deferObserverUntil.current) return;
+        // If a modal is open, freeze section highlight + hash updates
+        try {
+          if (
+            typeof document !== "undefined" &&
+            document.body.classList.contains("modal-open")
+          ) {
+            return;
+          }
+        } catch {}
         entries.forEach((e) => ratios.set(e.target, e.intersectionRatio));
         if (performance.now() - lastNavRef.current < 600) return;
         const best = Array.from(ratios.entries())

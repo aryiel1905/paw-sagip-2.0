@@ -313,8 +313,8 @@ export default function Home() {
   useEffect(() => {
     try {
       const supabase = getSupabaseClient();
-      supabase.auth.getUser().then(({ data }) => {
-        setIsLoggedIn(!!data.user);
+      supabase.auth.getSession().then(({ data }) => {
+        setIsLoggedIn(!!data.session?.user);
         setIsReadyAuth(true);
       });
       const { data } = supabase.auth.onAuthStateChange((_e, session) => {

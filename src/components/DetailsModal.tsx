@@ -61,25 +61,18 @@ function DetailsModalInner({
     setLmIndex(0);
   }, [item, initialLm]);
 
-  // Prevent scroll snapping and freeze the page while modal is open
+  // Prevent scroll snapping; lock scroll without changing position
   useLayoutEffect(() => {
-    const y = typeof window !== "undefined" ? window.scrollY : 0;
     const body = document.body;
     body.classList.add("modal-open");
-    // Freeze body position to avoid subtle jumps under the modal
-    body.style.position = "fixed";
-    body.style.top = `-${y}px`;
-    body.style.left = "0";
-    body.style.right = "0";
+    const prevOverflow = body.style.overflow;
+    const prevOverscroll = (body.style as any).overscrollBehaviorY || "";
+    body.style.overflow = "hidden";
+    (body.style as any).overscrollBehaviorY = "contain";
     return () => {
       body.classList.remove("modal-open");
-      body.style.position = "";
-      body.style.top = "";
-      body.style.left = "";
-      body.style.right = "";
-      if (typeof window !== "undefined") {
-        window.scrollTo(0, y);
-      }
+      body.style.overflow = prevOverflow;
+      (body.style as any).overscrollBehaviorY = prevOverscroll;
     };
   }, []);
 
@@ -129,6 +122,33 @@ function DetailsModalInner({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [viewer]);
+
+  // While the modal is open, keep the URL hash stable to avoid jumping back
+  // to other sections due to scroll observers updating the hash.
+  useEffect(() => {
+    if (!item) return;
+    let raf = 0;
+    const desiredHash = (typeof window !== "undefined" && window.location.hash) || "#alerts";
+    const keepHash = () => {
+      try {
+        if (
+          typeof document !== "undefined" &&
+          document.body.classList.contains("modal-open") &&
+          typeof window !== "undefined" &&
+          window.location.hash !== desiredHash
+        ) {
+          history.replaceState(null, "", desiredHash);
+        }
+      } catch {}
+      raf = requestAnimationFrame(keepHash);
+    };
+    raf = requestAnimationFrame(keepHash);
+    return () => {
+      try {
+        if (raf) cancelAnimationFrame(raf);
+      } catch {}
+    };
+  }, [item]);
 
   if (!item) return null;
 

@@ -47,8 +47,8 @@ export default function AccountDashboardPage() {
         const supabase = getSupabaseClient();
         let u: any = null;
         try {
-          const { data } = await supabase.auth.getUser();
-          u = data?.user ?? null;
+          const { data } = await supabase.auth.getSession();
+          u = data?.session?.user ?? null;
         } catch {
           // Network/auth failed; continue as guest
           u = null;

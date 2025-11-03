@@ -194,20 +194,16 @@ export async function fetchAdoptionPets(
   limit = 50,
   opts?: { signal?: AbortSignal }
 ): Promise<AdoptionPet[]> {
-  const supabase = getSupabaseClient();
-  const base = supabase
-    .from("adoption_pets")
-    .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
-    )
-    .eq("status", "available")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  const q = withAbort(base as any, opts?.signal);
-  const { data, error } = await q;
-
-  if (error || !Array.isArray(data)) return [];
-  return (data as AdoptionRow[]).map(toAdoption);
+  try {
+    const res = await fetch(`/api/adoptions/available?limit=${encodeURIComponent(String(limit))}`,
+      { signal: opts?.signal as any, cache: "no-store" }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.items) ? (json.items as AdoptionPet[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function searchAdoptionPets(
@@ -250,25 +246,21 @@ export async function fetchAdoptionPetsPaged(
   pageSize = 60,
   opts?: { signal?: AbortSignal }
 ): Promise<{ items: AdoptionPet[]; total: number }> {
-  const supabase = getSupabaseClient();
-  const from = Math.max(0, (Math.max(1, page) - 1) * Math.max(1, pageSize));
-  const to = Math.max(from, from + Math.max(1, pageSize) - 1);
-
-  const base = supabase
-    .from("adoption_pets")
-    .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status",
-      { count: "exact" }
-    )
-    .eq("status", "available")
-    .order("created_at", { ascending: false })
-    .range(from, to);
-  const q = withAbort(base as any, opts?.signal);
-  const { data, count, error } = await q;
-  if (error || !Array.isArray(data)) {
-    return { items: [], total: count ?? 0 };
+  try {
+    const params = new URLSearchParams({ paged: "1", page: String(page), pageSize: String(pageSize) });
+    const res = await fetch(`/api/adoptions/available?${params.toString()}`, {
+      signal: (opts?.signal as any) ?? undefined,
+      cache: "no-store",
+    });
+    if (!res.ok) return { items: [], total: 0 };
+    const json = await res.json();
+    return {
+      items: Array.isArray(json?.items) ? (json.items as AdoptionPet[]) : [],
+      total: typeof json?.total === "number" ? json.total : 0,
+    };
+  } catch {
+    return { items: [], total: 0 };
   }
-  return { items: (data as AdoptionRow[]).map(toAdoption), total: count ?? data.length };
 }
 
 export function subscribeToAlerts(onChange: () => void): () => void {

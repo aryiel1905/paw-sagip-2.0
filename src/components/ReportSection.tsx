@@ -267,8 +267,8 @@ export function ReportSection({
   useEffect(() => {
     const supabase = getSupabaseClient();
     let unsub: (() => void) | null = null;
-    supabase.auth.getUser().then(({ data }) => {
-      const u = data.user;
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null;
       setUserEmail(u?.email ?? null);
       const fullName =
         (u?.user_metadata?.full_name as string | undefined) ?? null;

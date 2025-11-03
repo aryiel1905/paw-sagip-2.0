@@ -143,10 +143,17 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                     <button
                       key={alert.id}
                       type="button"
+                      onMouseDown={(e) => {
+                        // Prevent focus scroll/auto-snap on mousedown
+                        e.preventDefault();
+                        try {
+                          if (typeof document !== "undefined") {
+                            document.body.classList.add("modal-open");
+                          }
+                        } catch {}
+                      }}
                       onClick={() => {
-                        if (typeof document !== "undefined") {
-                          document.body.classList.add("modal-open");
-                        }
+                        // modal-open already added on mousedown; ensure selected
                         setSelected(alert);
                       }}
                       className="text-left rounded-2xl bg-white shadow-soft hover:shadow-lg hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2"

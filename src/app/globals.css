@@ -53,6 +53,11 @@ body {
   background-position: center top;
 }
 
+/* When a modal is open, disable scroll snapping to prevent jumpy re-alignment */
+body.modal-open {
+  scroll-snap-type: none;
+}
+
 /* Make all top-level sections snap to the same position as nav links */
 section[id] {
   scroll-snap-align: start;

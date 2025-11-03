@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdoptionPet } from "@/types/app";
 import { fetchAdoptionPetsPaged } from "@/data/supabaseApi";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import { showToast } from "@/lib/toast";
 
 const PAGE_SIZE = 60;
 const ACCENT = "#F57C00";
@@ -171,6 +173,38 @@ export default function AdoptionBrowse() {
                   style={{
                     border: `1px solid color-mix(in srgb, ${ACCENT} 25%, white)`,
                     boxShadow: `0 12px 20px -12px color-mix(in srgb, ${ACCENT} 40%, transparent)`,
+                  }}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      const supabase = getSupabaseClient();
+                      const { data } = await supabase.auth.getSession();
+                      if (!data.session?.user) {
+                        try {
+                          if (typeof window !== "undefined") {
+                            sessionStorage.setItem(
+                              "auth:postLoginRedirect",
+                              `/adopt/${pet.id}`
+                            );
+                          }
+                        } catch {}
+                        showToast(
+                          "success",
+                          "Please sign in to start an adoption application."
+                        );
+                        try {
+                          window.dispatchEvent(
+                            new CustomEvent("app:signin", {
+                              detail: { mode: "login" },
+                            })
+                          );
+                        } catch {}
+                        return;
+                      }
+                      router.push(`/adopt/${pet.id}`);
+                    } catch {
+                      router.push(`/adopt/${pet.id}`);
+                    }
                   }}
                 >
                   <div className="p-3">
