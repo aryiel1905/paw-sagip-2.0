@@ -1209,10 +1209,12 @@ function ReportFormPageInner() {
                       className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                       placeholder="Use the pin to pick location"
                       style={{
-                        border: "1px solid var(--border-color)",
-                        ...(showValidation && !reportLocation.trim()
-                          ? { borderColor: "var(--primary-red)" }
-                          : {}),
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        borderColor:
+                          showValidation && !reportLocation.trim()
+                            ? "var(--primary-red)"
+                            : "var(--border-color)",
                       }}
                       aria-invalid={showValidation && !reportLocation.trim()}
                       value={reportLocation}
@@ -1255,10 +1257,12 @@ function ReportFormPageInner() {
                       type="datetime-local"
                       className="w-full rounded-xl px-3 py-2"
                       style={{
-                        border: "1px solid var(--border-color)",
-                        ...(showValidation && !isCruelty && !when.trim()
-                          ? { borderColor: "var(--primary-red)" }
-                          : {}),
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        borderColor:
+                          showValidation && !isCruelty && !when.trim()
+                            ? "var(--primary-red)"
+                            : "var(--border-color)",
                       }}
                       aria-invalid={
                         showValidation && !isCruelty && !when.trim()
@@ -1326,10 +1330,12 @@ function ReportFormPageInner() {
                       : "Behavior, situation, directions..."
                   }
                   style={{
-                    border: "1px solid var(--border-color)",
-                    ...(showValidation && isCruelty && !reportDescription.trim()
-                      ? { borderColor: "var(--primary-red)" }
-                      : {}),
+                    borderWidth: 1,
+                    borderStyle: "solid",
+                    borderColor:
+                      showValidation && isCruelty && !reportDescription.trim()
+                        ? "var(--primary-red)"
+                        : "var(--border-color)",
                   }}
                   aria-invalid={
                     showValidation && isCruelty && !reportDescription.trim()

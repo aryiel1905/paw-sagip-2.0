@@ -707,10 +707,12 @@ export function ReportSection({
                       className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                       placeholder="Use the pin to pick location"
                       style={{
-                        border: "1px solid var(--border-color)",
-                        ...(showQuickValidation && !reportLocation.trim()
-                          ? { borderColor: "var(--primary-red)" }
-                          : {}),
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        borderColor:
+                          showQuickValidation && !reportLocation.trim()
+                            ? "var(--primary-red)"
+                            : "var(--border-color)",
                       }}
                       aria-invalid={
                         showQuickValidation && !reportLocation.trim()
@@ -755,10 +757,12 @@ export function ReportSection({
                       type="datetime-local"
                       className="w-full rounded-xl px-3 py-2"
                       style={{
-                        border: "1px solid var(--border-color)",
-                        ...(showQuickValidation && !isCruelty && !qWhen.trim()
-                          ? { borderColor: "var(--primary-red)" }
-                          : {}),
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        borderColor:
+                          showQuickValidation && !isCruelty && !qWhen.trim()
+                            ? "var(--primary-red)"
+                            : "var(--border-color)",
                       }}
                       aria-invalid={
                         showQuickValidation && !isCruelty && !qWhen.trim()
@@ -799,10 +803,12 @@ export function ReportSection({
                       className="mt-1 w-full rounded-xl px-3 py-2"
                       placeholder="What happened? When/where?"
                       style={{
-                        border: "1px solid var(--border-color)",
-                        ...(showQuickValidation && !reportDescription.trim()
-                          ? { borderColor: "var(--primary-red)" }
-                          : {}),
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        borderColor:
+                          showQuickValidation && !reportDescription.trim()
+                            ? "var(--primary-red)"
+                            : "var(--border-color)",
                       }}
                       aria-invalid={
                         showQuickValidation && !reportDescription.trim()
@@ -1130,12 +1136,12 @@ export function ReportSection({
                               type="datetime-local"
                               className="w-full rounded-xl px-3 py-2"
                               style={{
-                                border: "1px solid var(--border-color)",
-                                ...(showQuickValidation &&
-                                !isCruelty &&
-                                !qWhen.trim()
-                                  ? { borderColor: "var(--primary-red)" }
-                                  : {}),
+                                borderWidth: 1,
+                                borderStyle: "solid",
+                                borderColor:
+                                  showQuickValidation && !isCruelty && !qWhen.trim()
+                                    ? "var(--primary-red)"
+                                    : "var(--border-color)",
                               }}
                               aria-invalid={
                                 showQuickValidation &&
