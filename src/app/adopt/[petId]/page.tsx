@@ -19,6 +19,9 @@ type PetSummary = {
   location?: string | null;
   imageUrl?: string | null;
   createdAt?: string | null;
+  ageSize?: string | null;
+  breed?: string | null;
+  sex?: string | null;
 };
 
 function speciesEmoji(species?: string | null) {
@@ -171,7 +174,9 @@ export default function AdoptionApplicationPage() {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
           .from("adoption_pets")
-          .select("id, pet_name, species, location, photo_path, created_at")
+          .select(
+            "id, pet_name, species, location, photo_path, created_at, age_size"
+          )
           .eq("id", petId)
           .limit(1)
           .maybeSingle();
@@ -189,6 +194,7 @@ export default function AdoptionApplicationPage() {
             location: data.location ?? null,
             imageUrl,
             createdAt: (data as any).created_at ?? null,
+            ageSize: (data as any).age_size ?? null,
           });
 
           // Fetch health flags by matching corresponding report via photo_path
@@ -223,6 +229,38 @@ export default function AdoptionApplicationPage() {
               }
             } catch {}
           }
+
+          // Enrich breed/sex/age from original report
+          try {
+            let base: any = null;
+            const viaPromoted = await supabase
+              .from("reports")
+              .select("breed,gender,age_size,promoted_to_pet_id")
+              .eq("promoted_to_pet_id", data.id)
+              .maybeSingle();
+            if (viaPromoted.data) base = viaPromoted.data;
+            else if ((data as any).photo_path) {
+              const viaPhoto = await supabase
+                .from("reports")
+                .select("breed,gender,age_size,photo_path")
+                .eq("photo_path", (data as any).photo_path as string)
+                .maybeSingle();
+              if (viaPhoto.data) base = viaPhoto.data;
+            }
+            if (base && mounted) {
+              setPet((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      breed: (base.breed as string | null) ?? prev.breed ?? null,
+                      sex: (base.gender as string | null) ?? prev.sex ?? null,
+                      ageSize:
+                        (base.age_size as string | null) ?? prev.ageSize ?? null,
+                    }
+                  : prev
+              );
+            }
+          } catch {}
         }
       } catch (e) {
         console.error(e);
@@ -297,9 +335,9 @@ export default function AdoptionApplicationPage() {
       name: pet?.name || "Pet",
       species: pet?.species || "",
       location: pet?.location || "",
-      breed: "",
-      sex: "",
-      age: "",
+      breed: pet?.breed || "",
+      sex: pet?.sex || "",
+      age: pet?.ageSize || "",
       photo: pet?.imageUrl || null,
     };
   }, [pet]);
@@ -744,9 +782,22 @@ export default function AdoptionApplicationPage() {
                         hadPetsPast,
                         homePhotoPaths: homePaths,
                       };
+                      // Attach x-profile-id for server-side guard/scoping
+                      let profileId: string | null = null;
+                      try {
+                        const supabase = getSupabaseClient();
+                        const { data } = await supabase.auth.getUser();
+                        profileId = (data?.user?.id as string | undefined) ?? null;
+                      } catch {}
+
+                      const headers: Record<string, string> = {
+                        "Content-Type": "application/json",
+                      };
+                      if (profileId) headers["x-profile-id"] = profileId;
+
                       const res = await fetch("/api/adoption-applications", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers,
                         body: JSON.stringify(payload),
                       });
                       if (!res.ok && res.status !== 202) {
