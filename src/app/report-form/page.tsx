@@ -43,6 +43,7 @@ function ReportFormPageInner() {
   const [breed, setBreed] = useState("");
   const [gender, setGender] = useState("Unknown");
   const [ageSize, setAgeSize] = useState("Puppy");
+  const [petStatus, setPetStatus] = useState("Roaming");
   const [features, setFeatures] = useState("");
   const [contact, setContact] = useState("");
   const [anonymous, setAnonymous] = useState(false);
@@ -110,56 +111,90 @@ function ReportFormPageInner() {
         return (
           <div className="grid grid-cols-3 items-center gap-3 w-full">
             <div className="col-span-1 flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/DoNotApproach.svg"
                 alt=""
                 className="w-full h-auto object-contain"
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 p-5">
               <p className="text-lg font-semibold">
                 Aggressive / Fearful - Safety First
               </p>
-              <p className="mt-1 text-lg">
+              <p className="mt-1 text-lg text-justify">
                 Do not approach. Keep 3-5 meters away. Avoid eye contact and
-                sudden moves. Observe from a distance and include a clear
-                photo/video if possible.
-              </p>
+                sudden moves. Observe from a distance and include a clear photo
+                if possible.
+              </p>{" "}
+              <i className="text-gray-600 text-justify">
+                (Huwag lalapitan. Manatiling 3–5 metro ang layo. Iwasang tumitig
+                o gumalaw nang bigla. Obserbahan na lang mula sa malayo at kunan
+                ng malinaw na litrato kung kaya.)
+              </i>
+              <div className="mt-5  text-left">
+                <button
+                  type="button"
+                  className="pill px-3 py-1 text-white transition hover:opacity-90  "
+                  style={{
+                    background: "var(--primary-orange)",
+                    border: "1px solid var(--primary-orange)",
+                  }}
+                  onClick={closeFlagModal}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         );
       case "friendly":
         return (
-          <div className="grid grid-cols-3 items-center gap-3 w-full">
-            <div className="col-span-1 flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="grid grid-cols-3 items-center gap-3">
+            <div className=" col-span-1 ">
               <img
                 src="/SafeApprove.svg"
                 alt=""
                 className="w-full h-auto object-contain"
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 p-5">
               <p className="text-lg font-semibold">
                 Seems Friendly - Approach Slowly
               </p>
-              <p className="mt-1 text-lg">
+              <p className="mt-1 text-lg text-justify">
                 Speak softly and crouch to appear smaller. Check for a collar or
                 tag. Offer water; avoid chasing.
               </p>
+              <i className="text-gray-600 text-justify">
+                (Magsalita nang dahan-dahan at yumuko para hindi matakot ang
+                alaga. Tingnan kung may kwelyo o tag. Bigyan ng tubig, huwag
+                habulin.)
+              </i>
+              <div className="mt-5  text-left">
+                <button
+                  type="button"
+                  className="pill px-3 py-1 text-white transition hover:opacity-90  "
+                  style={{
+                    background: "var(--primary-mintgreen)",
+                    border: "1px solid var(--primary-mintgreen)",
+                  }}
+                  onClick={closeFlagModal}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         );
       case "anonymous":
         return (
           <div className="flex items-start gap-2">
-            <EyeOff className="mt-0.5 h-5 w-5" />
+            <div className="text-xl"></div>
             <div>
               <p className="font-semibold">Submit Anonymously</p>
               <p className="mt-1 text-sm">
-                Your name is hidden. If safe, include a phone/email so
-                responders can coordinate follow-ups.
+                Your name won’t be shown. If safe, add a phone or email so
+                responders can coordinate follow‑ups.
               </p>
             </div>
           </div>
@@ -477,6 +512,7 @@ function ReportFormPageInner() {
       breed: breed?.trim() ? breed.trim() : null,
       gender: gender || null,
       ageSize: ageSize || null,
+      petStatus: petStatus || null,
       features: features?.trim() ? features.trim() : null,
       eventAt: eventAtIso,
       reporterName: reporterName?.trim() ? reporterName.trim() : null,
@@ -524,6 +560,26 @@ function ReportFormPageInner() {
       }
       setLandmarkPhotos([]);
       setLandmarkPreviewUrls([]);
+      // Reset all form fields to defaults
+      setPetName("");
+      setSpecies("Dog");
+      setBreed("");
+      setGender("Unknown");
+      setAgeSize("Puppy");
+      setFeatures("");
+      setContact("");
+      setAnonymous(false);
+      setReporterName("");
+      setWhen("");
+      setReportType("found");
+      setReportCondition("Healthy");
+      setPetStatus("Roaming");
+      setAggressiveFlag(false);
+      setFriendly(false);
+      setReportLat(null);
+      setReportLng(null);
+      setShowValidation(false);
+      setPrevPhotoName("");
       if (landmarkInputRef.current) landmarkInputRef.current.value = "";
       if (landmarkInputMobileRef.current)
         landmarkInputMobileRef.current.value = "";
@@ -547,6 +603,7 @@ function ReportFormPageInner() {
     breed,
     gender,
     ageSize,
+    petStatus,
     features,
     reporterName,
     contact,
@@ -584,7 +641,7 @@ function ReportFormPageInner() {
         <div className="mb-1  py-5">
           <button
             onClick={handleGoBack}
-            className="inline-flex items-center py-2 pl-2 pr-3 gap-2 pill  text-white/90 border bg-[var(--primary-mintgreen)] hover:bg-[#7e7e7e] hover:text-black hover:border-white transition-colors duration-200 ease-in-out"
+            className="inline-flex items-center py-2 pl-2 pr-3 gap-2 pill  text-white/90 border bg-[var(--primary-mintgreen)] hover:bg-white hover:text-[var(--primary-mintgreen)] hover:border-white transition-colors duration-200 ease-in-out"
             style={{ color: "" }}
           >
             <ChevronLeft className="h-4 w-4 " />
@@ -921,7 +978,7 @@ function ReportFormPageInner() {
                     <option>Cat</option>
                   </select>
                 </label>
-                <label className="block text-sm lg:col-span-2">
+                <label className="block text-sm">
                   Breed / Mix
                   <input
                     className="mt-1 w-full rounded-xl px-3 py-2"
@@ -930,6 +987,18 @@ function ReportFormPageInner() {
                     value={breed}
                     onChange={(e) => setBreed(e.target.value)}
                   />
+                </label>
+                <label className="block text-sm">
+                  Pet Status
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={petStatus}
+                    onChange={(e) => setPetStatus(e.target.value)}
+                  >
+                    <option value="Roaming">Roaming</option>
+                    <option value="In Custody">In Custody</option>
+                  </select>
                 </label>
                 <label className="block text-sm">
                   Gender
@@ -1139,7 +1208,13 @@ function ReportFormPageInner() {
                     <input
                       className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                       placeholder="Use the pin to pick location"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                        ...(showValidation && !reportLocation.trim()
+                          ? { borderColor: "var(--primary-red)" }
+                          : {}),
+                      }}
+                      aria-invalid={showValidation && !reportLocation.trim()}
                       value={reportLocation}
                       readOnly
                       aria-readonly
@@ -1151,7 +1226,12 @@ function ReportFormPageInner() {
                       aria-label="Open map picker"
                       onClick={() => setShowMapPicker(true)}
                       className="rounded-xl px-3 py-2 text-white"
-                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                      style={{
+                        backgroundColor:
+                          showValidation && !reportLocation.trim()
+                            ? "var(--primary-red)"
+                            : "var(--primary-mintgreen)",
+                      }}
                     >
                       Pin
                     </button>
@@ -1159,6 +1239,14 @@ function ReportFormPageInner() {
                   <p className="mt-1 text-xs ink-muted">
                     Use the pin to pick an exact location.
                   </p>
+                  {showValidation && !reportLocation.trim() && (
+                    <p
+                      className="mt-1 text-xs"
+                      style={{ color: "var(--primary-red)" }}
+                    >
+                      Location is required.
+                    </p>
+                  )}
                 </label>
                 <label className="block text-sm">
                   When
@@ -1166,7 +1254,15 @@ function ReportFormPageInner() {
                     <input
                       type="datetime-local"
                       className="w-full rounded-xl px-3 py-2"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                        ...(showValidation && !isCruelty && !when.trim()
+                          ? { borderColor: "var(--primary-red)" }
+                          : {}),
+                      }}
+                      aria-invalid={
+                        showValidation && !isCruelty && !when.trim()
+                      }
                       value={when}
                       onChange={(e) => setWhen(e.target.value)}
                       required={!isCruelty}
@@ -1192,6 +1288,14 @@ function ReportFormPageInner() {
                   <p className="mt-1 text-xs ink-muted">
                     You can type a date/time or tap the clock to set now.
                   </p>
+                  {showValidation && !isCruelty && !when.trim() && (
+                    <p
+                      className="mt-1 text-xs"
+                      style={{ color: "var(--primary-red)" }}
+                    >
+                      When is required.
+                    </p>
+                  )}
                 </label>
                 {/* Hidden precise coordinates so we retain accuracy while showing address */}
                 <input
@@ -1221,10 +1325,26 @@ function ReportFormPageInner() {
                       ? "What happened? When/where?"
                       : "Behavior, situation, directions..."
                   }
-                  style={{ border: "1px solid var(--border-color)" }}
+                  style={{
+                    border: "1px solid var(--border-color)",
+                    ...(showValidation && isCruelty && !reportDescription.trim()
+                      ? { borderColor: "var(--primary-red)" }
+                      : {}),
+                  }}
+                  aria-invalid={
+                    showValidation && isCruelty && !reportDescription.trim()
+                  }
                   value={reportDescription}
                   onChange={(e) => setReportDescription(e.target.value)}
                 />
+                {showValidation && isCruelty && !reportDescription.trim() && (
+                  <p
+                    className="mt-1 text-xs"
+                    style={{ color: "var(--primary-red)" }}
+                  >
+                    Description is required.
+                  </p>
+                )}
               </label>
               <div className="space-y-3">
                 <label className="block text-sm">
@@ -1371,16 +1491,6 @@ function ReportFormPageInner() {
                     {flagKey === "aggressive"
                       ? getTipContent("aggressive")
                       : getTipContent("friendly")}
-                    <div className="mt-4 text-left">
-                      <button
-                        type="button"
-                        className="pill px-3 py-1"
-                        style={{ border: "1px solid var(--border-color)" }}
-                        onClick={closeFlagModal}
-                      >
-                        Got it
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>,
@@ -1394,7 +1504,7 @@ function ReportFormPageInner() {
 
 export default function ReportFormPage() {
   return (
-    <Suspense fallback={<div />}> 
+    <Suspense fallback={<div />}>
       <ReportFormPageInner />
     </Suspense>
   );

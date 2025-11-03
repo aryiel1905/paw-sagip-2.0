@@ -134,15 +134,20 @@ export function ReportSection({
                 className="w-full h-auto object-contain"
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 p-5">
               <p className="text-lg font-semibold">
                 Aggressive / Fearful - Safety First
               </p>
-              <p className="mt-1 text-lg">
+              <p className="mt-1 text-lg text-justify">
                 Do not approach. Keep 3-5 meters away. Avoid eye contact and
-                sudden moves. Observe from a distance and include a clear
-                photo/video if possible.
-              </p>
+                sudden moves. Observe from a distance and include a clear photo
+                if possible.
+              </p>{" "}
+              <i className="text-gray-600 text-justify">
+                (Huwag lalapitan. Manatiling 3–5 metro ang layo. Iwasang tumitig
+                o gumalaw nang bigla. Obserbahan na lang mula sa malayo at kunan
+                ng malinaw na litrato kung kaya.)
+              </i>
               <div className="mt-5  text-left">
                 <button
                   type="button"
@@ -169,14 +174,19 @@ export function ReportSection({
                 className="w-full h-auto object-contain"
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-2 p-5">
               <p className="text-lg font-semibold">
                 Seems Friendly - Approach Slowly
               </p>
-              <p className="mt-1 text-lg">
+              <p className="mt-1 text-lg text-justify">
                 Speak softly and crouch to appear smaller. Check for a collar or
                 tag. Offer water; avoid chasing.
               </p>
+              <i className="text-gray-600 text-justify">
+                (Magsalita nang dahan-dahan at yumuko para hindi matakot ang
+                alaga. Tingnan kung may kwelyo o tag. Bigyan ng tubig, huwag
+                habulin.)
+              </i>
               <div className="mt-5  text-left">
                 <button
                   type="button"
@@ -412,14 +422,43 @@ export function ReportSection({
     }
   }, [reportPhotoInputRef]);
 
-  // Show toast messages for submit status
+  // Show toast messages for submit status and reset fields on success
   useEffect(() => {
     if (reportStatus === "success") {
       showToast("success", "Report submitted! Rescue team notified.");
+      // Reset quick form fields to defaults
+      try {
+        setReportType("found");
+      } catch {}
+      try {
+        setReportCondition("Healthy");
+      } catch {}
+      setQSpecies("Dog");
+      setQWhen("");
+      setQContact("");
+      setQAggressive(false);
+      setQFriendly(false);
+      setQAnon(false);
+      setQPetStatus("");
+      setShowQuickValidation(false);
+      try {
+        setReportLocation("");
+        setReportDescription("");
+      } catch {}
+      try {
+        clearLandmarkPhotos();
+      } catch {}
     } else if (reportStatus === "error") {
       showToast("error", "Something went wrong. Please try again.");
     }
-  }, [reportStatus]);
+  }, [
+    reportStatus,
+    setReportType,
+    setReportCondition,
+    setReportLocation,
+    setReportDescription,
+    clearLandmarkPhotos,
+  ]);
 
   const quickSubmit = useCallback(
     (e: FormEvent) => {
@@ -667,7 +706,15 @@ export function ReportSection({
                     <input
                       className="w-full rounded-xl px-3 py-2 bg-[var(--card-bg)] cursor-not-allowed"
                       placeholder="Use the pin to pick location"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                        ...(showQuickValidation && !reportLocation.trim()
+                          ? { borderColor: "var(--primary-red)" }
+                          : {}),
+                      }}
+                      aria-invalid={
+                        showQuickValidation && !reportLocation.trim()
+                      }
                       value={reportLocation}
                       readOnly
                       aria-readonly
@@ -679,7 +726,12 @@ export function ReportSection({
                       aria-label="Open map picker"
                       onClick={() => setShowMapPicker(true)}
                       className="rounded-xl px-3 py-2 text-white"
-                      style={{ backgroundColor: "var(--primary-mintgreen)" }}
+                      style={{
+                        backgroundColor:
+                          showQuickValidation && !reportLocation.trim()
+                            ? "var(--primary-red)"
+                            : "var(--primary-mintgreen)",
+                      }}
                     >
                       Pin
                     </button>
@@ -687,6 +739,14 @@ export function ReportSection({
                   <p className="mt-1 text-xs ink-muted">
                     Use the pin to pick an exact location.
                   </p>
+                  {showQuickValidation && !reportLocation.trim() && (
+                    <p
+                      className="mt-1 text-xs"
+                      style={{ color: "var(--primary-red)" }}
+                    >
+                      Location is required.
+                    </p>
+                  )}
                 </label>
                 <label className="block text-sm">
                   When
@@ -694,7 +754,15 @@ export function ReportSection({
                     <input
                       type="datetime-local"
                       className="w-full rounded-xl px-3 py-2"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                        ...(showQuickValidation && !isCruelty && !qWhen.trim()
+                          ? { borderColor: "var(--primary-red)" }
+                          : {}),
+                      }}
+                      aria-invalid={
+                        showQuickValidation && !isCruelty && !qWhen.trim()
+                      }
                       value={qWhen}
                       onChange={(e) => setQWhen(e.target.value)}
                       required
@@ -730,10 +798,26 @@ export function ReportSection({
                       rows={3}
                       className="mt-1 w-full rounded-xl px-3 py-2"
                       placeholder="What happened? When/where?"
-                      style={{ border: "1px solid var(--border-color)" }}
+                      style={{
+                        border: "1px solid var(--border-color)",
+                        ...(showQuickValidation && !reportDescription.trim()
+                          ? { borderColor: "var(--primary-red)" }
+                          : {}),
+                      }}
+                      aria-invalid={
+                        showQuickValidation && !reportDescription.trim()
+                      }
                       value={reportDescription}
                       onChange={(e) => setReportDescription(e.target.value)}
                     />
+                    {showQuickValidation && !reportDescription.trim() && (
+                      <p
+                        className="mt-1 text-xs"
+                        style={{ color: "var(--primary-red)" }}
+                      >
+                        Description is required.
+                      </p>
+                    )}
                   </label>
                 ) : (
                   <label className="block text-sm">
@@ -995,7 +1079,14 @@ export function ReportSection({
                               placeholder="Use the pin to pick location"
                               style={{
                                 border: "1px solid var(--border-color)",
+                                ...(showQuickValidation &&
+                                !reportLocation.trim()
+                                  ? { borderColor: "var(--primary-red)" }
+                                  : {}),
                               }}
+                              aria-invalid={
+                                showQuickValidation && !reportLocation.trim()
+                              }
                               value={reportLocation}
                               readOnly
                               aria-readonly
@@ -1007,7 +1098,10 @@ export function ReportSection({
                               className="pill px-3 py-2"
                               style={{
                                 border: "1px solid var(--border-color)",
-                                background: "var(--primary-mintgreen)",
+                                background:
+                                  showQuickValidation && !reportLocation.trim()
+                                    ? "var(--primary-red)"
+                                    : "var(--primary-mintgreen)",
                                 color: "var(--white)",
                               }}
                               onClick={() => setShowMapPicker(true)}
@@ -1018,6 +1112,14 @@ export function ReportSection({
                           <div className="mt-1 text-xs ink-subtle">
                             Use the pin to pick an exact location.
                           </div>
+                          {showQuickValidation && !reportLocation.trim() && (
+                            <div
+                              className="mt-1 text-xs"
+                              style={{ color: "var(--primary-red)" }}
+                            >
+                              Location is required.
+                            </div>
+                          )}
                         </label>
                       </div>
                       <div className="col-span-1">
@@ -1029,7 +1131,17 @@ export function ReportSection({
                               className="w-full rounded-xl px-3 py-2"
                               style={{
                                 border: "1px solid var(--border-color)",
+                                ...(showQuickValidation &&
+                                !isCruelty &&
+                                !qWhen.trim()
+                                  ? { borderColor: "var(--primary-red)" }
+                                  : {}),
                               }}
+                              aria-invalid={
+                                showQuickValidation &&
+                                !isCruelty &&
+                                !qWhen.trim()
+                              }
                               value={qWhen}
                               onChange={(e) => setQWhen(e.target.value)}
                               required
@@ -1094,7 +1206,19 @@ export function ReportSection({
                         : "Distinctive Features (optional)"}
                       <input
                         className="mt-1 w-full rounded-xl px-3 py-2"
-                        style={{ border: "1px solid var(--border-color)" }}
+                        style={{
+                          border: "1px solid var(--border-color)",
+                          ...(showQuickValidation &&
+                          isCruelty &&
+                          !reportDescription.trim()
+                            ? { borderColor: "var(--primary-red)" }
+                            : {}),
+                        }}
+                        aria-invalid={
+                          showQuickValidation &&
+                          isCruelty &&
+                          !reportDescription.trim()
+                        }
                         placeholder={
                           isCruelty
                             ? "Describe the situation"
@@ -1103,6 +1227,16 @@ export function ReportSection({
                         value={reportDescription}
                         onChange={(e) => onQuickFeatureChange(e.target.value)}
                       />
+                      {showQuickValidation &&
+                        isCruelty &&
+                        !reportDescription.trim() && (
+                          <div
+                            className="mt-1 text-xs"
+                            style={{ color: "var(--primary-red)" }}
+                          >
+                            Description is required.
+                          </div>
+                        )}
                     </label>
 
                     {/* Desktop: flags visible in Quick Submit */}
@@ -1202,7 +1336,7 @@ export function ReportSection({
                   </button>
                   <a
                     href="/report-form"
-                    className="btn px-4 py-2 flex-1 min-w-0 text-center bg-white"
+                    className="btn px-4 py-2 flex-1 min-w-0 text-center bg-[#ECEEEF] hover:bg-[var(--primary-mintgreen)] hover:text-white transition-colors"
                     style={{ border: "1px solid var(--border-color)" }}
                     onClick={persistDraftToSession}
                   >

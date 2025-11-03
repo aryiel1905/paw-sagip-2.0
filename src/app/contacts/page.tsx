@@ -12,7 +12,7 @@ export default function ContactsPage() {
   const [groupBy, setGroupBy] = useState<Grouping>("role");
 
   useEffect(() => {
-    let abort = new AbortController();
+    const abort = new AbortController();
     setLoading(true);
     fetchContacts(1000, { signal: abort.signal })
       .then((cs) => setContacts(cs))
@@ -41,6 +41,19 @@ export default function ContactsPage() {
     }));
   }, [contacts, groupBy]);
 
+  // Filter: only barangay-admin and shelter admins
+  const admins = useMemo(() => {
+    const allow = new Set(["barangay-admin", "shelter", "shelter-admin"]);
+    const list = contacts.filter((c) =>
+      allow.has((c.role || "").toLowerCase().trim())
+    );
+    return list.slice().sort((a, b) => {
+      const aKey = [a.city || "", a.barangay || "", a.name || ""].join("|");
+      const bKey = [b.city || "", b.barangay || "", b.name || ""].join("|");
+      return aKey.localeCompare(bKey);
+    });
+  }, [contacts]);
+
   return (
     <main className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -48,77 +61,77 @@ export default function ContactsPage() {
           <h1 className="text-2xl md:text-3xl font-bold ink-heading">
             Contacts
           </h1>
-          <p className="ink-muted">Directory of public profiles</p>
+          <p className="ink-muted">Barangay & Shelter Admins</p>
         </div>
-        <div className="flex items-center gap-2">
-          {(["role", "barangay", "city", "province"] as Grouping[]).map((g) => (
-            <button
-              key={g}
-              className={`pill px-3 py-1.5 text-sm border transition-colors ${
-                groupBy === g
-                  ? "bg-[var(--primary-mintgreen)] text-white border-[var(--primary-mintgreen)]"
-                  : "bg-white border-[var(--border-color)] hover:bg-[var(--card-bg)]"
-              }`}
-              onClick={() => setGroupBy(g)}
-              type="button"
-            >
-              Group by {g}
-            </button>
-          ))}
-        </div>
+        <div />
       </div>
 
       {loading ? (
         <div className="rounded-xl border border-[var(--border-color)] bg-white p-6 text-center">
           Loading contacts...
         </div>
-      ) : grouped.length === 0 ? (
+      ) : admins.length === 0 ? (
         <div className="rounded-xl border border-[var(--border-color)] bg-white p-6 text-center">
           No contacts found.
         </div>
       ) : (
-        <div className="space-y-6">
-          {grouped.map((group) => (
-            <section
-              key={group.label}
-              className="rounded-xl border border-[var(--border-color)] bg-white"
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-                <h2 className="text-lg font-semibold ink-heading">
-                  {group.label}
-                </h2>
-                <span className="text-sm ink-subtle">{group.items.length}</span>
-              </div>
-              <div className="p-4">
-                <ul className="columns-1 sm:columns-2 lg:columns-3 [column-gap:0.75rem]">
-                  {group.items.map((c) => (
-                    <li key={c.id} className="mb-3 break-inside-avoid">
-                      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg,#fff)] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold ink-heading leading-tight">{c.name}</p>
-                            {c.role && (
-                              <p className="text-xs mt-0.5 text-[var(--primary-orange)] font-medium">{c.role}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 space-y-1 text-sm">
-                          {c.email && (
-                            <p className="truncate"><a className="text-[var(--primary-green)] hover:underline" href={`mailto:${c.email}`}>{c.email}</a></p>
+        <section className="w-full">
+          <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
+              <h2 className="text-lg font-semibold ink-heading">Admins</h2>
+              <span className="text-sm ink-subtle">{admins.length}</span>
+            </div>
+            <div className="p-4">
+              <ul className="columns-1 sm:columns-2 lg:columns-3 xl:columns-5 [column-gap:0.75rem]">
+                {admins.map((c) => (
+                  <li key={c.id} className="mb-3 break-inside-avoid">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg,#fff)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold ink-heading leading-tight">
+                            {c.name}
+                          </p>
+                          {c.role && (
+                            <p className="text-xs mt-0.5 text-[var(--primary-orange)] font-medium">
+                              {c.role}
+                            </p>
                           )}
-                          {c.phone && (
-                            <p className="truncate"><a className="text-[var(--primary-green)] hover:underline" href={`tel:${c.phone}`}>{c.phone}</a></p>
-                          )}
-                          <p className="ink-subtle truncate">{[c.barangay, c.city, c.province].filter(Boolean).join(", ") || "—"}</p>
                         </div>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          ))}
-        </div>
+                      <div className="mt-2 space-y-1 text-sm">
+                        {c.email && (
+                          <p className="truncate">
+                            <a
+                              className="text-[var(--primary-green)] hover:underline"
+                              href={`mailto:${c.email}`}
+                            >
+                              {c.email}
+                            </a>
+                          </p>
+                        )}
+                        {c.phone && (
+                          <p className="truncate">
+                            <a
+                              className="text-[var(--primary-green)] hover:underline"
+                              href={`tel:${c.phone}`}
+                            >
+                              {c.phone}
+                            </a>
+                          </p>
+                        )}
+                        <p className="ink-subtle truncate">
+                          {[c.barangay, c.city, c.province]
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
       )}
     </main>
   );

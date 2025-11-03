@@ -83,3 +83,15 @@ export type ModalItem =
   | { kind: "alert"; alert: Alert }
   | { kind: "adoption"; adoption: AdoptionPet }
   | null;
+
+// Directory / Contacts
+export type Contact = {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  role?: string | null;
+  barangay?: string | null;
+  city?: string | null;
+  province?: string | null;
+};

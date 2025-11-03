@@ -68,7 +68,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             {
               key: "found" as const,
               title: "FOUND",
-              description: "View reports of rescued or sighted pets.",
+              description: "Mga alagang nakita o nasagip.",
               base: "#2A9D8F",
               items: grouped.found,
               icon: MapPin,
@@ -76,7 +76,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             {
               key: "lost" as const,
               title: "LOST",
-              description: "See all active missing pet reports.",
+              description: "Mga alagang nawawala.",
               base: "#6B6B6B",
               items: grouped.lost,
               icon: Search,
@@ -84,7 +84,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             {
               key: "cruelty" as const,
               title: "CRUELTY",
-              description: "Check submitted animal cruelty cases.",
+              description: "Mga ulat ng pagmamalupit sa hayop.",
               base: "#F57C00",
               items: grouped.cruelty,
               icon: AlertTriangle,
@@ -286,7 +286,8 @@ function alertFallbackTheme(alert: Alert, base: string) {
     (alert as any).species ??
     (alert as any).kind ??
     "";
-  const themed = petFallbackTheme(direct) ??
+  const themed =
+    petFallbackTheme(direct) ??
     (speciesHint(alert) === "dog"
       ? DOG_FALLBACK
       : speciesHint(alert) === "cat"

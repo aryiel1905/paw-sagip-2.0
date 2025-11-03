@@ -7,6 +7,7 @@ import {
   AlertType,
   PetStatus,
 } from "@/types/app";
+import type { Contact } from "@/types/app";
 
 export const PET_MEDIA_BUCKET = "pet-media";
 
@@ -670,4 +671,25 @@ export async function fetchReportById(id: string): Promise<AccountReportView | n
     mainUrl,
     landmarkUrls,
   };
+}
+
+// Contacts directory: fetch public profiles as contacts, tolerant to schema drift
+export async function fetchContacts(
+  limit = 1000,
+  opts?: { signal?: AbortSignal; withRoleOnly?: boolean }
+): Promise<Contact[]> {
+  try {
+    const params = new URLSearchParams();
+    if (opts?.withRoleOnly !== false) params.set("withRole", "1");
+    const res = await fetch(`/api/contacts?${params.toString()}`, {
+      signal: (opts?.signal as any) ?? undefined,
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const items = Array.isArray(json?.items) ? (json.items as Contact[]) : [];
+    return items.slice(0, limit);
+  } catch {
+    return [];
+  }
 }

@@ -382,6 +382,17 @@ export function Navbar({
                 Sign in
               </button>
             )}
+            {/* Contacts button */}
+            <button
+              className="pill px-3 py-2 text-sm border border-transparent bg-[#444647] text-white hover:bg-[#65676a] transition-colors"
+              onClick={() => handleNavigate("/contacts")}
+              type="button"
+              aria-current={
+                pathname?.startsWith("/contacts") ? "page" : undefined
+              }
+            >
+              Contacts
+            </button>
           </div>
 
           <button
@@ -479,6 +490,20 @@ export function Navbar({
                   Sign in
                 </button>
               )}
+              {/* Contacts (mobile) */}
+              <button
+                className="flex-1 rounded-xl px-4 py-3 text-sm border border-transparent bg-[#333639] text-white hover:bg-[#4A4D50]"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  handleNavigate("/contacts");
+                }}
+                type="button"
+                aria-current={
+                  pathname?.startsWith("/contacts") ? "page" : undefined
+                }
+              >
+                Contacts
+              </button>
             </div>
           </nav>
         </div>
