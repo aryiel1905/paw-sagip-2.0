@@ -22,6 +22,7 @@ type PetSummary = {
   ageSize?: string | null;
   breed?: string | null;
   sex?: string | null;
+  postedById?: string | null;
 };
 
 function speciesEmoji(species?: string | null) {
@@ -46,6 +47,13 @@ export default function AdoptionApplicationPage() {
     spayedNeutered: boolean | null;
     dewormed: boolean | null;
   }>({ vaccinated: null, spayedNeutered: null, dewormed: null });
+
+  // Contact of the person who posted the adoption listing
+  const [poster, setPoster] = useState<{
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null>(null);
 
   // Wizard state (0=preface, 1=form, 2=questionnaire, 3=photos)
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
@@ -175,7 +183,7 @@ export default function AdoptionApplicationPage() {
         const { data, error } = await supabase
           .from("adoption_pets")
           .select(
-            "id, pet_name, species, location, photo_path, created_at, age_size"
+            "id, pet_name, species, location, photo_path, created_at, age_size, posted_by"
           )
           .eq("id", petId)
           .limit(1)
@@ -195,6 +203,7 @@ export default function AdoptionApplicationPage() {
             imageUrl,
             createdAt: (data as any).created_at ?? null,
             ageSize: (data as any).age_size ?? null,
+            postedById: (data as any).posted_by ?? null,
           });
 
           // Fetch health flags by matching corresponding report via photo_path
@@ -252,13 +261,33 @@ export default function AdoptionApplicationPage() {
                 prev
                   ? {
                       ...prev,
-                      breed: (base.breed as string | null) ?? prev.breed ?? null,
+                      breed:
+                        (base.breed as string | null) ?? prev.breed ?? null,
                       sex: (base.gender as string | null) ?? prev.sex ?? null,
                       ageSize:
-                        (base.age_size as string | null) ?? prev.ageSize ?? null,
+                        (base.age_size as string | null) ??
+                        prev.ageSize ??
+                        null,
                     }
                   : prev
               );
+            }
+          } catch {}
+          // Fetch poster contact details via server (service role avoids RLS issues)
+          try {
+            const res = await fetch(
+              `/api/adoptions/pet-contact?petId=${encodeURIComponent(String(data.id))}`,
+              { cache: "no-store" }
+            );
+            if (res.ok) {
+              const json = await res.json();
+              if (json?.contact && mounted) {
+                setPoster({
+                  name: json.contact.name ?? null,
+                  email: json.contact.email ?? null,
+                  phone: json.contact.phone ?? null,
+                });
+              }
             }
           } catch {}
         }
@@ -400,15 +429,12 @@ export default function AdoptionApplicationPage() {
           {/* Preface gate (Step 0) */}
           {step === 0 && (
             <div className="mt-4 flex flex-col gap-4">
-              <div
-                className="grid rounded-2xl p-4"
-                style={{ background: "var(--card-bg)" }}
-              >
+              <div className="grid rounded-2xl">
                 {loadingPet ? (
                   <p className="ink-subtle text-sm">Loading pet details…</p>
                 ) : pet ? (
                   <div
-                    className="rounded-2xl border px-5 py-4"
+                    className="rounded-2xl border px-5 py-5"
                     style={{
                       borderColor: "var(--border-color)",
                       background: "var(--card-bg)",
@@ -439,6 +465,7 @@ export default function AdoptionApplicationPage() {
                           </div>
                         )}
                       </div>
+
                       <div className="flex flex-col gap-3">
                         <div>
                           <div className="text-xl font-semibold ink-heading md:text-2xl">
@@ -494,6 +521,43 @@ export default function AdoptionApplicationPage() {
                   <p className="ink-subtle text-sm">Pet not found.</p>
                 )}
               </div>
+              {/* Contact details of the listing poster (if available) */}
+              {poster && (
+                <div
+                  className="rounded-2xl p-4"
+                  style={{ border: "1px solid var(--border-color)" }}
+                >
+                  <div className="font-semibold ink-heading mb-1">
+                    Contact Details
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="ink-subtle text-xs uppercase tracking-wide">
+                        Name
+                      </div>
+                      <div className="ink-heading">
+                        {poster.name?.trim() || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="ink-subtle text-xs uppercase tracking-wide">
+                        Email
+                      </div>
+                      <div className="ink-heading break-all">
+                        {poster.email?.trim() || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="ink-subtle text-xs uppercase tracking-wide">
+                        Phone
+                      </div>
+                      <div className="ink-heading">
+                        {poster.phone?.trim() || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div
                 className="rounded-2xl p-4"
                 style={{ border: "1px solid var(--border-color)" }}
@@ -787,7 +851,8 @@ export default function AdoptionApplicationPage() {
                       try {
                         const supabase = getSupabaseClient();
                         const { data } = await supabase.auth.getUser();
-                        profileId = (data?.user?.id as string | undefined) ?? null;
+                        profileId =
+                          (data?.user?.id as string | undefined) ?? null;
                       } catch {}
 
                       const headers: Record<string, string> = {

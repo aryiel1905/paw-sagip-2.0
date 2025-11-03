@@ -8,6 +8,10 @@ export type Alert = {
   type: Exclude<AlertType, "all">;
   title: string;
   area: string;
+  status: string;
+  breed?: string | null;
+  sex?: string | null;
+  ageSize?: string | null;
   minutes: number;
   emoji: string;
   imageUrl?: string | null;
@@ -22,6 +26,8 @@ export type AdoptionPet = {
   id: string;
   kind: "dog" | "cat" | "other";
   name: string;
+  breed?: string | null;
+  sex?: string | null;
   age: string;
   note: string;
   location: string;
@@ -50,6 +56,9 @@ export type AlertRow = {
   species?: string | null;
   description?: string | null;
   pet_status?: PetStatus | null;
+  status?: string | null;
+  source_table?: string | null;
+  source_id?: string | null;
 };
 
 export type AdoptionRow = {

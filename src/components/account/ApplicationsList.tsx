@@ -181,14 +181,14 @@ export default function ApplicationsList({
   }, [items, supabase]);
 
   return (
-    <section className="surface rounded-2xl shadow-soft p-5">
+    <section className="  surface rounded-2xl shadow-soft p-5">
       <h2 className="font-semibold ink-heading mb-3">Adoption Applications</h2>
       {loading ? (
         <div className="ink-muted text-sm">Loading…</div>
       ) : resolvedItems.length === 0 ? (
         <div className="ink-muted text-sm">No applications yet.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="h-[50vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
           {resolvedItems.map((a) => (
             <article key={a.id} className="rounded-xl border p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)] sm:items-stretch">
@@ -304,7 +304,9 @@ export default function ApplicationsList({
             onClick={() => (deleting ? undefined : setConfirmId(null))}
           />
           <div className="relative surface rounded-2xl shadow-2xl p-5 w-[92%] max-w-md">
-            <h3 className="ink-heading font-semibold mb-2">Delete application?</h3>
+            <h3 className="ink-heading font-semibold mb-2">
+              Delete application?
+            </h3>
             <p className="ink-subtle text-sm mb-4">
               This action cannot be undone. The application and any uploaded
               media may be removed.
@@ -325,13 +327,19 @@ export default function ApplicationsList({
                   setDeleting(true);
                   try {
                     const supabase = getSupabaseClient();
-                    const { data: sessionData } = await supabase.auth.getSession();
+                    const { data: sessionData } =
+                      await supabase.auth.getSession();
                     const token = sessionData?.session?.access_token ?? null;
-                    const resp = await fetch(`/api/adoption-applications/${confirmId}`, {
-                      method: "DELETE",
-                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                      credentials: "same-origin",
-                    });
+                    const resp = await fetch(
+                      `/api/adoption-applications/${confirmId}`,
+                      {
+                        method: "DELETE",
+                        headers: token
+                          ? { Authorization: `Bearer ${token}` }
+                          : undefined,
+                        credentials: "same-origin",
+                      }
+                    );
                     if (!resp.ok) {
                       if (resp.status === 401 || resp.status === 403) {
                         showToast(
@@ -340,7 +348,10 @@ export default function ApplicationsList({
                         );
                       } else {
                         const t = await resp.text().catch(() => "");
-                        showToast("error", t || "Could not delete the application");
+                        showToast(
+                          "error",
+                          t || "Could not delete the application"
+                        );
                       }
                       return;
                     }
@@ -353,7 +364,10 @@ export default function ApplicationsList({
                     }
                   } catch (e) {
                     console.error(e);
-                    showToast("error", "Could not delete the application. Please try again.");
+                    showToast(
+                      "error",
+                      "Could not delete the application. Please try again."
+                    );
                   } finally {
                     setDeleting(false);
                     setConfirmId(null);

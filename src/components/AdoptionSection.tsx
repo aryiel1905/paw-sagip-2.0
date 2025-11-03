@@ -138,7 +138,16 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                           : pet.kind?.toUpperCase?.() ?? ""}
                       </div>
                       <div className="text-xs truncate text-black/70">
-                        {pet.age || pet.location || "<unknown>"}
+                        {(() => {
+                          const breed = (pet.breed || "").toString().trim();
+                          const sex = (pet.sex || "").toString().trim();
+                          const ageSize = (pet.age || "").toString().trim();
+                          const parts: string[] = [];
+                          if (breed) parts.push(breed);
+                          if (sex) parts.push(sex);
+                          if (ageSize) parts.push(ageSize);
+                          return parts.length > 0 ? parts.join(" / ") : "—";
+                        })()}
                       </div>
                     </div>
                   </Link>

@@ -274,6 +274,7 @@ export default function AdoptionViewModal({
     urls: string[];
     index: number;
   } | null>(null);
+  const [poster, setPoster] = useState<{ name: string | null; email: string | null; phone: string | null } | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -446,6 +447,26 @@ export default function AdoptionViewModal({
   const canEditStatus = effectiveData?.status
     ? EDITABLE_STATUSES.has(effectiveData.status.toLowerCase())
     : false;
+
+  // Load contact details for the listing poster via secure server API
+  useEffect(() => {
+    const petId = (effectiveData?.pet_id as string | null) ||
+      ((effectiveData?.adoption_pets as any)?.id as string | null) || null;
+    if (!petId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/adoptions/pet-contact?petId=${encodeURIComponent(petId)}`, { cache: "no-store" });
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          setPoster(json?.contact ?? null);
+        }
+      } catch {
+        if (!cancelled) setPoster(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [effectiveData?.pet_id, effectiveData?.adoption_pets]);
 
   const beginEdit = () => {
     if (!effectiveData) return;
@@ -891,6 +912,37 @@ export default function AdoptionViewModal({
                             </p>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {poster ? (
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{ border: "1px solid var(--border-color)" }}
+                  >
+                    <div className="font-semibold ink-heading mb-1">
+                      Contact Details
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <div className="ink-subtle text-xs uppercase tracking-wide">
+                          Name
+                        </div>
+                        <div className="ink-heading">{poster.name?.trim() || "—"}</div>
+                      </div>
+                      <div>
+                        <div className="ink-subtle text-xs uppercase tracking-wide">
+                          Email
+                        </div>
+                        <div className="ink-heading break-all">{poster.email?.trim() || "—"}</div>
+                      </div>
+                      <div>
+                        <div className="ink-subtle text-xs uppercase tracking-wide">
+                          Phone
+                        </div>
+                        <div className="ink-heading">{poster.phone?.trim() || "—"}</div>
                       </div>
                     </div>
                   </div>

@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   );
 
   // Helper to map rows to UI shape (with public image URL if present)
-  const mapRow = (row: any) => {
+  const mapRowBase = (row: any) => {
     const imageUrl = row.photo_path
       ? supabase.storage.from("pet-media").getPublicUrl(row.photo_path).data
           .publicUrl
@@ -56,6 +56,38 @@ export async function GET(request: Request) {
     };
   };
 
+  const enrichWithReportDetails = async (rows: any[]) => {
+    const items = rows.map(mapRowBase);
+    const ids = rows.map((r) => String(r.id));
+    if (ids.length === 0) return items;
+    // Fetch breed/sex/age from reports via promoted_to_pet_id
+    const { data: rep } = await supabase
+      .from("reports")
+      .select("promoted_to_pet_id, breed, gender, age_size")
+      .in("promoted_to_pet_id", ids);
+    const byPet = new Map<string, { breed?: string | null; gender?: string | null; age_size?: string | null }>();
+    if (Array.isArray(rep)) {
+      for (const r of rep as any[]) {
+        const k = String((r as any).promoted_to_pet_id);
+        byPet.set(k, {
+          breed: (r as any).breed ?? null,
+          gender: (r as any).gender ?? null,
+          age_size: (r as any).age_size ?? null,
+        });
+      }
+    }
+    return items.map((it) => {
+      const extra = byPet.get(it.id);
+      if (!extra) return it;
+      return {
+        ...it,
+        breed: extra.breed ?? null,
+        sex: extra.gender ?? null,
+        age: (it.age as string) || (extra.age_size ?? ""),
+      };
+    });
+  };
+
   if (!paged) {
     // Over-fetch to compensate for filtered-out pending items
     const over = Math.min(600, limit * 3);
@@ -71,7 +103,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ items: [] });
     }
     const filtered = (data as any[]).filter((r) => !pendingSet.has(String(r.id)));
-    const items = filtered.slice(0, limit).map(mapRow);
+    const limited = filtered.slice(0, limit);
+    const items = await enrichWithReportDetails(limited);
     return NextResponse.json({ items });
   }
 
@@ -111,9 +144,7 @@ export async function GET(request: Request) {
     if (typeof availCount === "number") total = Math.max(0, availCount - pendingAvailCount);
   } catch {}
 
-  const pageItems = (data as any[])
-    .filter((r) => !pendingSet.has(String(r.id)))
-    .map(mapRow);
+  const pageRows = (data as any[]).filter((r) => !pendingSet.has(String(r.id)));
+  const pageItems = await enrichWithReportDetails(pageRows);
   return NextResponse.json({ items: pageItems, total });
 }
-

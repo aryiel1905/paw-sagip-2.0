@@ -128,7 +128,8 @@ function DetailsModalInner({
   useEffect(() => {
     if (!item) return;
     let raf = 0;
-    const desiredHash = (typeof window !== "undefined" && window.location.hash) || "#alerts";
+    const desiredHash =
+      (typeof window !== "undefined" && window.location.hash) || "#alerts";
     const keepHash = () => {
       try {
         if (
@@ -351,8 +352,11 @@ function DetailsModalInner({
                     }
                   />
 
-                  <DetailsRow label="Status" value={item.alert.type} />
-                  <DetailsRow label="Pet Status" value={fmtPetStatus(item.alert.petStatus)} />
+                  <DetailsRow label="Report Status" value={item.alert.status} />
+                  <DetailsRow
+                    label="Pet Status"
+                    value={fmtPetStatus(item.alert.petStatus)}
+                  />
                   <DetailsRow
                     label="Distinctive Features"
                     value={reportDetails?.features || "-"}
@@ -368,7 +372,6 @@ function DetailsModalInner({
                     label="Reporter Notes"
                     value={reportDetails?.description || "-"}
                   />
-                  <DetailsRow label="Rescue Status" value="-" />
                 </>
               ) : (
                 <>
@@ -377,7 +380,10 @@ function DetailsModalInner({
                     label="Kind"
                     value={item.adoption.kind.toUpperCase()}
                   />
-                  <DetailsRow label="Pet Status" value={fmtPetStatus(item.adoption.petStatus)} />
+                  <DetailsRow
+                    label="Pet Status"
+                    value={fmtPetStatus(item.adoption.petStatus)}
+                  />
                   <DetailsRow label="Age" value={item.adoption.age} />
                   <DetailsRow label="Notes" value={item.adoption.note} />
                   <DetailsRow label="Location" value={item.adoption.location} />

@@ -70,6 +70,10 @@ function toAlert(row: AlertRow): Alert {
     title,
     area: row.location,
     type: row.report_type,
+    status: (row as any).status ?? "open",
+    breed: (row as any).breed ?? undefined,
+    sex: (row as any).sex ?? undefined,
+    ageSize: (row as any).age_size ?? undefined,
     emoji: speciesToEmoji(row.species),
     minutes: computeMinutes(row),
     imageUrl,
@@ -112,15 +116,44 @@ export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): 
   const base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status"
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status,status,source_table,source_id"
     )
+    .neq("status", "resolved")
+    .neq("status", "rescued")
     .order("created_at", { ascending: false })
     .limit(limit);
   const query = withAbort(base as any, opts?.signal);
   const { data, error } = await query;
 
   if (error || !Array.isArray(data)) return [];
-  return (data as AlertRow[]).map(toAlert);
+  const rows = data as (AlertRow & { source_table?: string | null; source_id?: string | null })[];
+  const reportIds = rows
+    .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
+    .map((r) => String((r as any).source_id));
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  if (reportIds.length > 0) {
+    const { data: rep } = await supabase
+      .from("reports")
+      .select("id, breed, gender, age_size")
+      .in("id", reportIds);
+    if (Array.isArray(rep)) {
+      for (const r of rep as any[]) {
+        byReport[String(r.id)] = {
+          breed: r.breed ?? null,
+          gender: r.gender ?? null,
+          age_size: r.age_size ?? null,
+        };
+      }
+    }
+  }
+  return rows.map((row) => {
+    const base = toAlert(row);
+    const sid = (row as any).source_id as string | undefined;
+    const extra = sid ? byReport[sid] : undefined;
+    return extra
+      ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
+      : base;
+  });
 }
 
 // Paged fetch with optional type filter and total count
@@ -137,9 +170,11 @@ export async function fetchAlertsPaged(
   let base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status",
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status,status,source_table,source_id",
       { count: "exact" }
     )
+    .neq("status", "resolved")
+    .neq("status", "rescued")
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -152,7 +187,35 @@ export async function fetchAlertsPaged(
   if (error || !Array.isArray(data)) {
     return { items: [], total: count ?? 0 };
   }
-  return { items: (data as AlertRow[]).map(toAlert), total: count ?? data.length };
+  const rows = data as (AlertRow & { source_table?: string | null; source_id?: string | null })[];
+  const reportIds = rows
+    .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
+    .map((r) => String((r as any).source_id));
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  if (reportIds.length > 0) {
+    const { data: rep } = await supabase
+      .from("reports")
+      .select("id, breed, gender, age_size")
+      .in("id", reportIds);
+    if (Array.isArray(rep)) {
+      for (const r of rep as any[]) {
+        byReport[String(r.id)] = {
+          breed: r.breed ?? null,
+          gender: r.gender ?? null,
+          age_size: r.age_size ?? null,
+        };
+      }
+    }
+  }
+  const items = rows.map((row) => {
+    const base = toAlert(row);
+    const sid = (row as any).source_id as string | undefined;
+    const extra = sid ? byReport[sid] : undefined;
+    return extra
+      ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
+      : base;
+  });
+  return { items, total: count ?? data.length };
 }
 
 export async function searchAlerts(
@@ -179,15 +242,44 @@ export async function searchAlerts(
   const base = supabase
     .from("alerts")
     .select(
-      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status"
+      "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status,status,source_table,source_id"
     )
     .or(orParts.join(","))
+    .neq("status", "resolved")
+    .neq("status", "rescued")
     .limit(limit);
   const q2 = withAbort(base as any, opts?.signal);
   const { data, error } = await q2;
 
   if (error || !Array.isArray(data)) return [];
-  return (data as AlertRow[]).map(toAlert);
+  const rows = data as (AlertRow & { source_table?: string | null; source_id?: string | null })[];
+  const reportIds = rows
+    .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
+    .map((r) => String((r as any).source_id));
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  if (reportIds.length > 0) {
+    const { data: rep } = await supabase
+      .from("reports")
+      .select("id, breed, gender, age_size")
+      .in("id", reportIds);
+    if (Array.isArray(rep)) {
+      for (const r of rep as any[]) {
+        byReport[String(r.id)] = {
+          breed: r.breed ?? null,
+          gender: r.gender ?? null,
+          age_size: r.age_size ?? null,
+        };
+      }
+    }
+  }
+  return rows.map((row) => {
+    const base = toAlert(row);
+    const sid = (row as any).source_id as string | undefined;
+    const extra = sid ? byReport[sid] : undefined;
+    return extra
+      ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
+      : base;
+  });
 }
 
 export async function fetchAdoptionPets(
@@ -301,7 +393,10 @@ export function subscribeToAlertsIncremental(handlers: {
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "alerts" },
       (payload) => {
-        const row = payload.new as AlertRow;
+        const row = payload.new as AlertRow & { status?: string };
+        // Ignore resolved/rescued inserts, keep list clean
+        const st = (row as any)?.status;
+        if (st === "resolved" || st === "rescued") return;
         handlers.onInsert?.(toAlert(row));
       }
     )
@@ -309,7 +404,14 @@ export function subscribeToAlertsIncremental(handlers: {
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "alerts" },
       (payload) => {
-        const row = payload.new as AlertRow;
+        const row = payload.new as AlertRow & { status?: string };
+        // If now resolved/rescued, remove from UI; else update
+        const st = (row as any)?.status;
+        if (st === "resolved" || st === "rescued") {
+          const id = (row as any)?.id as string | undefined;
+          if (id) handlers.onDelete?.(id);
+          return;
+        }
         handlers.onUpdate?.(toAlert(row));
       }
     )

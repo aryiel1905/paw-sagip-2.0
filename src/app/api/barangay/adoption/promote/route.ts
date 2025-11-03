@@ -47,7 +47,17 @@ export async function POST(request: Request) {
       { p_report_id: reportId }
     );
     if (!error && data) {
-      return NextResponse.json({ petId: data as string });
+      // Attach posted_by if we can
+      const petId = data as string;
+      try {
+        if (scope?.profileId) {
+          await supabase
+            .from("adoption_pets")
+            .update({ posted_by: scope.profileId })
+            .eq("id", petId);
+        }
+      } catch {}
+      return NextResponse.json({ petId });
     }
   } catch {
     // fall through to manual insert
@@ -81,6 +91,7 @@ export async function POST(request: Request) {
       : [],
     latitude: (r as any).latitude ?? null,
     longitude: (r as any).longitude ?? null,
+    posted_by: scope?.profileId ?? null,
   } as const;
   const { data: p, error: insErr } = await supabase
     .from("adoption_pets")
@@ -98,4 +109,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ petId: (p as any).id as string });
 }
-

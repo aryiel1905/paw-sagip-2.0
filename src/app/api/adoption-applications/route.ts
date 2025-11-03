@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
   // Attempt to persist; if the table doesn't exist yet, return a graceful response.
   const insertRow = {
-    user_id: userId,
+    applicant_id: userId,
     pet_id: payload.petId,
     applicant_name:
       (payload.applicantName ??
@@ -145,33 +145,7 @@ export async function POST(request: Request) {
     .insert([insertRow]);
 
   if (error) {
-    const missingUserId = error.message?.includes?.("user_id");
-    if (missingUserId) {
-      const fallbackRow = { ...insertRow } as Record<string, unknown>;
-      delete fallbackRow.user_id;
-      const { error: retryError } = await supabase
-        .from("adoption_applications")
-        .insert([fallbackRow]);
-      if (!retryError) {
-        return NextResponse.json({ success: true, note: "Saved without user link" });
-      }
-      return NextResponse.json(
-        {
-          success: true,
-          note: "Saved later (table not ready)",
-          detail: retryError.message,
-        },
-        { status: 202 }
-      );
-    }
-    return NextResponse.json(
-      {
-        success: true,
-        note: "Saved later (table not ready)",
-        detail: error.message,
-      },
-      { status: 202 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
