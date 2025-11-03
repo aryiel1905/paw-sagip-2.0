@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
+import { clearSupabaseAuthArtifacts } from "@/lib/authCleanup";
 
 type Props = {
   userEmail: string;
@@ -12,6 +13,7 @@ export default function SettingsPanel({ userEmail }: Props) {
     try {
       const supabase = getSupabaseClient();
       await supabase.auth.signOut();
+      clearSupabaseAuthArtifacts();
       showToast("success", "Logged out");
       try {
         window.location.href = "/";

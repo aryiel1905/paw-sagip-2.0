@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
+import { clearSupabaseAuthArtifacts } from "@/lib/authCleanup";
 import { LogOut } from "lucide-react";
 
 type Props = {
@@ -42,10 +43,16 @@ export default function ProfileCard({
     try {
       const supabase = getSupabaseClient();
       await supabase.auth.signOut();
+      clearSupabaseAuthArtifacts();
       try {
         showToast("success", "Logged out");
       } catch {}
-      router.push("/");
+      // Hard reload to ensure all client state resets
+      try {
+        window.location.href = "/";
+      } catch {
+        router.push("/");
+      }
     } catch {
       try {
         showToast("error", "Failed to log out. Please try again.");

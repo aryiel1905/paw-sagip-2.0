@@ -22,7 +22,7 @@ export function getSupabaseClient(): SupabaseClient {
   }
 
   cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: true },
+    auth: { persistSession: true, storageKey: "ps-auth-v1" },
   });
   return cachedClient;
 }
