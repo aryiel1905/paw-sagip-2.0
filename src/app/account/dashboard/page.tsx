@@ -388,14 +388,20 @@ export default function AccountDashboardPage() {
               />
             </div>
 
-            <div className="grid gap-3 lg:col-start-3 lg:col-span-3 order-1 md:order-2">
+            <div
+              className={`grid gap-3 order-1 md:order-2 ${
+                active === "settings"
+                  ? "lg:col-start-1 lg:col-span-4"
+                  : "lg:col-start-2 lg:col-span-3"
+              }`}
+            >
               <Tabs
                 active={active}
                 onChange={(k) => setActive(k as TabKey)}
                 tabs={[
                   { key: "reports", label: "My Reports" },
                   { key: "apps", label: "Adoption Apps" },
-                  // { key: "settings", label: "Settings" },
+                  { key: "settings", label: "Settings" },
                 ]}
               />
 
@@ -433,9 +439,9 @@ export default function AccountDashboardPage() {
                   />
                 </>
               )}
-              {/* {active === "settings" && (
+              {active === "settings" && (
                 <SettingsPanel userEmail={user.email ?? ""} />
-              )} */}
+              )}
             </div>
           </div>
         </div>

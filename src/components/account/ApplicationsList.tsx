@@ -181,7 +181,7 @@ export default function ApplicationsList({
   }, [items, supabase]);
 
   return (
-    <section className="  surface rounded-2xl shadow-soft p-5">
+    <section className="surface rounded-2xl shadow-soft p-5 w-full">
       <h2 className="font-semibold ink-heading mb-3">Adoption Applications</h2>
       {loading ? (
         <div className="ink-muted text-sm">Loading…</div>
@@ -191,7 +191,7 @@ export default function ApplicationsList({
         <div className="h-[50vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
           {resolvedItems.map((a) => (
             <article key={a.id} className="rounded-xl border p-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)] sm:items-stretch">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,180px)_minmax(0,2fr)] sm:items-stretch">
                 <div className="relative w-full overflow-hidden rounded-xl min-h-[120px] sm:h-full">
                   {a.resolvedPhotoUrl ? (
                     <img
