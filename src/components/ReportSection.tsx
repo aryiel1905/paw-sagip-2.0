@@ -1139,7 +1139,9 @@ export function ReportSection({
                                 borderWidth: 1,
                                 borderStyle: "solid",
                                 borderColor:
-                                  showQuickValidation && !isCruelty && !qWhen.trim()
+                                  showQuickValidation &&
+                                  !isCruelty &&
+                                  !qWhen.trim()
                                     ? "var(--primary-red)"
                                     : "var(--border-color)",
                               }}
@@ -1605,7 +1607,7 @@ export function ReportSection({
                 ? "Submitting..."
                 : isCruelty
                 ? "Submit Report"
-                : "Submit sighting"}
+                : "Submit"}
             </button>
             <Link
               href="/report-form"
@@ -1613,7 +1615,7 @@ export function ReportSection({
               style={{ border: "1px solid var(--border-color)" }}
               onClick={persistDraftToSession}
             >
-              Add more details...
+              More Detailed Form
             </Link>
             {showQuickValidation && !isQuickFormValid && (
               <p
