@@ -423,8 +423,11 @@ export function ReportSection({
   }, [reportPhotoInputRef]);
 
   // Show toast messages for submit status and reset fields on success
+  const didHandleSuccessRef = useRef(false);
   useEffect(() => {
     if (reportStatus === "success") {
+      if (didHandleSuccessRef.current) return;
+      didHandleSuccessRef.current = true;
       showToast("success", "Report submitted! Rescue team notified.");
       // Reset quick form fields to defaults
       try {
@@ -448,8 +451,12 @@ export function ReportSection({
       try {
         clearLandmarkPhotos();
       } catch {}
-    } else if (reportStatus === "error") {
-      showToast("error", "Something went wrong. Please try again.");
+    } else {
+      // Reset the success guard when status leaves 'success'
+      didHandleSuccessRef.current = false;
+      if (reportStatus === "error") {
+        showToast("error", "Something went wrong. Please try again.");
+      }
     }
   }, [
     reportStatus,

@@ -30,6 +30,14 @@ import {
   AdoptionRow,
 } from "@/types/app";
 import { AlertsSection } from "@/components/AlertsSection";
+import {
+  ALERTS_NOTIFY_KEY,
+  SYSTEM_NOTIFY_KEY,
+  getNotifyEnabled,
+  getSystemNotifyEnabled,
+  notifyNewAlertWithDetails,
+  ensureAudioReady,
+} from "@/lib/notify";
 import { ReportSection } from "@/components/ReportSection";
 import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
@@ -100,6 +108,7 @@ export default function Home() {
   // Reactive state hooks grouped by feature (alerts, adoption, report wizard, UI helpers)
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
+  const liveNotifyRef = useRef<boolean>(false);
   const [adoptions, setAdoptions] = useState<AdoptionPet[]>([]);
   const [showPetProfile, setShowPetProfile] = useState(false);
   const [adoptionFilter, setAdoptionFilter] = useState<"all" | "dog" | "cat">(
@@ -398,7 +407,22 @@ export default function Home() {
   useEffect(() => {
     // Incremental realtime updates to avoid reload flicker
     const unsubscribe = subscribeToAlertsIncremental({
-      onInsert: (a) => setAlerts((prev) => [a, ...prev].slice(0, 50)),
+      onInsert: (a) => {
+        setAlerts((prev) => [a, ...prev].slice(0, 50));
+        // Notify (sound and/or system) if either preference enabled
+        if (liveNotifyRef.current) {
+          try {
+            const details = {
+              type: (a as any)?.type,
+              title: (a as any)?.title ?? null,
+              location: (a as any)?.near ?? (a as any)?.location ?? null,
+            };
+            notifyNewAlertWithDetails(details);
+          } catch {
+            notifyNewAlertWithDetails();
+          }
+        }
+      },
       onUpdate: (a) =>
         setAlerts((prev) => prev.map((x) => (x.id === a.id ? a : x))),
       onDelete: (id) => setAlerts((prev) => prev.filter((x) => x.id !== id)),
@@ -424,6 +448,66 @@ export default function Home() {
       ignore = true;
       unsubscribe();
     };
+  }, []);
+
+  // Initialize and keep notify preference in a ref
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const read = () => {
+      const enabled = getNotifyEnabled() || getSystemNotifyEnabled();
+      liveNotifyRef.current = enabled;
+    };
+    read();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ALERTS_NOTIFY_KEY || e.key === SYSTEM_NOTIFY_KEY) {
+        read();
+      }
+    };
+    const onCustom = () => read();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("ps:alertsNotifyChanged", onCustom as EventListener);
+    window.addEventListener(
+      "ps:alertsSystemNotifyChanged",
+      onCustom as EventListener
+    );
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(
+        "ps:alertsNotifyChanged",
+        onCustom as EventListener
+      );
+      window.removeEventListener(
+        "ps:alertsSystemNotifyChanged",
+        onCustom as EventListener
+      );
+    };
+  }, []);
+
+  // Once per session: on first user gesture, if notifications are enabled, unlock audio context
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let unlocked = false;
+    const unlock = async () => {
+      if (unlocked) return;
+      unlocked = true;
+      try {
+        if (getNotifyEnabled()) {
+          await ensureAudioReady();
+        }
+      } catch {}
+      cleanup();
+    };
+    const cleanup = () => {
+      try {
+        window.removeEventListener("pointerdown", unlock as EventListener);
+        window.removeEventListener("keydown", unlock as EventListener);
+        window.removeEventListener("touchstart", unlock as EventListener);
+      } catch {}
+    };
+    window.addEventListener("pointerdown", unlock as EventListener, { once: true } as any);
+    window.addEventListener("keydown", unlock as EventListener, { once: true } as any);
+    window.addEventListener("touchstart", unlock as EventListener, { once: true } as any);
+    return cleanup;
   }, []);
 
   const nearbyAlerts = useMemo(

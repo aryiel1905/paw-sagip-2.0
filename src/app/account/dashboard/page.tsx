@@ -334,17 +334,14 @@ export default function AccountDashboardPage() {
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/80 -z-10 pointer-events-none"
+        className="fixed inset-x-0 top-[var(--snap-top)] bottom-0 bg-black/95 z-0 pointer-events-none"
         aria-hidden="true"
       />
-      <main className="box-border pt-2 px-4 overflow-visible md:overflow-hidden md:h-[calc(99dvh-64px)]">
-        <div className="max-w-full md:max-w-[90%] mx-auto md:h-full pt-5 md:pt-7">
+      <main className="relative z-10 box-border px-4 pt-6 pb-12">
+        <div className="max-w-7xl mx-auto">
           <div className="py-2 mb-2 flex items-center justify-between">
-            <h1
-              className="text-3xl font-extrabold text-white tracking-wide
-            "
-            >
-              MY ACCOUNT{" "}
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">
+              My Account
             </h1>
             <div className="flex gap-2">
               {/*}
@@ -359,8 +356,8 @@ export default function AccountDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[320px,1fr,1fr,1fr] gap-4 items-start">
-            <div className="grid gap-4 lg:col-span-1 order-2 md:order-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6 items-start">
+            <div className="grid gap-4 order-2 md:order-1 lg:sticky lg:top-4 self-start">
               <ProfileCard
                 name={user.fullName}
                 email={user.email}
@@ -388,60 +385,58 @@ export default function AccountDashboardPage() {
               />
             </div>
 
-            <div
-              className={`grid gap-3 order-1 md:order-2 ${
-                active === "settings"
-                  ? "lg:col-start-1 lg:col-span-4"
-                  : "lg:col-start-2 lg:col-span-3"
-              }`}
-            >
-              <Tabs
-                active={active}
-                onChange={(k) => setActive(k as TabKey)}
-                tabs={[
-                  { key: "reports", label: "My Reports" },
-                  { key: "apps", label: "Adoption Apps" },
-                  { key: "settings", label: "Settings" },
-                ]}
-              />
+            <div className="grid gap-4 order-1 md:order-2 min-w-0 w-full">
+              <div className="w-full">
+                <Tabs
+                  active={active}
+                  onChange={(k) => setActive(k as TabKey)}
+                  tabs={[
+                    { key: "reports", label: "My Reports" },
+                    { key: "apps", label: "Adoption Applications" },
+                    { key: "settings", label: "Settings" },
+                  ]}
+                />
+              </div>
 
-              {active === "reports" && (
-                <>
-                  <ReportsList
-                    items={myReports}
-                    loading={dataLoading}
-                    onView={(id) => openViewReport(id)}
-                    onDeleted={(id) =>
-                      setMyReports((prev) => prev.filter((r) => r.id !== id))
-                    }
-                  />
-                  <ReportViewModal
-                    open={viewOpen}
-                    reportId={viewId}
-                    onClose={() => setViewOpen(false)}
-                  />
-                </>
-              )}
-              {active === "apps" && (
-                <>
-                  <ApplicationsList
-                    items={myApps}
-                    loading={dataLoading}
-                    onView={(id) => openViewApplication(id)}
-                    onDeleted={(id) =>
-                      setMyApps((prev) => prev.filter((a) => a.id !== id))
-                    }
-                  />
-                  <AdoptionViewModal
-                    open={appViewOpen}
-                    applicationId={appViewId}
-                    onClose={() => setAppViewOpen(false)}
-                  />
-                </>
-              )}
-              {active === "settings" && (
-                <SettingsPanel userEmail={user.email ?? ""} />
-              )}
+              <div className="w-full">
+                {active === "reports" && (
+                  <>
+                    <ReportsList
+                      items={myReports}
+                      loading={dataLoading}
+                      onView={(id) => openViewReport(id)}
+                      onDeleted={(id) =>
+                        setMyReports((prev) => prev.filter((r) => r.id !== id))
+                      }
+                    />
+                    <ReportViewModal
+                      open={viewOpen}
+                      reportId={viewId}
+                      onClose={() => setViewOpen(false)}
+                    />
+                  </>
+                )}
+                {active === "apps" && (
+                  <>
+                    <ApplicationsList
+                      items={myApps}
+                      loading={dataLoading}
+                      onView={(id) => openViewApplication(id)}
+                      onDeleted={(id) =>
+                        setMyApps((prev) => prev.filter((a) => a.id !== id))
+                      }
+                    />
+                    <AdoptionViewModal
+                      open={appViewOpen}
+                      applicationId={appViewId}
+                      onClose={() => setAppViewOpen(false)}
+                    />
+                  </>
+                )}
+                {active === "settings" && (
+                  <SettingsPanel userEmail={user.email ?? ""} />
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -60,7 +60,7 @@ export default function ReportsList({
   }, [items, q, type]);
 
   return (
-    <section className="surface rounded-2xl shadow-soft p-5">
+    <section className="h-[60vh] overflow-y-auto surface rounded-2xl shadow-soft p-5 w-full">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
         <h2 className="font-semibold ink-heading">My Reports</h2>
         <div className="flex gap-2 w-full sm:w-auto">
