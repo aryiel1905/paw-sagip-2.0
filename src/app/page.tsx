@@ -409,6 +409,12 @@ export default function Home() {
     const unsubscribe = subscribeToAlertsIncremental({
       onInsert: (a) => {
         setAlerts((prev) => [a, ...prev].slice(0, 50));
+        try {
+          const title = (a as any)?.title || "New report";
+          const area = (a as any)?.area || (a as any)?.location || "";
+          const label = area ? `${title} • ${area}` : String(title);
+          showToast("info", `New report: ${label}`);
+        } catch {}
         // Notify (sound and/or system) if either preference enabled
         if (liveNotifyRef.current) {
           try {
