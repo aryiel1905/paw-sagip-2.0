@@ -276,7 +276,9 @@ export default function AdoptionApplicationPage() {
           // Fetch poster contact details via server (service role avoids RLS issues)
           try {
             const res = await fetch(
-              `/api/adoptions/pet-contact?petId=${encodeURIComponent(String(data.id))}`,
+              `/api/adoptions/pet-contact?petId=${encodeURIComponent(
+                String(data.id)
+              )}`,
               { cache: "no-store" }
             );
             if (res.ok) {
@@ -528,7 +530,7 @@ export default function AdoptionApplicationPage() {
                   style={{ border: "1px solid var(--border-color)" }}
                 >
                   <div className="font-semibold ink-heading mb-1">
-                    Contact Details
+                    Person In-Charge
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                     <div>

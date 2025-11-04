@@ -465,7 +465,7 @@ export function Navbar({
       </div>
 
       {/* Backdrop for side drawer */}
-      {isMenuOpen && (
+      {hydrated && isMenuOpen && (
         <button
           aria-label="Close menu backdrop"
           className="md:hidden fixed inset-0 z-[70] bg-black/40 opacity-100 transition-opacity duration-200"
@@ -473,13 +473,14 @@ export function Navbar({
         />
       )}
       {/* Side drawer with ProfileCard and Contacts */}
-      <aside
-        className={`md:hidden fixed right-0 z-[80] w-[86vw] max-w-sm transition-transform duration-300 ease-out ${
-          isMenuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-        style={{ top: 0, height: "100vh" }}
-        aria-hidden={!isMenuOpen}
-      >
+      {hydrated && (
+        <aside
+          className={`md:hidden fixed right-0 z-[80] w-[86vw] max-w-sm transition-transform duration-300 ease-out ${
+            isMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+          style={{ top: 0, height: "100vh" }}
+          aria-hidden={!isMenuOpen}
+        >
         <div className="surface h-full border-l shadow-soft bg-white" style={{ borderColor: "var(--border-color)" }}>
           <div className="h-full overflow-y-auto p-4 space-y-3">
             <div className="flex items-center justify-end">
@@ -528,7 +529,8 @@ export function Navbar({
             </button>
           </div>
         </div>
-      </aside>
+        </aside>
+      )}
 
     </header>
   );
