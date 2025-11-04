@@ -69,7 +69,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
       className="mx-auto mt-23 mb-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start overflow-hidden"
     >
       <div
-        className=" rounded-2xl p-2 shadow-soft h-[80vh]"
+        className=" rounded-2xl p-2 shadow-soft lg:h-[80vh]"
         style={{
           background:
             "radial-gradient(circle at 50% 55%, color-mix(in srgb, #F57C00 60%, white 85%) 0%, color-mix(in srgb, #F57C00 80%, white 45%) 35%, #F57C00 65%, color-mix(in srgb, #F57C00 95%, black 10%) 100%)",
@@ -86,7 +86,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                   className="shrink-0"
                 />
                 <div>
-                  <h2 className="text-3xl font-extrabold tracking-wide">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
                     ADOPTION
                   </h2>
 
@@ -97,7 +97,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
               </div>
             </div>
             <div className="px-6  flex-1 flex flex-col">
-              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
                 {adoptionResults.slice(0, 9).map((pet) => (
                   <Link
                     key={pet.id}
@@ -119,20 +119,20 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                           <img
                             src={pet.imageUrl}
                             alt={`${pet.name} photo`}
-                            className="w-full h-32 object-cover"
+                            className="w-full h-28 sm:h-32 object-cover"
                             loading="lazy"
                             decoding="async"
                           />
                         ) : (
                           <div
-                            className="grid place-content-center h-32 text-6xl md:text-6xl"
+                            className="grid place-content-center h-28 sm:h-32 text-5xl sm:text-6xl"
                             style={petFallbackTheme(pet.kind)}
                           >
                             {pet.emoji}
                           </div>
                         )}
                       </div>
-                      <div className="font-semibold text-sm truncate text-black">
+                      <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black">
                         {pet.name?.trim()
                           ? pet.name
                           : pet.kind?.toUpperCase?.() ?? ""}
@@ -164,8 +164,8 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                     }}
                   >
                     <div className="p-3">
-                      <div className="relative rounded-xl overflow-hidden mb-2 h-32"></div>
-                      <div className="font-semibold text-sm truncate text-black/50">
+                      <div className="relative rounded-xl overflow-hidden mb-2 h-28 sm:h-32"></div>
+                      <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                         &nbsp;
                       </div>
                       <div className="text-xs truncate text-black/30">
@@ -185,7 +185,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                 >
                   <div className="p-3 text-center">
                     <div className="rounded-xl overflow-hidden mb-2">
-                      <div className="grid place-content-center h-32 rounded-xl bg-gray-300 text-3xl text-gray-600">
+                      <div className="grid place-content-center h-28 sm:h-32 rounded-xl bg-gray-300 text-2xl sm:text-3xl text-gray-600">
                         ...
                       </div>
                     </div>

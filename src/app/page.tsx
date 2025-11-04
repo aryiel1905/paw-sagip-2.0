@@ -796,7 +796,7 @@ export default function Home() {
           style={{ scrollMarginTop: 91 }}
         >
           <div className="mb-3 max-w-7xl mx-auto pb-15 px-4 grid grid-cols-1 gap-10 md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] items-center">
-            <div className="order-last md:order-first text-center md:text-left">
+            <div className="order-last md:order-first text-left">
               <h1 className="hero-title">
                 Find.
                 <br />
@@ -809,16 +809,16 @@ export default function Home() {
                 Report lost or found pets, receive nearby alerts, and help
                 coordinate safe rescues in your barangay.
               </p>
-              <div className="mt-4 flex flex-wrap gap-3 justify-center md:justify-start">
+              <div className="mt-4 flex flex-wrap gap-3 justify-start">
                 <button
-                  className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl"
+                  className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl whitespace-nowrap"
                   onClick={() => scrollToTarget("#report")}
                   type="button"
                 >
                   Quick Report
                 </button>
                 <button
-                  className="flex flex-1 btn btn-xl btn-xl--outline shadow-2xl"
+                  className="flex flex-1 btn btn-xl btn-xl--outline shadow-2xl whitespace-nowrap"
                   onClick={() => scrollToTarget("#adoption")}
                   type="button"
                 >

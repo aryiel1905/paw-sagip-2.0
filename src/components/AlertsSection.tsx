@@ -62,7 +62,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
       className="relative  scroll-mt-23 snap-start w-full "
       style={{ scrollMarginTop: 63 }}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch h-[91vh]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch h-auto lg:h-[91vh]">
         {(
           [
             {
@@ -98,16 +98,14 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
               background: `radial-gradient(circle at 50% 55%, color-mix(in srgb, ${col.base} 60%, white 85%) 0%, color-mix(in srgb, ${col.base} 80%, white 45%) 35%, ${col.base} 65%, color-mix(in srgb, ${col.base} 95%, black 10%) 100%)`,
             }}
           >
-            <div className="px-6 pt-12 pb-4 text-white">
+            <div className="px-6 pt-10 pb-4 text-white">
               <div className="flex items-center gap-3">
                 {(() => {
                   const Icon = col.icon;
-                  return (
-                    <Icon size={45} strokeWidth={2.5} className="shrink-0" />
-                  );
+                  return <Icon size={40} strokeWidth={2.5} className="shrink-0" />;
                 })()}
                 <div>
-                  <h3 className="text-3xl font-extrabold tracking-wide">
+                  <h3 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
                     {col.title}
                   </h3>
                   <p className="opacity-90">{col.description}</p>
@@ -116,7 +114,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
             </div>
             <div className="px-6 py-2 flex-1 flex flex-col">
               {col.items.length === 0 ? (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
@@ -126,8 +124,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-28"></div>
-                        <div className="font-semibold text-sm truncate text-black/50">
+                        <div className="relative rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
+                        <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                           &nbsp;
                         </div>
                         <div className="text-xs truncate text-black/30">
@@ -138,7 +136,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {col.items.slice(0, 6).map((alert) => (
                     <button
                       key={alert.id}
@@ -169,20 +167,20 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                             <img
                               src={alert.imageUrl}
                               alt="alert"
-                              className="w-full h-28 object-cover"
+                              className="w-full h-24 sm:h-28 object-cover"
                               loading="lazy"
                               decoding="async"
                             />
                           ) : (
                             <div
-                              className="grid place-content-center h-28 text-6xl font-semibold md:text-6xl"
+                              className="grid place-content-center h-24 sm:h-28 text-5xl sm:text-6xl font-semibold"
                               style={alertFallbackTheme(alert, col.base)}
                             >
                               {alert.emoji}
                             </div>
                           )}
                         </div>
-                        <div className="font-semibold text-sm truncate text-black">
+                        <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black">
                           {alert.title}
                         </div>
                         <div className="text-xs truncate text-black/70">
@@ -202,8 +200,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-28"></div>
-                        <div className="font-semibold text-sm truncate text-black/50">
+                        <div className="relative rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
+                        <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                           &nbsp;
                         </div>
                         <div className="text-xs truncate text-black/30">

@@ -337,9 +337,7 @@ export default function AccountDashboardPage() {
         className="fixed inset-0 bg-black/80 -z-10 pointer-events-none"
         aria-hidden="true"
       />
-      <main
-        className="box-border pt-2 px-4 overflow-visible md:overflow-hidden md:h-[calc(99dvh-64px)]"
-      >
+      <main className="box-border pt-2 px-4 overflow-visible md:overflow-hidden md:h-[calc(99dvh-64px)]">
         <div className="max-w-full md:max-w-[90%] mx-auto md:h-full pt-5 md:pt-7">
           <div className="py-2 mb-2 flex items-center justify-between">
             <h1
@@ -361,7 +359,7 @@ export default function AccountDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[320px,1fr,1fr] gap-4 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[320px,1fr,1fr,1fr] gap-4 items-start">
             <div className="grid gap-4 lg:col-span-1 order-2 md:order-1">
               <ProfileCard
                 name={user.fullName}
@@ -390,7 +388,7 @@ export default function AccountDashboardPage() {
               />
             </div>
 
-            <div className="grid gap-3 lg:col-span-3 order-1 md:order-2">
+            <div className="grid gap-3 lg:col-start-3 lg:col-span-3 order-1 md:order-2">
               <Tabs
                 active={active}
                 onChange={(k) => setActive(k as TabKey)}

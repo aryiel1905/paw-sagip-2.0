@@ -155,7 +155,7 @@ body::before {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     Segoe UI, Roboto, Helvetica, Arial;
   font-weight: 900;
-  font-size: clamp(40px, 9vw, 120px);
+  font-size: clamp(40px, 9vw, 200px);
   line-height: 0.92;
   letter-spacing: -0.02em;
   color: #111111;
@@ -178,7 +178,8 @@ body::before {
   justify-content: center;
   height: 56px;
   padding: 0 24px;
-  font-size: 22px;
+  /* Scale button text on small screens to avoid wrapping */
+  font-size: clamp(16px, 4.2vw, 22px);
   font-weight: 700;
   letter-spacing: 0.06em;
   border-radius: 16px;
@@ -193,6 +194,18 @@ body::before {
 .btn-xl--outline:hover {
   background: var(--primary-mintgreen);
   color: var(--white);
+}
+
+/* Mobile-only refinements: larger hero and button text when space allows */
+@media (max-width: 640px) {
+  .hero-title {
+    /* Slightly larger minimum and stronger vw scaling on phones */
+    font-size: clamp(46px, 12vw, 120px);
+  }
+  .btn-xl {
+    /* Bump size but still cap for desktop via media scope */
+    font-size: clamp(18px, 5vw, 22px);
+  }
 }
 
 /* Hide scrollbars but keep scrolling (Chrome/Edge/Safari/Firefox/IE) */

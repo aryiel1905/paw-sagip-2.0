@@ -1,9 +1,10 @@
 "use client";
 
-import { PawPrint, UserRound, Home, BellRing, FileEdit, HeartHandshake } from "lucide-react";
+import { PawPrint, UserRound, Home, BellRing, FileEdit, HeartHandshake, Menu, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import ProfileCard from "@/components/account/ProfileCard";
 
 const NAV_LINKS = [
   { href: "#home", label: "Home", icon: Home },
@@ -20,6 +21,7 @@ export function Navbar({
   onNavigate?: (target: string) => void;
 }) {
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -81,7 +83,28 @@ export function Navbar({
     [onNavigate, pathname, router]
   );
 
-  // Mobile dropdown removed; bottom sticky nav handles primary navigation on small screens
+  // Close mobile sheet with ESC
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMenuOpen]);
+
+  // Keep --snap-top aligned to header height (for sheet positioning)
+  useEffect(() => {
+    const updateVar = () => {
+      const h = headerRef.current?.offsetHeight || 60;
+      try {
+        document.documentElement.style.setProperty("--snap-top", `${h}px`);
+      } catch {}
+    };
+    updateVar();
+    window.addEventListener("resize", updateVar);
+    return () => window.removeEventListener("resize", updateVar);
+  }, []);
 
   // Auth state (client-only; render default unauthenticated on SSR to avoid mismatches)
   useEffect(() => {
@@ -379,7 +402,7 @@ export function Navbar({
           </div>
 
           {/* Mobile: replace hamburger with inline Account/Sign in + Contacts */}
-          <div className="ml-auto md:hidden flex items-center gap-2">
+          <div className="ml-auto md:hidden hidden items-center gap-2">
             {isReady && isLoggedIn ? (
               (() => {
                 const isAccountActive = pathname?.startsWith("/account");
@@ -427,8 +450,85 @@ export function Navbar({
               Contacts
             </button>
           </div>
+          {/* Mobile hamburger */}
+          <button
+            aria-label="Open menu"
+            aria-expanded={isMenuOpen}
+            className="ml-auto md:hidden rounded-xl p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            style={{ outlineColor: "var(--primary-green)" }}
+            onClick={() => setIsMenuOpen((v) => !v)}
+            type="button"
+          >
+            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
       </div>
+
+      {/* Backdrop for side drawer */}
+      {isMenuOpen && (
+        <button
+          aria-label="Close menu backdrop"
+          className="md:hidden fixed inset-0 z-[70] bg-black/40 opacity-100 transition-opacity duration-200"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+      {/* Side drawer with ProfileCard and Contacts */}
+      <aside
+        className={`md:hidden fixed right-0 z-[80] w-[86vw] max-w-sm transition-transform duration-300 ease-out ${
+          isMenuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        style={{ top: 0, height: "100vh" }}
+        aria-hidden={!isMenuOpen}
+      >
+        <div className="surface h-full border-l shadow-soft bg-white" style={{ borderColor: "var(--border-color)" }}>
+          <div className="h-full overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-end">
+              <button
+                aria-label="Close menu"
+                className="rounded-md p-2 hover:bg-[var(--card-bg)]"
+                onClick={() => setIsMenuOpen(false)}
+                type="button"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {isReady && isLoggedIn ? (
+              <ProfileCard name={userName} email={userEmail} />
+            ) : (
+              <div className="surface rounded-2xl shadow-soft p-4">
+                <p className="mb-3 text-sm">Sign in to view your account.</p>
+                <button
+                  className="pill px-4 py-2 text-sm bg-[var(--primary-orange)] text-white"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    try {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("app:signin", { detail: { mode: "login" } })
+                        );
+                      }
+                    } catch {}
+                  }}
+                  type="button"
+                >
+                  Sign in
+                </button>
+              </div>
+            )}
+            <button
+              className="w-full pill px-4 py-3 text-sm border border-transparent bg-[#333639] text-white hover:bg-[#4A4D50]"
+              onClick={() => {
+                setIsMenuOpen(false);
+                handleNavigate("/contacts");
+              }}
+              type="button"
+              aria-current={pathname?.startsWith("/contacts") ? "page" : undefined}
+            >
+              Contacts
+            </button>
+          </div>
+        </div>
+      </aside>
 
     </header>
   );
