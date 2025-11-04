@@ -806,8 +806,8 @@ export default function Home() {
               </h1>
 
               <p className="hero-sub mt-2">
-                Report lost or found pets, receive nearby alerts, and help
-                coordinate safe rescues in your barangay.
+                Report lost or found pets, and help coordinate safe rescues in
+                your barangay.
               </p>
               <div className="mt-4 flex flex-wrap gap-3 justify-start">
                 <button
