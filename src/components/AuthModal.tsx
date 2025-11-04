@@ -240,7 +240,7 @@ export function AuthModal({
                       Password
                     </label>
                     <a
-                      href="#"
+                      href="/forgot-password"
                       className="text-sm ink-muted underline-offset-2 hover:underline"
                     >
                       Forgot your password?
