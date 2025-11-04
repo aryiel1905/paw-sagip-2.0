@@ -13,11 +13,30 @@ export default function ContactsPage() {
 
   useEffect(() => {
     const abort = new AbortController();
+    let mounted = true;
     setLoading(true);
+    const start =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    const MIN_SPINNER_MS = 300; // ensure skeleton is visible on quick responses
     fetchContacts(1000, { signal: abort.signal })
-      .then((cs) => setContacts(cs))
-      .finally(() => setLoading(false));
-    return () => abort.abort();
+      .then((cs) => {
+        if (!mounted) return;
+        setContacts(cs);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        const end =
+          typeof performance !== "undefined" ? performance.now() : Date.now();
+        const elapsed = end - start;
+        const remaining = Math.max(0, MIN_SPINNER_MS - elapsed);
+        window.setTimeout(() => {
+          if (mounted) setLoading(false);
+        }, remaining);
+      });
+    return () => {
+      mounted = false;
+      abort.abort();
+    };
   }, []);
 
   const grouped = useMemo(() => {
@@ -54,17 +73,17 @@ export default function ContactsPage() {
     });
   }, [contacts]);
 
-  const SkeletonList = ({ count = 8 }: { count?: number }) => (
+  const SkeletonList = ({ count = 10 }: { count?: number }) => (
     <section className="w-full">
       <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-          <h2 className="text-lg font-semibold ink-heading">Admins</h2>
+          <h2 className="text-lg font-semibold ink-heading">Contacts</h2>
           <span className="text-sm ink-subtle">—</span>
         </div>
         <div className="p-4">
-          <ul className="columns-1 sm:columns-2 lg:columns-5 xl:columns-5 [column-gap:0.75rem]">
-            {Array.from({ length: count }).map((_, idx) => (
-              <li key={`sk-${idx}`} className="mb-3 break-inside-avoid">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {Array.from({ length: count }).map((_, i) => (
+              <li key={`s-${i}`} className="mb-0">
                 <div className="rounded-lg border border-[var(--border-color)] bg-white p-4 animate-pulse">
                   <div className="h-4 w-32 bg-gray-200 rounded mb-2" />
                   <div className="h-3 w-24 bg-gray-200 rounded mb-2" />
@@ -82,27 +101,28 @@ export default function ContactsPage() {
 
   return (
     <main className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold ink-heading">
-            Contacts
-          </h1>
-          <p className="ink-muted">Barangay & Shelter Admins</p>
+      {loading ? (
+        <SkeletonList />
+      ) : admins.length === 0 ? (
+        <div className="rounded-xl border border-[var(--border-color)] bg-white p-6 text-center">
+          No contacts found.
         </div>
-        <div />
-      </div>
-
-      {loading || admins.length === 0 ? (
-        <SkeletonList count={8} />
       ) : (
         <section className="w-full">
           <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-              <h2 className="text-lg font-semibold ink-heading">Admins</h2>
-              <span className="text-sm ink-subtle">{admins.length}</span>
+              <div className=" flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold ink-heading">
+                    Contacts
+                  </h1>
+                  <p className="ink-muted">Barangay & Shelter Admins</p>
+                </div>
+                <div />
+              </div>
             </div>
             <div className="p-4">
-              <ul className="columns-1 sm:columns-2 lg:columns-5 xl:columns-5 [column-gap:0.75rem]">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {admins.map((c) => {
                   const roleRaw = (c.role || "")
                     .toString()
@@ -117,7 +137,7 @@ export default function ContactsPage() {
                     ? `Shelter ${c.barangay ?? ""}`.trim()
                     : "";
                   return (
-                    <li key={c.id} className="mb-3 break-inside-avoid">
+                    <li key={c.id} className="mb-0">
                       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg,#fff)] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
