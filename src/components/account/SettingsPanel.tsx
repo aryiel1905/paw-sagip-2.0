@@ -177,16 +177,25 @@ export default function SettingsPanel({ userEmail }: Props) {
             Alerts.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              className={`px-3 py-2 rounded-md text-sm border ${
-                notifyEnabled ? "bg-green-600 text-white border-green-600" : ""
-              }`}
-              onClick={toggleNotify}
-              aria-pressed={notifyEnabled}
-            >
-              {notifyEnabled ? "Enabled" : "Enable"}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Sound alerts</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifyEnabled}
+                aria-label="Toggle sound alerts"
+                onClick={toggleNotify}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  notifyEnabled ? "bg-green-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                    notifyEnabled ? "translate-x-5" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
             <button
               type="button"
               className="btn px-3 py-2 border"
@@ -200,18 +209,25 @@ export default function SettingsPanel({ userEmail }: Props) {
             </span>
           </div>
           <div className="mt-4 flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              className={`px-3 py-2 rounded-md text-sm border ${
-                systemNotifyEnabled
-                  ? "bg-green-600 text-white border-green-600"
-                  : ""
-              }`}
-              onClick={toggleSystemNotify}
-              aria-pressed={systemNotifyEnabled}
-            >
-              {systemNotifyEnabled ? "Browser notifications on" : "Enable browser notifications"}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Browser notifications</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={systemNotifyEnabled}
+                aria-label="Toggle browser notifications"
+                onClick={toggleSystemNotify}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  systemNotifyEnabled ? "bg-green-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                    systemNotifyEnabled ? "translate-x-5" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
             <button
               type="button"
               className="btn px-3 py-2 border"

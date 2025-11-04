@@ -545,6 +545,17 @@ export function Navbar({
               className="w-full pill px-4 py-3 text-sm border border-transparent bg-[#333639] text-white hover:bg-[#4A4D50]"
               onClick={() => {
                 setIsMenuOpen(false);
+                handleNavigate("#home");
+              }}
+              type="button"
+              aria-current={pathname === "/" ? "page" : undefined}
+            >
+              Home
+            </button>
+            <button
+              className="w-full pill px-4 py-3 text-sm border border-transparent bg-[#333639] text-white hover:bg-[#4A4D50]"
+              onClick={() => {
+                setIsMenuOpen(false);
                 handleNavigate("/contacts");
               }}
               type="button"

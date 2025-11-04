@@ -854,6 +854,74 @@ export function ReportSection({
                     onChange={(e) => setQContact(e.target.value)}
                   />
                 </label>
+                {/* Pet status (mirror desktop) */}
+                <label className="block text-sm">
+                  Pet Status
+                  <select
+                    className="mt-1 w-full rounded-xl px-3 py-2"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    value={qPetStatus}
+                    onChange={(e) => setQPetStatus(e.target.value)}
+                  >
+                    <option value="Roaming">Roaming</option>
+                    <option value="In Custody">In Custody</option>
+                  </select>
+                </label>
+                {/* Behavior flags (mirror desktop) */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      qAggressive
+                        ? { color: "var(--primary-orange)" }
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={qAggressive}
+                      onChange={(e) => {
+                        onQuickAggressiveToggle(e.target.checked);
+                        if (e.target.checked) openFlagModal("aggressive");
+                      }}
+                      style={
+                        qAggressive
+                          ? ({
+                              accentColor: "var(--primary-orange)",
+                            } as React.CSSProperties)
+                          : undefined
+                      }
+                    />
+                    <span>Aggressive</span>
+                  </label>
+                  <label
+                    className="inline-flex items-center gap-2 text-sm"
+                    style={
+                      qFriendly
+                        ? { color: "var(--primary-mintgreen)" }
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={qFriendly}
+                      onChange={(e) => {
+                        onQuickFriendlyToggle(e.target.checked);
+                        if (e.target.checked) openFlagModal("friendly");
+                      }}
+                      style={
+                        qFriendly
+                          ? ({
+                              accentColor: "var(--primary-mintgreen)",
+                            } as React.CSSProperties)
+                          : undefined
+                      }
+                    />
+                    <span>Friendly</span>
+                  </label>
+                </div>
                 {/* Submit anonymously checkbox (mobile) */}
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input
@@ -1593,13 +1661,13 @@ export function ReportSection({
 
           {/* Checkboxes moved into column 2 */}
 
-          <div className="flex flex-nowrap items-stretch gap-2 pt-2 md:hidden">
+          <div className="flex flex-col items-stretch gap-3 pt-3 md:hidden">
             <button
               type="submit"
               className={
                 isCruelty
-                  ? "btn px-4 py-2 flex-1 min-w-0 text-white"
-                  : "btn btn-accent px-4 py-2 flex-1 min-w-0"
+                  ? "btn px-4 py-2 w-full text-white text-base"
+                  : "btn btn-accent px-4 py-2 w-full text-base"
               }
               style={
                 isCruelty
@@ -1618,7 +1686,7 @@ export function ReportSection({
             </button>
             <Link
               href="/report-form"
-              className="btn px-4 py-2 flex-1 min-w-0 text-center"
+              className="btn px-4 py-2 w-full text-center text-base  border-1 border-[var(--primary-mintgreen)] text-[var(--primary-mintgreen)] bg-amber-50 hover:bg-[var(--primary-mintgreen)] hover:text-white transition-colors"
               style={{ border: "1px solid var(--border-color)" }}
               onClick={persistDraftToSession}
             >
