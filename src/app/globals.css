@@ -155,7 +155,7 @@ body::before {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     Segoe UI, Roboto, Helvetica, Arial;
   font-weight: 900;
-  font-size: clamp(40px, 9vw, 200px);
+  font-size: clamp(40px, 9vw, 120px);
   line-height: 0.92;
   letter-spacing: -0.02em;
   color: #111111;
