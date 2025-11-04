@@ -338,10 +338,9 @@ export default function AccountDashboardPage() {
         aria-hidden="true"
       />
       <main
-        className="box-border overflow-hidden pt-2 px-4"
-        style={{ height: "calc(99dvh - var(--nav-h, 64px))" }}
+        className="box-border pt-2 px-4 overflow-visible md:overflow-hidden md:h-[calc(99dvh-64px)]"
       >
-        <div className="max-w-[90%] mx-auto h-full pt-7">
+        <div className="max-w-full md:max-w-[90%] mx-auto md:h-full pt-5 md:pt-7">
           <div className="py-2 mb-2 flex items-center justify-between">
             <h1
               className="text-3xl font-extrabold text-white tracking-wide
@@ -362,8 +361,8 @@ export default function AccountDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 lg:grid-cols-[320px,1fr,1fr] gap-4 items-start">
-            <div className="grid gap-4 lg:col-span-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[320px,1fr,1fr] gap-4 items-start">
+            <div className="grid gap-4 lg:col-span-1 order-2 md:order-1">
               <ProfileCard
                 name={user.fullName}
                 email={user.email}
@@ -391,7 +390,7 @@ export default function AccountDashboardPage() {
               />
             </div>
 
-            <div className="grid gap-3 lg:col-span-3">
+            <div className="grid gap-3 lg:col-span-3 order-1 md:order-2">
               <Tabs
                 active={active}
                 onChange={(k) => setActive(k as TabKey)}

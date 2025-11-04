@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  PawPrint,
-  Menu,
-  X,
-  UserRound,
-  Home,
-  BellRing,
-  FileEdit,
-  HeartHandshake,
-} from "lucide-react";
+import { PawPrint, UserRound, Home, BellRing, FileEdit, HeartHandshake } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -29,7 +20,6 @@ export function Navbar({
   onNavigate?: (target: string) => void;
 }) {
   const headerRef = useRef<HTMLDivElement | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -91,14 +81,7 @@ export function Navbar({
     [onNavigate, pathname, router]
   );
 
-  useEffect(() => {
-    if (!isMenuOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [isMenuOpen]);
+  // Mobile dropdown removed; bottom sticky nav handles primary navigation on small screens
 
   // Auth state (client-only; render default unauthenticated on SSR to avoid mismatches)
   useEffect(() => {
@@ -395,119 +378,58 @@ export function Navbar({
             </button>
           </div>
 
-          <button
-            aria-label="Toggle navigation"
-            className="rounded-xl p-2 md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            style={{ outlineColor: "var(--primary-green)" }}
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-            type="button"
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6" />
+          {/* Mobile: replace hamburger with inline Account/Sign in + Contacts */}
+          <div className="ml-auto md:hidden flex items-center gap-2">
+            {isReady && isLoggedIn ? (
+              (() => {
+                const isAccountActive = pathname?.startsWith("/account");
+                return (
+                  <button
+                    className={`pill px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
+                      isAccountActive
+                        ? "bg-[var(--primary-orange)] text-white"
+                        : "bg-white text-[var(--primary-orange)] hover:bg-[var(--primary-orange)] hover:text-white"
+                    } border border-[var(--primary-orange)]`}
+                    onClick={() => handleNavigate("/account")}
+                    type="button"
+                    aria-current={isAccountActive ? "page" : undefined}
+                  >
+                    <UserRound className="h-4 w-4" aria-hidden="true" />
+                    <span className="max-w-[8ch] truncate">{userName?.trim() || userEmail || "Account"}</span>
+                  </button>
+                );
+              })()
             ) : (
-              <Menu className="h-6 w-6" />
+              <button
+                className="pill px-3 py-2 text-xs border border-[var(--border-color)] bg-[var(--primary-orange)] text-white"
+                onClick={() => {
+                  try {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(
+                        new CustomEvent("app:signin", {
+                          detail: { mode: "login" },
+                        })
+                      );
+                    }
+                  } catch {}
+                }}
+                type="button"
+              >
+                Sign in
+              </button>
             )}
-          </button>
+            <button
+              className="pill px-3 py-2 text-xs border border-transparent bg-[#444647] text-white hover:bg-[#65676a] transition-colors"
+              onClick={() => handleNavigate("/contacts")}
+              type="button"
+              aria-current={pathname?.startsWith("/contacts") ? "page" : undefined}
+            >
+              Contacts
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className={`md:hidden ${isMenuOpen ? "block" : "hidden"}`}>
-        <div
-          className="glass dark:glass-dark border-b"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <nav
-            className="mx-auto flex max-w-screen-2xl flex-col gap-1 px-4 py-4"
-            aria-label="Mobile"
-          >
-            {(isReady ? NAV_LINKS : NAV_LINKS).map((link) => {
-              const Icon = link.icon;
-              const isSection = link.href.startsWith("#");
-              const isActive = isSection
-                ? activeHash === link.href
-                : pathname === link.href;
-              const href = pathname === "/" ? link.href : `/${link.href}`;
-              return (
-                <a
-                  key={link.href}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "bg-[var(--primary-mintgreen)] text-white"
-                      : "hover:bg-[var(--card-bg)]"
-                  }`}
-                  style={{ outlineColor: "var(--primary-green)" }}
-                  href={href}
-                  onClick={(e) => {
-                    e.preventDefault(); // SPA behavior on all routes
-                    handleNavigate(link.href);
-                  }}
-                >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {link.label}
-                </a>
-              );
-            })}
-            <div className="mt-2 flex items-center gap-2">
-              {isReady && isLoggedIn ? (
-                (() => {
-                  const isAccountActive = pathname?.startsWith("/account");
-                  return (
-                    <button
-                      className={`flex-1 rounded-xl px-4 py-3 text-sm flex items-center gap-2 transition-colors ${
-                        isAccountActive
-                          ? "bg-[var(--primary-orange)] text-white"
-                          : "bg-white text-[var(--primary-orange)] hover:bg-[var(--primary-orange)] hover:text-white"
-                      } border border-[var(--primary-orange)]`}
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleNavigate("/account");
-                      }}
-                      type="button"
-                      aria-current={isAccountActive ? "page" : undefined}
-                    >
-                      <UserRound className="h-5 w-5" aria-hidden="true" />
-                      <span>{userName?.trim() || userEmail || "Account"}</span>
-                    </button>
-                  );
-                })()
-              ) : (
-                <button
-                  className="flex-1 rounded-xl px-4 py-3 text-sm border border-[var(--border-color)] bg-[var(--primary-orange)] text-white"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    try {
-                      if (typeof window !== "undefined") {
-                        window.dispatchEvent(
-                          new CustomEvent("app:signin", {
-                            detail: { mode: "login" },
-                          })
-                        );
-                      }
-                    } catch {}
-                  }}
-                  type="button"
-                >
-                  Sign in
-                </button>
-              )}
-              {/* Contacts (mobile) */}
-              <button
-                className="flex-1 rounded-xl px-4 py-3 text-sm border border-transparent bg-[#333639] text-white hover:bg-[#4A4D50]"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  handleNavigate("/contacts");
-                }}
-                type="button"
-                aria-current={
-                  pathname?.startsWith("/contacts") ? "page" : undefined
-                }
-              >
-                Contacts
-              </button>
-            </div>
-          </nav>
-        </div>
-      </div>
     </header>
   );
 }
