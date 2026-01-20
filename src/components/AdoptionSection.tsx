@@ -66,6 +66,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
   return (
     <section
       id="adoption"
+      data-onboard="adoption-section"
       className="mx-auto mt-23 mb-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start overflow-hidden"
     >
       <div

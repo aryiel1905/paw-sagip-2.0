@@ -902,6 +902,7 @@ export default function Home() {
               <div className="mt-4 flex flex-wrap gap-3 justify-start">
                 <button
                   className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl whitespace-nowrap"
+                  data-onboard="quick-report"
                   onClick={() => scrollToTarget("#report")}
                   type="button"
                 >
@@ -1270,6 +1271,15 @@ export default function Home() {
               <a
                 key={link.href}
                 className="py-3"
+                data-onboard={
+                  link.href === "#report"
+                    ? "report"
+                    : link.href === "#adoption"
+                    ? "adoption"
+                    : link.href === "/account"
+                    ? "updates"
+                    : undefined
+                }
                 onClick={() => {
                   if (link.href.startsWith("/")) {
                     router.push(link.href);

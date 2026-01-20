@@ -2,6 +2,7 @@
 import { SearchProvider } from "@/contexts/SearchContext";
 import { GlobalDetailsModal } from "@/components/GlobalDetailsModal";
 import { GlobalAuthModal } from "@/components/GlobalAuthModal";
+import { GlobalOnboarding } from "@/components/OnboardingTour";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -97,6 +98,7 @@ export default function RootLayout({
             {children}
             <GlobalDetailsModal />
             <GlobalAuthModal />
+            <GlobalOnboarding />
           </SearchProvider>
         </div>
       </body>

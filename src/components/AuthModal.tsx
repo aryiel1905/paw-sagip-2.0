@@ -194,9 +194,9 @@ export function AuthModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center p-4">
+    <div className="fixed inset-0 z-[90] grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className="relative z-[71] w-[800px] max-w-[92vw] overflow-hidden rounded-[20px] border border-[var(--border-color)] bg-white shadow-soft">
+      <div className="relative z-[91] w-[800px] max-w-[92vw] overflow-hidden rounded-[20px] border border-[var(--border-color)] bg-white shadow-soft">
         <div className="grid grid-cols-1 md:[grid-template-columns:1fr_auto]">
           <div className="relative p-6 md:p-8 min-h-[455px]">
             {/* Login panel */}

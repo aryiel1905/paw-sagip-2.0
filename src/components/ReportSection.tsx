@@ -567,6 +567,7 @@ export function ReportSection({
               <div>
                 <label
                   className="mt-2 relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                  data-onboard="report-photos"
                   htmlFor="report-photo-mobile"
                   style={{ border: "2px dashed var(--border-color)" }}
                 >
@@ -639,6 +640,7 @@ export function ReportSection({
               <div>
                 <label
                   className="mt-1 relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                  data-onboard="report-landmarks"
                   htmlFor="report-landmarks-mobile"
                   style={{ border: "2px dashed var(--border-color)" }}
                 >
@@ -698,6 +700,7 @@ export function ReportSection({
                   <select
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-type"
                     value={reportType}
                     onChange={(e) =>
                       setReportType(e.target.value as Exclude<AlertType, "all">)
@@ -715,6 +718,7 @@ export function ReportSection({
                     list="species-options-mobile"
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-species"
                     value={qSpecies}
                     onChange={(e) => setQSpecies(e.target.value)}
                     placeholder="Dog, Cat, Bird, etc."
@@ -753,6 +757,7 @@ export function ReportSection({
                     <button
                       type="button"
                       aria-label="Open map picker"
+                      data-onboard="report-location"
                       onClick={() => setShowMapPicker(true)}
                       className="rounded-xl px-3 py-2 text-white"
                       style={{
@@ -801,6 +806,7 @@ export function ReportSection({
                     <button
                       type="button"
                       aria-label="Set current date & time"
+                      data-onboard="report-when-auto"
                       onClick={() => {
                         const now = new Date();
                         const iso = new Date(
@@ -829,6 +835,7 @@ export function ReportSection({
                       rows={3}
                       className="mt-1 w-full rounded-xl px-3 py-2"
                       placeholder="What happened? When/where?"
+                      data-onboard="report-features"
                       style={{
                         borderWidth: 1,
                         borderStyle: "solid",
@@ -858,6 +865,7 @@ export function ReportSection({
                     <input
                       className="mt-1 w-full rounded-xl px-3 py-2"
                       placeholder="e.g., blue collar"
+                      data-onboard="report-features"
                       style={{ border: "1px solid var(--border-color)" }}
                       value={reportDescription}
                       onChange={(e) => onQuickFeatureChange(e.target.value)}
@@ -870,6 +878,7 @@ export function ReportSection({
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     placeholder="0900 000 0000 / you@example.com"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-contact"
                     value={qContact}
                     onChange={(e) => setQContact(e.target.value)}
                   />
@@ -880,6 +889,7 @@ export function ReportSection({
                   <select
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-status"
                     value={qPetStatus}
                     onChange={(e) => setQPetStatus(e.target.value)}
                   >
@@ -888,7 +898,10 @@ export function ReportSection({
                   </select>
                 </label>
                 {/* Behavior flags (mirror desktop) */}
-                <div className="flex items-center gap-4 flex-wrap">
+                <div
+                  className="flex items-center gap-4 flex-wrap"
+                  data-onboard="report-temperament"
+                >
                   <label
                     className="inline-flex items-center gap-2 text-sm"
                     style={
@@ -943,7 +956,10 @@ export function ReportSection({
                   </label>
                 </div>
                 {/* Submit anonymously checkbox (mobile) */}
-                <label className="inline-flex items-center gap-2 text-sm">
+                <label
+                  className="inline-flex items-center gap-2 text-sm"
+                  data-onboard="report-anon"
+                >
                   <input
                     type="checkbox"
                     className="h-4 w-4"
@@ -1017,6 +1033,7 @@ export function ReportSection({
                     {/* Main photo tile */}
                     <label
                       className="relative group flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                      data-onboard="report-photos"
                       htmlFor="report-photo"
                       style={{ border: "2px dashed var(--border-color)" }}
                     >
@@ -1084,6 +1101,7 @@ export function ReportSection({
                     {/* Landmarks tile */}
                     <label
                       className="relative group flex flex-col aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
+                      data-onboard="report-landmarks"
                       htmlFor="report-landmarks"
                       style={{ border: "2px dashed var(--border-color)" }}
                     >
@@ -1142,6 +1160,7 @@ export function ReportSection({
                         <select
                           className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
+                          data-onboard="report-type"
                           value={reportType}
                           onChange={(e) =>
                             setReportType(
@@ -1161,6 +1180,7 @@ export function ReportSection({
                           list="species-options-desktop"
                           className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
+                          data-onboard="report-species"
                           value={qSpecies}
                           onChange={(e) => setQSpecies(e.target.value)}
                           placeholder="Dog, Cat, Bird, etc."
@@ -1201,6 +1221,7 @@ export function ReportSection({
                             <button
                               type="button"
                               className="pill px-3 py-2"
+                              data-onboard="report-location"
                               style={{
                                 border: "1px solid var(--border-color)",
                                 background:
@@ -1256,6 +1277,7 @@ export function ReportSection({
                             <button
                               type="button"
                               className="pill px-3 py-2"
+                              data-onboard="report-when-auto"
                               style={{
                                 border: "1px solid var(--border-color)",
                                 background: "var(--primary-mintgreen)",
@@ -1289,6 +1311,7 @@ export function ReportSection({
                           className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
                           placeholder="0900 000 0000 / you@example.com"
+                          data-onboard="report-contact"
                           value={qContact}
                           onChange={(e) => setQContact(e.target.value)}
                         />
@@ -1298,6 +1321,7 @@ export function ReportSection({
                         <select
                           className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
+                          data-onboard="report-status"
                           value={qPetStatus}
                           onChange={(e) => setQPetStatus(e.target.value)}
                         >
@@ -1313,6 +1337,7 @@ export function ReportSection({
                         : "Distinctive Features (optional)"}
                       <input
                         className="mt-1 w-full rounded-xl px-3 py-2"
+                        data-onboard="report-features"
                         style={{
                           border: "1px solid var(--border-color)",
                           ...(showQuickValidation &&
@@ -1347,7 +1372,10 @@ export function ReportSection({
                     </label>
 
                     {/* Desktop: flags visible in Quick Submit */}
-                    <div className="hidden md:flex mt-2 flex-wrap items-center gap-4">
+                    <div
+                      className="hidden md:flex mt-2 flex-wrap items-center gap-4"
+                      data-onboard="report-temperament"
+                    >
                       <label
                         className="inline-flex items-center gap-2 text-sm"
                         style={
@@ -1400,7 +1428,10 @@ export function ReportSection({
                         />
                         <span>Friendly</span>
                       </label>
-                      <label className="inline-flex items-center gap-2 text-sm">
+                      <label
+                        className="inline-flex items-center gap-2 text-sm"
+                        data-onboard="report-anon"
+                      >
                         <input
                           type="checkbox"
                           className="h-4 w-4"
@@ -1426,6 +1457,7 @@ export function ReportSection({
                         ? "btn px-4 py-2 flex-1 min-w-0 text-white"
                         : "btn btn-accent px-4 py-2 flex-1 min-w-0"
                     }
+                    data-onboard="report-submit"
                     style={
                       isCruelty
                         ? ({
@@ -1445,6 +1477,7 @@ export function ReportSection({
                     href="/report-form"
                     className="btn px-4 py-2 flex-1 min-w-0 text-center bg-[#ECEEEF] hover:bg-[var(--primary-mintgreen)] hover:text-white transition-colors"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-detailed"
                     onClick={persistDraftToSession}
                   >
                     More Detailed Form
@@ -1537,6 +1570,7 @@ export function ReportSection({
                     list="species-options-hidden"
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
+                    data-onboard="report-species"
                     value={qSpecies}
                     onChange={(e) => setQSpecies(e.target.value)}
                     placeholder="Dog, Cat, Bird, etc."
@@ -1697,6 +1731,7 @@ export function ReportSection({
                   ? "btn px-4 py-2 w-full text-white text-base"
                   : "btn btn-accent px-4 py-2 w-full text-base"
               }
+              data-onboard="report-submit"
               style={
                 isCruelty
                   ? ({
@@ -1716,6 +1751,7 @@ export function ReportSection({
               href="/report-form"
               className="btn px-4 py-2 w-full text-center text-base  border-1 border-[var(--primary-mintgreen)] text-[var(--primary-mintgreen)] bg-amber-50 hover:bg-[var(--primary-mintgreen)] hover:text-white transition-colors"
               style={{ border: "1px solid var(--border-color)" }}
+              data-onboard="report-detailed"
               onClick={persistDraftToSession}
             >
               More Detailed Form

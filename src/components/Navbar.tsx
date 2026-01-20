@@ -349,6 +349,12 @@ export function Navbar({
                 ? activeHash === link.href
                 : pathname === link.href;
               const href = pathname === "/" ? link.href : `/${link.href}`;
+              const onboardKey =
+                link.href === "#report"
+                  ? "report"
+                  : link.href === "#adoption"
+                  ? "adoption"
+                  : undefined;
               return (
                 <a
                   key={link.href}
@@ -358,6 +364,7 @@ export function Navbar({
                       : "hover:bg-[var(--card-bg)]"
                   }`}
                   style={{ outlineColor: "var(--primary-green)" }}
+                  data-onboard={onboardKey}
                   href={href}
                   onClick={(e) => {
                     e.preventDefault(); // always intercept for SPA behavior
@@ -385,6 +392,7 @@ export function Navbar({
                         ? "bg-[var(--primary-orange)] text-white"
                         : "bg-white text-[var(--primary-orange)] hover:bg-[var(--primary-orange)] hover:text-white"
                     } border border-[var(--primary-orange)]`}
+                    data-onboard="updates"
                     onClick={() => handleNavigate("/account")}
                     type="button"
                     aria-current={isAccountActive ? "page" : undefined}
@@ -397,6 +405,7 @@ export function Navbar({
             ) : (
               <button
                 className="pill px-3 py-2 text-sm border border-[var(--border-color)] bg-[var(--primary-orange)] text-white"
+                data-onboard="signin"
                 onClick={() => {
                   try {
                     if (typeof window !== "undefined") {
