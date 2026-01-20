@@ -289,16 +289,7 @@ export default function AlertsBrowse() {
                       {alert.title}
                     </div>
                     <div className="text-xs truncate text-black/70">
-                      {(() => {
-                        const breed = (alert.breed || "").toString().trim();
-                        const sex = (alert.sex || "").toString().trim();
-                        const ageSize = (alert.ageSize || "").toString().trim();
-                        const parts: string[] = [];
-                        if (breed) parts.push(breed);
-                        if (sex) parts.push(sex);
-                        if (ageSize) parts.push(ageSize);
-                        return parts.length > 0 ? parts.join(" / ") : "—";
-                      })()}
+                      {shortArea(alert.area) || "-"}
                     </div>
                     <div className="text-xs text-black/50">
                       {timeAgoFromMinutes(alert.minutes)}

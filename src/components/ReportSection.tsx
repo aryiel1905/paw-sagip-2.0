@@ -60,6 +60,20 @@ type ReportSectionProps = {
   landmarkInputMobileRef: RefObject<HTMLInputElement>;
 };
 
+const SPECIES_SUGGESTIONS = [
+  "Dog",
+  "Cat",
+  "Bird",
+  "Rabbit",
+  "Hamster",
+  "Guinea Pig",
+  "Fish",
+  "Turtle",
+  "Snake",
+  "Lizard",
+  "Other",
+] as const;
+
 export function ReportSection({
   reportType,
   setReportType,
@@ -86,7 +100,7 @@ export function ReportSection({
   landmarkInputMobileRef,
 }: ReportSectionProps) {
   // Local UI state for the quick form and modal behavior
-  const [qSpecies, setQSpecies] = useState("Dog");
+  const [qSpecies, setQSpecies] = useState("");
   const [qWhen, setQWhen] = useState("");
   const [qContact, setQContact] = useState("");
   const [qAggressive, setQAggressive] = useState(false);
@@ -436,7 +450,7 @@ export function ReportSection({
       try {
         setReportCondition("Healthy");
       } catch {}
-      setQSpecies("Dog");
+      setQSpecies("");
       setQWhen("");
       setQContact("");
       setQAggressive(false);
@@ -474,7 +488,7 @@ export function ReportSection({
       const formValid = isCruelty
         ? Boolean(reportLocation.trim() && reportDescription.trim())
         : Boolean(
-            reportType && qSpecies && reportLocation.trim() && qWhen.trim()
+            reportType && qSpecies.trim() && reportLocation.trim() && qWhen.trim()
           );
       if (!formValid) {
         setShowQuickValidation(true);
@@ -525,7 +539,9 @@ export function ReportSection({
   // Disable submit until required fields are present
   const isQuickFormValid = isCruelty
     ? Boolean(reportLocation.trim() && reportDescription.trim())
-    : Boolean(reportType && qSpecies && reportLocation.trim() && qWhen.trim());
+    : Boolean(
+        reportType && qSpecies.trim() && reportLocation.trim() && qWhen.trim()
+      );
 
   const missingFields = [] as string[];
   if (!reportLocation.trim()) missingFields.push("Location");
@@ -695,16 +711,20 @@ export function ReportSection({
                 </label>
                 <label className="block text-sm">
                   Species
-                  <select
+                  <input
+                    list="species-options-mobile"
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
                     value={qSpecies}
                     onChange={(e) => setQSpecies(e.target.value)}
-                    required
-                  >
-                    <option>Dog</option>
-                    <option>Cat</option>
-                  </select>
+                    placeholder="Dog, Cat, Bird, etc."
+                    required={!isCruelty}
+                  />
+                  <datalist id="species-options-mobile">
+                    {SPECIES_SUGGESTIONS.map((opt) => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
                 </label>
                 <div className="grid col-end-2"></div>
                 <label className="block text-sm">
@@ -1137,16 +1157,20 @@ export function ReportSection({
                       </label>
                       <label className="block text-sm">
                         Species
-                        <select
+                        <input
+                          list="species-options-desktop"
                           className="mt-1 w-full rounded-xl px-3 py-2"
                           style={{ border: "1px solid var(--border-color)" }}
                           value={qSpecies}
                           onChange={(e) => setQSpecies(e.target.value)}
+                          placeholder="Dog, Cat, Bird, etc."
                           required={!isCruelty}
-                        >
-                          <option>Dog</option>
-                          <option>Cat</option>
-                        </select>
+                        />
+                        <datalist id="species-options-desktop">
+                          {SPECIES_SUGGESTIONS.map((opt) => (
+                            <option key={opt} value={opt} />
+                          ))}
+                        </datalist>
                       </label>
                     </div>
                     {/* Species field moved into the 2-column header row */}
@@ -1509,16 +1533,20 @@ export function ReportSection({
               <>
                 <label className="block text-sm">
                   Species
-                  <select
+                  <input
+                    list="species-options-hidden"
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
                     value={qSpecies}
                     onChange={(e) => setQSpecies(e.target.value)}
-                    required
-                  >
-                    <option>Dog</option>
-                    <option>Cat</option>
-                  </select>
+                    placeholder="Dog, Cat, Bird, etc."
+                    required={!isCruelty}
+                  />
+                  <datalist id="species-options-hidden">
+                    {SPECIES_SUGGESTIONS.map((opt) => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
                 </label>
                 <label className="block text-sm">
                   When

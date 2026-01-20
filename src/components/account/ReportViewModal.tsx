@@ -76,13 +76,35 @@ const CONDITION_OPTIONS = [
   "Malnourished",
   "Other",
 ] as const;
-const SPECIES_OPTIONS = ["Dog", "Cat"] as const;
+const SPECIES_SUGGESTIONS = [
+  "Dog",
+  "Cat",
+  "Bird",
+  "Rabbit",
+  "Hamster",
+  "Guinea Pig",
+  "Fish",
+  "Turtle",
+  "Snake",
+  "Lizard",
+  "Other",
+] as const;
 const GENDER_OPTIONS = ["Unknown", "Male", "Female"] as const;
+function normalizeSpecies(value?: string | null) {
+  return (value || "").trim().toLowerCase();
+}
 function getAgeOptions(species: string | undefined | null) {
-  const s = (species || "").toLowerCase();
+  const s = normalizeSpecies(species);
   if (s === "dog") return ["Puppy", "Adult", "Senior"] as const;
   if (s === "cat") return ["Kitten", "Adult", "Senior"] as const;
   return ["Puppy", "Kitten", "Adult", "Senior"] as const;
+}
+
+function getDefaultAge(species?: string | null) {
+  const s = normalizeSpecies(species);
+  if (s === "dog") return "Puppy";
+  if (s === "cat") return "Kitten";
+  return "Adult";
 }
 
 function toLocalInput(value?: string | null): string {
@@ -98,14 +120,14 @@ function toLocalInput(value?: string | null): string {
 }
 
 function petEmojiFor(species?: string | null) {
-  const s = (species || "").toLowerCase();
+  const s = normalizeSpecies(species);
   if (s.includes("dog")) return "🐶";
   if (s.includes("cat")) return "🐱";
   return "🐾";
 }
 
 function petFallbackBackground(species?: string | null): string {
-  const s = (species || "").toLowerCase();
+  const s = normalizeSpecies(species);
   if (s.includes("dog")) {
     return "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)";
   }
@@ -116,21 +138,20 @@ function petFallbackBackground(species?: string | null): string {
 }
 
 function toFormState(data: ReportViewData): EditFormState {
+  const speciesValue = data.species ?? "";
+  const speciesKey = normalizeSpecies(speciesValue);
   const incomingAge = (data.age_size || "").trim();
   let mappedAge = incomingAge;
   if (incomingAge === "Puppy/Kitten") {
-    mappedAge =
-      (data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy";
+    mappedAge = speciesKey === "cat" ? "Kitten" : "Puppy";
   }
   return {
     type: data.type?.toLowerCase?.() || "found",
     condition: data.condition || "Healthy",
     gender: data.gender || "Unknown",
-    ageSize:
-      mappedAge ||
-      ((data.species || "").toLowerCase() === "cat" ? "Kitten" : "Puppy"),
+    ageSize: mappedAge || getDefaultAge(speciesValue),
     petName: data.pet_name || "",
-    species: data.species || "Dog",
+    species: speciesValue,
     breed: data.breed || "",
     features: data.features || "",
     description: data.description || "",
@@ -546,8 +567,7 @@ export default function ReportViewModal({
             <select
               className="w-full bg-transparent outline-none"
               value={
-                form?.ageSize ??
-                ((form?.species || "Dog") === "Cat" ? "Kitten" : "Puppy")
+                form?.ageSize ?? getDefaultAge(form?.species)
               }
               onChange={(e) => updateForm("ageSize", e.currentTarget.value)}
             >
@@ -776,56 +796,45 @@ export default function ReportViewModal({
           label: "Pet Type",
           value: effectiveData?.species || "-",
           editNode: (
-            <select
-              className="w-full bg-transparent outline-none"
-              value={form?.species ?? "Dog"}
-              onChange={(e) => {
-                const next = e.currentTarget.value;
-                setForm((prev) => {
-                  if (!prev) return prev;
-                  let nextAge = prev.ageSize;
-                  if (next === "Dog") {
-                    if (
-                      prev.ageSize === "Kitten" ||
-                      prev.ageSize === "Puppy/Kitten"
-                    )
-                      nextAge = "Puppy";
-                    if (
-                      !(getAgeOptions(next) as readonly string[]).includes(
-                        nextAge
+            <div className="w-full">
+                <input
+                list="species-options-account"
+                className="w-full bg-transparent outline-none"
+                value={form?.species ?? ""}
+                onChange={(e) => {
+                  const next = e.currentTarget.value;
+                  const nextKey = normalizeSpecies(next);
+                  setForm((prev) => {
+                    if (!prev) return prev;
+                    let nextAge = prev.ageSize;
+                    if (nextKey === "dog") {
+                      if (
+                        prev.ageSize === "Kitten" ||
+                        prev.ageSize === "Puppy/Kitten"
                       )
-                    ) {
-                      nextAge = "Puppy";
-                    }
-                  } else if (next === "Cat") {
-                    if (
-                      prev.ageSize === "Puppy" ||
-                      prev.ageSize === "Puppy/Kitten"
-                    )
-                      nextAge = "Kitten";
-                    if (
-                      !(getAgeOptions(next) as readonly string[]).includes(
-                        nextAge
+                        nextAge = "Puppy";
+                    } else if (nextKey === "cat") {
+                      if (
+                        prev.ageSize === "Puppy" ||
+                        prev.ageSize === "Puppy/Kitten"
                       )
-                    ) {
-                      nextAge = "Kitten";
+                        nextAge = "Kitten";
                     }
-                  }
-                  return { ...prev, species: next, ageSize: nextAge };
-                });
-              }}
-            >
-              {form?.species === "Other" ? (
-                <option value="Other" disabled>
-                  Other (legacy)
-                </option>
-              ) : null}
-              {SPECIES_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+                    const allowed = getAgeOptions(next) as readonly string[];
+                    if (!allowed.includes(nextAge)) {
+                      nextAge = getDefaultAge(next);
+                    }
+                    return { ...prev, species: next, ageSize: nextAge };
+                  });
+                }}
+                placeholder="Dog, Cat, Bird, etc."
+              />
+              <datalist id="species-options-account">
+                {SPECIES_SUGGESTIONS.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+            </div>
           ),
         },
         right: {

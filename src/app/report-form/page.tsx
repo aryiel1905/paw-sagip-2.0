@@ -28,6 +28,23 @@ import { showToast } from "@/lib/toast";
 
 // Storage bucket to keep report photos consistent with the home page
 const PET_MEDIA_BUCKET = "pet-media";
+const SPECIES_SUGGESTIONS = [
+  "Dog",
+  "Cat",
+  "Bird",
+  "Rabbit",
+  "Hamster",
+  "Guinea Pig",
+  "Fish",
+  "Turtle",
+  "Snake",
+  "Lizard",
+  "Other",
+] as const;
+
+function normalizeSpecies(value: string) {
+  return value.trim().toLowerCase();
+}
 
 function ReportFormPageInner() {
   const [reportType, setReportType] =
@@ -38,7 +55,7 @@ function ReportFormPageInner() {
   const [reportLng, setReportLng] = useState<number | null>(null);
   const [reportDescription, setReportDescription] = useState("");
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
-  const [species, setSpecies] = useState("Dog");
+  const [species, setSpecies] = useState("");
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
   const [gender, setGender] = useState("Unknown");
@@ -104,6 +121,14 @@ function ReportFormPageInner() {
   const closeFlagModal = () => setFlagKey(null);
 
   const isCruelty = reportType === "cruelty";
+  const speciesKey = normalizeSpecies(species);
+  const isDog = speciesKey === "dog";
+  const isCat = speciesKey === "cat";
+  const ageOptions = isDog
+    ? ["Puppy", "Adult", "Senior"]
+    : isCat
+    ? ["Kitten", "Adult", "Senior"]
+    : ["Puppy", "Kitten", "Adult", "Senior"];
 
   const getTipContent = (key: "aggressive" | "friendly" | "anonymous") => {
     switch (key) {
@@ -562,7 +587,7 @@ function ReportFormPageInner() {
       setLandmarkPreviewUrls([]);
       // Reset all form fields to defaults
       setPetName("");
-      setSpecies("Dog");
+      setSpecies("");
       setBreed("");
       setGender("Unknown");
       setAgeSize("Puppy");
@@ -623,7 +648,7 @@ function ReportFormPageInner() {
     if (!reportDescription.trim()) missingFields.push("Description");
   } else {
     if (!when.trim()) missingFields.push("When");
-    if (!species) missingFields.push("Species");
+    if (!species.trim()) missingFields.push("Species");
   }
 
   const onSubmit = (e: React.FormEvent) => {
@@ -951,20 +976,22 @@ function ReportFormPageInner() {
                 </label>
                 <label className="block text-sm">
                   Pet Type
-                  <select
+                  <input
+                    list="species-options-report-form"
                     className="mt-1 w-full rounded-xl px-3 py-2"
                     style={{ border: "1px solid var(--border-color)" }}
                     value={species}
                     onChange={(e) => {
                       const next = e.target.value;
+                      const nextKey = normalizeSpecies(next);
                       setSpecies(next);
                       setAgeSize((prev) => {
-                        if (next === "Dog") {
+                        if (nextKey === "dog") {
                           if (prev === "Kitten" || prev === "Puppy/Kitten")
                             return "Puppy";
                           return prev || "Puppy";
                         }
-                        if (next === "Cat") {
+                        if (nextKey === "cat") {
                           if (prev === "Puppy" || prev === "Puppy/Kitten")
                             return "Kitten";
                           return prev || "Kitten";
@@ -972,11 +999,14 @@ function ReportFormPageInner() {
                         return prev;
                       });
                     }}
+                    placeholder="Dog, Cat, Bird, etc."
                     required={!isCruelty}
-                  >
-                    <option>Dog</option>
-                    <option>Cat</option>
-                  </select>
+                  />
+                  <datalist id="species-options-report-form">
+                    {SPECIES_SUGGESTIONS.map((opt) => (
+                      <option key={opt} value={opt} />
+                    ))}
+                  </datalist>
                 </label>
                 <label className="block text-sm">
                   Breed / Mix
@@ -1021,19 +1051,11 @@ function ReportFormPageInner() {
                     value={ageSize}
                     onChange={(e) => setAgeSize(e.target.value)}
                   >
-                    {species === "Dog" ? (
-                      <>
-                        <option>Puppy</option>
-                        <option>Adult</option>
-                        <option>Senior</option>
-                      </>
-                    ) : (
-                      <>
-                        <option>Kitten</option>
-                        <option>Adult</option>
-                        <option>Senior</option>
-                      </>
-                    )}
+                    {ageOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
