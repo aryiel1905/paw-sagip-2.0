@@ -23,9 +23,66 @@ function withAbort<T extends { abortSignal?: (s: AbortSignal) => T }>(
 
 function speciesToEmoji(species?: string | null) {
   const s = (species ?? "").toLowerCase();
-  if (s.includes("dog")) return "🐶";
-  if (s.includes("cat")) return "🐱";
-  return "🐾";
+  if (!s) return "\u{1F43E}";
+
+  const tokens = s.split(/[^a-z]+/).filter(Boolean);
+  const hasToken = (value: string) => tokens.includes(value);
+  const hasTokens = (...values: string[]) => values.every(hasToken);
+  const hasText = (value: string) => s.includes(value);
+
+  if (hasTokens("black", "cat") || hasToken("blackcat")) return "\u{1F408}\u{200D}\u{2B1B}";
+  if (
+    hasTokens("orange", "cat") ||
+    hasTokens("ginger", "cat") ||
+    hasToken("tabby")
+  )
+    return "\u{1F408}";
+  if (hasToken("cat")) return "\u{1F431}";
+  if (hasToken("dog")) return "\u{1F436}";
+  if (hasToken("monkey")) return "\u{1F412}";
+  if (hasToken("horse")) return "\u{1F40E}";
+  if (
+    hasTokens("water", "buffalo") ||
+    hasToken("buffalo") ||
+    hasToken("carabao") ||
+    hasText("waterbuffalo")
+  )
+    return "\u{1F403}";
+  if (hasToken("ox") || hasToken("bull")) return "\u{1F402}";
+  if (hasToken("cow")) return "\u{1F404}";
+  if (hasToken("pig") || hasToken("hog")) return "\u{1F416}";
+  if (hasToken("boar")) return "\u{1F417}";
+  if (hasToken("sheep") || hasToken("lamb")) return "\u{1F411}";
+  if (hasToken("goat")) return "\u{1F410}";
+  if (hasToken("snake") || hasToken("python") || hasToken("cobra"))
+    return "\u{1F40D}";
+  if (hasToken("mouse")) return "\u{1F401}";
+  if (hasToken("rat")) return "\u{1F400}";
+  if (hasToken("hamster")) return "\u{1F439}";
+  if (hasToken("rabbit") || hasToken("bunny")) return "\u{1F407}";
+  if (hasToken("chipmunk")) return "\u{1F43F}\u{FE0F}";
+  if (hasToken("beaver")) return "\u{1F9AB}";
+  if (hasToken("hedgehog")) return "\u{1F994}";
+  if (hasToken("otter")) return "\u{1F9A6}";
+  if (hasToken("skunk")) return "\u{1F9A8}";
+  if (hasToken("kangaroo")) return "\u{1F998}";
+  if (hasToken("badger")) return "\u{1F9A1}";
+  if (hasTokens("black", "bird") || hasToken("blackbird")) return "\u{1F426}\u{200D}\u{2B1B}";
+  if (hasToken("penguin")) return "\u{1F427}";
+  if (hasToken("dove") || hasToken("pigeon")) return "\u{1F54A}\u{FE0F}";
+  if (hasToken("eagle")) return "\u{1F985}";
+  if (hasToken("duck")) return "\u{1F986}";
+  if (hasToken("swan")) return "\u{1F9A2}";
+  if (hasToken("owl")) return "\u{1F989}";
+  if (hasToken("flamingo")) return "\u{1F9A9}";
+  if (hasToken("peacock")) return "\u{1F99A}";
+  if (hasToken("parrot")) return "\u{1F99C}";
+  if (hasToken("goose")) return "\u{1FABF}";
+  if (hasToken("bird")) return "\u{1F426}";
+  if (hasToken("crocodile") || hasToken("croc")) return "\u{1F40A}";
+  if (hasToken("turtle") || hasToken("tortoise")) return "\u{1F422}";
+  if (hasToken("lizard")) return "\u{1F98E}";
+  return "\u{1F43E}";
 }
 
 function computeMinutes(row: Pick<AlertRow, "minutes" | "created_at">): number {
@@ -66,6 +123,9 @@ function toAlert(row: AlertRow): Alert {
       ? `${row.report_type.toUpperCase()} ${row.species}`
       : row.report_type.toUpperCase());
 
+  const emojiSource =
+    row.species && row.species.trim().length > 0 ? row.species : row.pet_name ?? "";
+
   return {
     id: row.id,
     title,
@@ -75,7 +135,7 @@ function toAlert(row: AlertRow): Alert {
     breed: (row as any).breed ?? undefined,
     sex: (row as any).sex ?? undefined,
     ageSize: (row as any).age_size ?? undefined,
-    emoji: speciesToEmoji(row.species),
+    emoji: speciesToEmoji(emojiSource),
     minutes: computeMinutes(row),
     imageUrl,
     latitude: row.latitude ?? null,
@@ -94,7 +154,9 @@ function toAdoption(row: AdoptionRow): AdoptionPet {
 
   const s = (row.species ?? "").toLowerCase();
   const kind = s.startsWith("dog") ? "dog" : s.startsWith("cat") ? "cat" : "other";
-  const emoji = row.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+  const emoji =
+    row.emoji_code ??
+    (kind === "dog" ? "\u{1F436}" : kind === "cat" ? "\u{1F431}" : "\u{1F43E}");
 
   return {
     id: row.id,

@@ -39,7 +39,13 @@ export async function GET(request: Request) {
           .publicUrl
       : null;
     const kind = toKind(row.species);
-    const emoji = row.emoji_code ?? (kind === "dog" ? "🐶" : kind === "cat" ? "🐱" : "🐾");
+    const emoji =
+      row.emoji_code ??
+      (kind === "dog"
+        ? "\u{1F436}"
+        : kind === "cat"
+        ? "\u{1F431}"
+        : "\u{1F43E}");
     return {
       id: row.id as string,
       kind,
