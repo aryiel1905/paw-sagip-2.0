@@ -19,6 +19,8 @@ export const DEFAULT_NOTIFY_SOUND_URL = "/sounds/notifyy.mp3"; // place file at 
 let soundUrl: string | null = DEFAULT_NOTIFY_SOUND_URL;
 let triedLoadCustom = false;
 let customBuffer: AudioBuffer | null = null;
+let activeCustomSource: AudioBufferSourceNode | null = null;
+const activeToneOscillators = new Set<OscillatorNode>();
 
 function getNow() {
   return typeof performance !== "undefined" && performance.now
@@ -210,12 +212,22 @@ async function playCustomIfAvailable(): Promise<boolean> {
   if (!ok || !customBuffer) return false;
   try {
     const ctx = audioCtx;
+    if (activeCustomSource) {
+      try {
+        activeCustomSource.stop();
+      } catch {}
+      activeCustomSource = null;
+    }
     const src = ctx.createBufferSource();
     src.buffer = customBuffer;
     const gain = ctx.createGain();
     gain.gain.value = 0.6; // overall volume for mp3
     src.connect(gain);
     gain.connect(ctx.destination);
+    activeCustomSource = src;
+    src.onended = () => {
+      if (activeCustomSource === src) activeCustomSource = null;
+    };
     src.start();
     return true;
   } catch {
@@ -290,6 +302,7 @@ async function playTone(
   if (!audioCtx) return;
   const ctx = audioCtx;
   const osc = ctx.createOscillator();
+  activeToneOscillators.add(osc);
   const gain = ctx.createGain();
   osc.type = type;
   osc.frequency.value = freq;
@@ -304,7 +317,10 @@ async function playTone(
   gain.connect(ctx.destination);
   await new Promise<void>((resolve) => {
     try {
-      osc.onended = () => resolve();
+      osc.onended = () => {
+        activeToneOscillators.delete(osc);
+        resolve();
+      };
     } catch {}
     osc.start(now);
     osc.stop(now + durationMs / 1000 + 0.01);
@@ -334,4 +350,21 @@ export function setCustomNotifySound(url: string | null) {
   soundUrl = url;
   triedLoadCustom = false;
   customBuffer = null;
+}
+
+export function stopNotifySound() {
+  try {
+    if (activeCustomSource) {
+      try {
+        activeCustomSource.stop();
+      } catch {}
+      activeCustomSource = null;
+    }
+    activeToneOscillators.forEach((osc) => {
+      try {
+        osc.stop();
+      } catch {}
+    });
+    activeToneOscillators.clear();
+  } catch {}
 }

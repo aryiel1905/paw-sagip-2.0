@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
 import { clearSupabaseAuthArtifacts } from "@/lib/authCleanup";
@@ -17,6 +18,7 @@ import {
   getSystemNotifyEnabled,
   setSystemNotifyEnabled as setSystemNotifyPref,
   requestSystemNotifyPermission,
+  stopNotifySound,
 } from "@/lib/notify";
 
 type Props = {
@@ -36,14 +38,31 @@ export default function SettingsPanel({ userEmail }: Props) {
   const [soundError, setSoundError] = useState<string | null>(null);
   const [selectedSoundUrl, setSelectedSoundUrl] = useState<string | null>(null);
   const [savedSoundUrl, setSavedSoundUrl] = useState<string | null>(null);
-  const [isEditingSound, setIsEditingSound] = useState(false);
+  const [showSoundPicker, setShowSoundPicker] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const previewRef = useRef<HTMLAudioElement | null>(null);
+
+  function stopPreviewSound(resetTime = true) {
+    try {
+      if (!previewRef.current) return;
+      previewRef.current.pause();
+      if (resetTime) previewRef.current.currentTime = 0;
+    } catch {}
+    setPreviewPlaying(false);
+  }
 
   const toSoundLabel = (file: string) => {
     const base = file.replace(/\.[^/.]+$/, "");
     const spaced = base.replace(/[-_]+/g, " ").trim();
     return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
   };
+  const selectedSoundLabel = savedSoundUrl
+    ? toSoundLabel(
+        soundOptions.find((opt) => opt.url === savedSoundUrl)?.file ||
+          savedSoundUrl.split("/").pop() ||
+          "Default",
+      )
+    : "Default";
 
   useEffect(() => {
     // Load preference
@@ -136,13 +155,30 @@ export default function SettingsPanel({ userEmail }: Props) {
     return () => {
       active = false;
       if (previewRef.current) {
-        try {
-          previewRef.current.pause();
-        } catch {}
+        stopPreviewSound();
         previewRef.current = null;
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!showSoundPicker) return;
+    const body = document.body as HTMLBodyElement;
+    const prevOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedSoundUrl(savedSoundUrl || DEFAULT_NOTIFY_SOUND_URL);
+        stopPreviewSound();
+        setShowSoundPicker(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      body.style.overflow = prevOverflow;
+    };
+  }, [savedSoundUrl, showSoundPicker]);
 
   async function toggleNotify() {
     const next = !notifyEnabled;
@@ -152,6 +188,10 @@ export default function SettingsPanel({ userEmail }: Props) {
     }
     setNotifyEnabled(next);
     setNotifyEnabledState(next);
+    if (!next) {
+      stopPreviewSound();
+      stopNotifySound();
+    }
     showToast(
       "success",
       next ? "Alert notifications enabled" : "Alert notifications disabled",
@@ -248,14 +288,16 @@ export default function SettingsPanel({ userEmail }: Props) {
 
   async function previewSound(url: string) {
     try {
-      if (previewRef.current) {
-        previewRef.current.pause();
-        previewRef.current.currentTime = 0;
-      }
+      stopPreviewSound();
       const audio = new Audio(url);
       previewRef.current = audio;
+      audio.onended = () => {
+        setPreviewPlaying(false);
+      };
       await audio.play();
+      setPreviewPlaying(true);
     } catch {
+      setPreviewPlaying(false);
       showToast("error", "Unable to play preview");
     }
   }
@@ -265,18 +307,55 @@ export default function SettingsPanel({ userEmail }: Props) {
     void previewSound(url);
   }
 
+  async function toggleSelectedPreview(url: string) {
+    if (!previewRef.current || selectedSoundUrl !== url) {
+      setSelectedSoundUrl(url);
+      await previewSound(url);
+      return;
+    }
+    if (previewPlaying) {
+      stopPreviewSound(false);
+      return;
+    }
+    try {
+      await previewRef.current.play();
+      setPreviewPlaying(true);
+    } catch {
+      showToast("error", "Unable to play preview");
+      setPreviewPlaying(false);
+    }
+  }
+
+  async function toggleCurrentSoundPreview() {
+    const url = savedSoundUrl || selectedSoundUrl || DEFAULT_NOTIFY_SOUND_URL;
+    if (!url) return;
+    if (previewRef.current && !previewRef.current.paused) {
+      stopPreviewSound(false);
+      return;
+    }
+    await previewSound(url);
+  }
+
   function saveSoundSelection() {
     if (!selectedSoundUrl) return;
     setNotifySoundPreference(selectedSoundUrl);
     setSavedSoundUrl(selectedSoundUrl);
     try {
-      if (previewRef.current) {
-        previewRef.current.pause();
-        previewRef.current.currentTime = 0;
-      }
+      stopPreviewSound();
     } catch {}
     showToast("success", "Notification sound saved");
-    setIsEditingSound(false);
+    setShowSoundPicker(false);
+  }
+
+  function openSoundPicker() {
+    setSelectedSoundUrl(savedSoundUrl || DEFAULT_NOTIFY_SOUND_URL);
+    setShowSoundPicker(true);
+  }
+
+  function closeSoundPicker() {
+    setSelectedSoundUrl(savedSoundUrl || DEFAULT_NOTIFY_SOUND_URL);
+    stopPreviewSound();
+    setShowSoundPicker(false);
   }
 
   return (
@@ -328,7 +407,7 @@ export default function SettingsPanel({ userEmail }: Props) {
               Notification sound
             </h4>
             <p className="text-sm ink-muted mb-3">
-              Tap a sound name to preview it, then save your choice.
+              Current sound is shown below. Click edit to choose from all sounds.
             </p>
             {soundLoading ? (
               <p className="text-sm ink-subtle">Loading sounds...</p>
@@ -339,70 +418,51 @@ export default function SettingsPanel({ userEmail }: Props) {
                 No sounds found in public/sounds.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {soundOptions.map((option) => {
-                  const isSelected = option.url === selectedSoundUrl;
-                  return (
-                    <button
-                      key={option.url}
-                      type="button"
-                      disabled={!isEditingSound}
-                      className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
-                        isSelected
-                          ? "border-green-600 bg-green-50"
-                          : "border-black/10 hover:border-black/20"
-                      }`}
-                      onClick={() => selectSound(option.url)}
+              <button
+                type="button"
+                className="w-full rounded-2xl border px-4 py-3 text-left text-white shadow-sm transition hover:brightness-95"
+                style={{
+                  borderColor: "#d96f00",
+                  background:
+                    "linear-gradient(135deg, var(--primary-orange) 0%, #f39a42 100%)",
+                }}
+                onClick={() => void toggleCurrentSoundPreview()}
+                aria-label={previewPlaying ? "Pause current sound" : "Play current sound"}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-white/70 bg-white/15 px-2 text-white backdrop-blur-sm transition hover:bg-white/20"
+                      title={previewPlaying ? "Pause" : "Play"}
                     >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                            isSelected
-                              ? "border-green-600 bg-green-600"
-                              : "border-black/30"
-                          }`}
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                        </span>
-                        <span className="text-sm font-medium">
-                          {toSoundLabel(option.file)}
-                        </span>
-                      </span>
-                      <span className="text-xs ink-subtle">Preview</span>
-                    </button>
-                  );
-                })}
-              </div>
+                      {previewPlaying ? <Pause size={14} /> : <Play size={14} />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {selectedSoundLabel}
+                      </p>
+                      <p className="truncate text-xs text-white/85">
+                        Tap card to {previewPlaying ? "pause" : "play"} preview
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-white/40 bg-white/20 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                    Selected
+                  </span>
+                </div>
+              </button>
             )}
             <div className="mt-3 flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                className={`btn px-3 py-2 ${
-                  isEditingSound
-                    ? "btn-primary hover:brightness-95"
-                    : "border hover:border-black/30 hover:bg-black/5"
-                }`}
-                onClick={() => {
-                  if (isEditingSound) {
-                    saveSoundSelection();
-                  } else {
-                    setIsEditingSound(true);
-                  }
-                }}
-                disabled={isEditingSound ? !selectedSoundUrl : false}
+                className="btn px-3 py-2 border hover:border-black/30 hover:bg-black/5"
+                onClick={openSoundPicker}
+                disabled={soundLoading || !!soundError || soundOptions.length === 0}
               >
-                {isEditingSound ? "Save sound" : "Edit sound"}
+                Edit sound
               </button>
-              <span className="text-xs ink-subtle">
-                Current:{" "}
-                {savedSoundUrl
-                  ? toSoundLabel(
-                      soundOptions.find((opt) => opt.url === savedSoundUrl)
-                        ?.file ||
-                        savedSoundUrl.split("/").pop() ||
-                        "Default",
-                    )
-                  : "Default"}
+              <span className="rounded-full border border-black/10 bg-white px-2 py-1 text-xs ink-subtle">
+                Current: {selectedSoundLabel}
               </span>
             </div>
           </div>
@@ -457,6 +517,111 @@ export default function SettingsPanel({ userEmail }: Props) {
         </div>
         */}
       </div>
+
+      {showSoundPicker ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Close sound picker"
+            onClick={closeSoundPicker}
+          />
+          <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-soft p-4 sm:p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-black">
+                  Choose notification sound
+                </h3>
+                <p className="text-sm text-black/60">
+                  Scroll, preview, and select your preferred sound.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="pill px-3 py-1"
+                style={{ border: "1px solid var(--border-color)" }}
+                onClick={closeSoundPicker}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[52vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {soundOptions.map((option) => {
+                  const isSelected = option.url === selectedSoundUrl;
+                  return (
+                    <button
+                      key={option.url}
+                      type="button"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-black/10 px-3 py-2 text-left transition hover:border-black/20"
+                      onClick={() => {
+                        if (isSelected) {
+                          void toggleSelectedPreview(option.url);
+                          return;
+                        }
+                        selectSound(option.url);
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        {isSelected ? (
+                          <span
+                            className="rounded-full bg-[var(--primary-orange)] px-2 py-0.5 text-[11px] font-semibold text-white"
+                          >
+                            Selected
+                          </span>
+                        ) : (
+                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-black/30">
+                            <span className="h-1.5 w-1.5 rounded-full bg-transparent" />
+                          </span>
+                        )}
+                        <span className="text-sm font-medium">
+                          {toSoundLabel(option.file)}
+                        </span>
+                      </span>
+                      {isSelected ? (
+                        <span className="inline-flex h-7 min-w-12 items-center justify-center gap-1 rounded-full border border-[var(--primary-orange)] bg-[var(--primary-orange)] px-2 text-xs font-semibold text-white">
+                          {previewPlaying ? (
+                            <>
+                              <Pause size={12} />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={12} />
+                              <span>Play</span>
+                            </>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-xs ink-subtle">Preview</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="btn px-3 py-2 border hover:border-black/30 hover:bg-black/5"
+                onClick={closeSoundPicker}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary px-3 py-2"
+                onClick={saveSoundSelection}
+                disabled={!selectedSoundUrl}
+              >
+                Save sound
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

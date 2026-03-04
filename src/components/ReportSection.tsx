@@ -765,16 +765,9 @@ export function ReportSection({
                         className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
                         style={{ border: "none" }}
                         data-onboard="report-species"
-                        value={qSpecies}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setQSpecies(next);
-                          const key = next.trim().toLowerCase();
-                          if (key !== "other" && key !== "others") {
-                            setQSpeciesOther("");
-                          }
-                        }}
-                        placeholder="Dog, Cat, Bird, etc."
+                        value={qSpecies || "Other"}
+                        readOnly
+                        aria-readonly
                         required={!isCruelty}
                       />
                       <span aria-hidden="true" style={speciesDividerStyle} />
@@ -1278,16 +1271,9 @@ export function ReportSection({
                               className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
                               style={{ border: "none" }}
                               data-onboard="report-species"
-                              value={qSpecies}
-                              onChange={(e) => {
-                                const next = e.target.value;
-                                setQSpecies(next);
-                                const key = next.trim().toLowerCase();
-                                if (key !== "other" && key !== "others") {
-                                  setQSpeciesOther("");
-                                }
-                              }}
-                              placeholder="Dog, Cat, Bird, etc."
+                              value={qSpecies || "Other"}
+                              readOnly
+                              aria-readonly
                               required={!isCruelty}
                             />
                             <span
@@ -1712,16 +1698,9 @@ export function ReportSection({
                         className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
                         style={{ border: "none" }}
                         data-onboard="report-species"
-                        value={qSpecies}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setQSpecies(next);
-                          const key = next.trim().toLowerCase();
-                          if (key !== "other" && key !== "others") {
-                            setQSpeciesOther("");
-                          }
-                        }}
-                        placeholder="Dog, Cat, Bird, etc."
+                        value={qSpecies || "Other"}
+                        readOnly
+                        aria-readonly
                         required={!isCruelty}
                       />
                       <span aria-hidden="true" style={speciesDividerStyle} />

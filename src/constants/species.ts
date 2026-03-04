@@ -10,10 +10,8 @@ export const SPECIES_SUGGESTIONS = [
   "Snake",
   "Lizard",
   "Other",
-  "Others",
 ] as const;
 
 export function normalizeSpecies(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
-

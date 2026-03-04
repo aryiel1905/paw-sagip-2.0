@@ -48,11 +48,11 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
         } catch {}
         showToast(
           "success",
-          "Please sign in to start an adoption application."
+          "Please sign in to start an adoption application.",
         );
         try {
           window.dispatchEvent(
-            new CustomEvent("app:signin", { detail: { mode: "login" } })
+            new CustomEvent("app:signin", { detail: { mode: "login" } }),
           );
         } catch {}
         return;
@@ -108,7 +108,9 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                   }}
                   onClick={() => {
                     try {
-                      window.dispatchEvent(new CustomEvent("app:find-my-match"));
+                      window.dispatchEvent(
+                        new CustomEvent("app:find-my-match"),
+                      );
                     } catch {}
                   }}
                 >
@@ -155,7 +157,7 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                       <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black">
                         {pet.name?.trim()
                           ? pet.name
-                          : pet.kind?.toUpperCase?.() ?? ""}
+                          : (pet.kind?.toUpperCase?.() ?? "")}
                       </div>
                       <div className="text-xs truncate text-black/70">
                         {(() => {
