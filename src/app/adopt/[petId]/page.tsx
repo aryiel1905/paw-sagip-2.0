@@ -319,14 +319,22 @@ export default function AdoptionApplicationPage() {
   // inline per-step submit handlers are defined below
 
   function petEmojiFor(species?: string) {
-    const value = (species || "").toLowerCase();
+    const value = (species || "").trim().toLowerCase();
+    if (/^others?(?:\b|;)/.test(value)) return "🐾";
     if (value.includes("dog")) return "🐶";
     if (value.includes("cat")) return "🐱";
     return "🐾";
   }
 
   function petFallbackTheme(species?: string) {
-    const value = (species || "").toLowerCase();
+    const value = (species || "").trim().toLowerCase();
+    if (/^others?(?:\b|;)/.test(value)) {
+      return {
+        background:
+          "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
+        color: "#4A55C2",
+      } as const;
+    }
     if (value.includes("dog")) {
       return {
         background:

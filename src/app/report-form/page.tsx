@@ -22,9 +22,11 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import MapPickerModal from "@/components/MapPickerModal";
+import { VideoTrimModal } from "@/components/VideoTrimModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { AlertType, ReportStatus } from "@/types/app";
 import { showToast } from "@/lib/toast";
+import { getMediaKindFromFile, getVideoDuration, isVideoFile } from "@/lib/media";
 
 // Storage bucket to keep report photos consistent with the home page
 const PET_MEDIA_BUCKET = "pet-media";
@@ -41,6 +43,18 @@ const SPECIES_SUGGESTIONS = [
   "Lizard",
   "Other",
 ] as const;
+
+type TrimInfo = { start: number; end: number; duration: number };
+type LandmarkMediaItem = {
+  file: File;
+  url: string;
+  kind: "image" | "video";
+  trim?: TrimInfo;
+};
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const MAX_VIDEO_SECONDS = 20;
 
 function normalizeSpecies(value: string) {
   return value.trim().toLowerCase();
@@ -87,14 +101,29 @@ function ReportFormPageInner() {
   const [reportPhotoPreviewUrl, setReportPhotoPreviewUrl] = useState<
     string | null
   >(null);
+  const [reportPhotoKind, setReportPhotoKind] = useState<
+    "image" | "video" | null
+  >(null);
+  const [reportPhotoTrim, setReportPhotoTrim] = useState<TrimInfo | null>(null);
   const reportPhotoInputRef = useRef<HTMLInputElement>(null);
   const [prevPhotoName, setPrevPhotoName] = useState<string>("");
   // Landmark photos (multiple)
-  const [landmarkPhotos, setLandmarkPhotos] = useState<File[]>([]);
-  const [landmarkPreviewUrls, setLandmarkPreviewUrls] = useState<string[]>([]);
+  const [landmarkMedia, setLandmarkMedia] = useState<LandmarkMediaItem[]>([]);
   const landmarkInputRef = useRef<HTMLInputElement | null>(null);
   const landmarkInputMobileRef = useRef<HTMLInputElement | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [trimQueue, setTrimQueue] = useState<
+    { file: File; duration: number; target: "main" | "landmark" }[]
+  >([]);
+  const [activeTrim, setActiveTrim] = useState<{
+    file: File;
+    duration: number;
+    target: "main" | "landmark";
+  } | null>(null);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimPreviewUrl, setTrimPreviewUrl] = useState<string | null>(null);
+  const trimPreviewUrlRef = useRef<string | null>(null);
   const [reporterName, setReporterName] = useState("");
   const [friendly, setFriendly] = useState(false);
   const [aggressiveFlag, setAggressiveFlag] = useState(false);
@@ -306,56 +335,254 @@ function ReportFormPageInner() {
     };
   }, [flagKey]);
 
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setReportPhoto(file);
-    setReportPhotoName(file ? file.name : "");
+  const clearMainMedia = useCallback(() => {
+    setReportPhoto(null);
+    setReportPhotoName("");
+    setReportPhotoKind(null);
+    setReportPhotoTrim(null);
     setReportPhotoPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
-      return file ? URL.createObjectURL(file) : null;
+      return null;
     });
-  };
+  }, []);
 
-  // Landmark photos handlers (match quick report)
-  const handleLandmarkPhotosChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-    const existing = landmarkPhotos.length;
-    const available = Math.max(0, 5 - existing);
-    const toAdd = files.slice(0, available);
-    const overSize = toAdd.some((f) => f.size > 5 * 1024 * 1024);
-    if (overSize) {
-      showToast("error", "Each photo must be under 5 MB.");
+  const setMainMedia = useCallback((file: File, kind: "image" | "video", trim?: TrimInfo) => {
+    setReportPhoto(file);
+    setReportPhotoName(file.name);
+    setReportPhotoKind(kind);
+    setReportPhotoTrim(trim ?? null);
+    setReportPhotoPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }, []);
+
+  const addLandmarkMedia = useCallback((file: File, trim?: TrimInfo) => {
+    const url = URL.createObjectURL(file);
+    setLandmarkMedia((prev) => [
+      ...prev,
+      { file, url, kind: getMediaKindFromFile(file), trim },
+    ]);
+  }, []);
+
+  useEffect(() => {
+    if (activeTrim || trimQueue.length === 0) return;
+    const [next, ...rest] = trimQueue;
+    setTrimQueue(rest);
+    setActiveTrim(next);
+    setTrimStart(0);
+    setTrimEnd(Math.min(next.duration, MAX_VIDEO_SECONDS));
+  }, [activeTrim, trimQueue]);
+
+  useEffect(() => {
+    if (!activeTrim) {
+      if (trimPreviewUrlRef.current) {
+        try {
+          URL.revokeObjectURL(trimPreviewUrlRef.current);
+        } catch {}
+        trimPreviewUrlRef.current = null;
+      }
+      setTrimPreviewUrl((prev) => (prev ? null : prev));
       return;
     }
-    setLandmarkPhotos((prev) => [...prev, ...toAdd]);
-    setLandmarkPreviewUrls((prev) => [
-      ...prev,
-      ...toAdd.map((f) => URL.createObjectURL(f)),
-    ]);
+    const url = URL.createObjectURL(activeTrim.file);
+    if (trimPreviewUrlRef.current) {
+      try {
+        URL.revokeObjectURL(trimPreviewUrlRef.current);
+      } catch {}
+    }
+    trimPreviewUrlRef.current = url;
+    setTrimPreviewUrl(url);
+    return () => {
+      if (trimPreviewUrlRef.current === url) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+        trimPreviewUrlRef.current = null;
+      }
+    };
+  }, [activeTrim]);
+
+  const clampTrim = useCallback(
+    (start: number, end: number, duration: number) => {
+      const safeDuration = Math.max(0, duration || 0);
+      const s = Math.max(0, Math.min(start, safeDuration));
+      let e = Math.max(0, Math.min(end, safeDuration));
+      if (e - s > MAX_VIDEO_SECONDS) {
+        e = Math.min(s + MAX_VIDEO_SECONDS, safeDuration);
+      }
+      if (e < s) e = s;
+      return { s, e };
+    },
+    []
+  );
+
+  const onTrimStartChange = useCallback(
+    (value: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(value, trimEnd, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim, trimEnd]
+  );
+
+  const onTrimEndChange = useCallback(
+    (value: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(trimStart, value, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim, trimStart]
+  );
+
+  const confirmTrim = useCallback(() => {
+    if (!activeTrim) return;
+    const info: TrimInfo = {
+      start: trimStart,
+      end: trimEnd,
+      duration: activeTrim.duration,
+    };
+    if (activeTrim.target === "main") {
+      setMainMedia(activeTrim.file, "video", info);
+    } else {
+      addLandmarkMedia(activeTrim.file, info);
+    }
+    setActiveTrim(null);
+  }, [activeTrim, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
+
+  const cancelTrim = useCallback(() => {
+    if (!activeTrim) return;
+    if (activeTrim.target === "main") {
+      try {
+        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
+      } catch {}
+      clearMainMedia();
+    }
+    setActiveTrim(null);
+  }, [activeTrim, clearMainMedia]);
+
+  const isAllowedVideo = useCallback((file: File) => {
+    const name = file.name.toLowerCase();
+    const allowedExt =
+      name.endsWith(".mp4") || name.endsWith(".mov") || name.endsWith(".webm");
+    const allowedType =
+      file.type === "video/mp4" ||
+      file.type === "video/quicktime" ||
+      file.type === "video/webm";
+    return allowedExt || allowedType;
+  }, []);
+
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      clearMainMedia();
+      return;
+    }
+    clearMainMedia();
+    const isVideo = isVideoFile(file);
+    if (isVideo) {
+      if (!isAllowedVideo(file)) {
+        showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+        clearMainMedia();
+        return;
+      }
+      if (file.size > MAX_VIDEO_BYTES) {
+        showToast("error", "Each video must be under 100 MB.");
+        clearMainMedia();
+        return;
+      }
+      try {
+        const duration = await getVideoDuration(file);
+        if (duration > MAX_VIDEO_SECONDS) {
+          setTrimQueue((prev) => [
+            ...prev,
+            { file, duration, target: "main" },
+          ]);
+          return;
+        }
+        setMainMedia(file, "video", { start: 0, end: duration, duration });
+        return;
+      } catch {
+        showToast("error", "Unable to read video duration.");
+        clearMainMedia();
+        return;
+      }
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      showToast("error", "Each photo must be under 5 MB.");
+      clearMainMedia();
+      return;
+    }
+    setMainMedia(file, "image");
+  };
+
+  // Landmark media handlers (match quick report)
+  const handleLandmarkPhotosChange = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const existing = landmarkMedia.length;
+    const available = Math.max(0, 5 - existing);
+    const toAdd = files.slice(0, available);
+
+    for (const file of toAdd) {
+      const isVideo = isVideoFile(file);
+      if (isVideo) {
+        if (!isAllowedVideo(file)) {
+          showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+          continue;
+        }
+        if (file.size > MAX_VIDEO_BYTES) {
+          showToast("error", "Each video must be under 100 MB.");
+          continue;
+        }
+        try {
+          const duration = await getVideoDuration(file);
+          if (duration > MAX_VIDEO_SECONDS) {
+            setTrimQueue((prev) => [
+              ...prev,
+              { file, duration, target: "landmark" },
+            ]);
+          } else {
+            addLandmarkMedia(file, { start: 0, end: duration, duration });
+          }
+        } catch {
+          showToast("error", "Unable to read video duration.");
+        }
+      } else {
+        if (file.size > MAX_IMAGE_BYTES) {
+          showToast("error", "Each photo must be under 5 MB.");
+          continue;
+        }
+        addLandmarkMedia(file);
+      }
+    }
+
     try {
       (event.target as HTMLInputElement).value = "";
     } catch {}
     if (files.length > available) {
-      showToast("error", "You can upload up to 5 landmark photos.");
+      showToast("error", "You can upload up to 5 landmark items.");
     }
   };
 
   const removeLandmarkAt = (index: number) => {
-    if (index < 0 || index >= landmarkPhotos.length) return;
-    const nextFiles = landmarkPhotos.filter((_, i) => i !== index);
-    const nextUrls = landmarkPreviewUrls.filter((u, i) => {
-      if (i === index) {
+    if (index < 0 || index >= landmarkMedia.length) return;
+    setLandmarkMedia((prev) => {
+      const target = prev[index];
+      const next = prev.filter((_, i) => i !== index);
+      if (target?.url) {
         try {
-          URL.revokeObjectURL(u);
+          URL.revokeObjectURL(target.url);
         } catch {}
-        return false;
       }
-      return true;
+      return next;
     });
-    setLandmarkPhotos(nextFiles);
-    setLandmarkPreviewUrls(nextUrls);
-    if (nextFiles.length === 0) {
+    if (landmarkMedia.length === 1) {
       if (landmarkInputRef.current) landmarkInputRef.current.value = "";
       if (landmarkInputMobileRef.current)
         landmarkInputMobileRef.current.value = "";
@@ -364,10 +591,9 @@ function ReportFormPageInner() {
 
   const clearLandmarkPhotos = () => {
     try {
-      landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+      landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
     } catch {}
-    setLandmarkPhotos([]);
-    setLandmarkPreviewUrls([]);
+    setLandmarkMedia([]);
     if (landmarkInputRef.current) landmarkInputRef.current.value = "";
     if (landmarkInputMobileRef.current)
       landmarkInputMobileRef.current.value = "";
@@ -377,10 +603,10 @@ function ReportFormPageInner() {
     return () => {
       if (reportPhotoPreviewUrl) URL.revokeObjectURL(reportPhotoPreviewUrl);
       try {
-        landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+        landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
       } catch {}
     };
-  }, [reportPhotoPreviewUrl, landmarkPreviewUrls]);
+  }, [reportPhotoPreviewUrl, landmarkMedia]);
 
   // Keep the helper checkboxes in sync with the selected condition
   useEffect(() => {
@@ -469,6 +695,29 @@ function ReportFormPageInner() {
     }
   }, [anonymous, reporterName, contact, userName, userEmail]);
 
+  const uploadProcessedVideo = async (
+    file: File,
+    target: "reports" | "reports/landmarks",
+    trim?: TrimInfo | null
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("target", target);
+    if (trim) {
+      form.append("trimStart", String(trim.start));
+      form.append("trimEnd", String(trim.end));
+    }
+    const res = await fetch("/api/media/ingest", {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.path) {
+      throw new Error(data?.error || "Video upload failed");
+    }
+    return data.path as string;
+  };
+
   const handleSubmitReport = useCallback(async () => {
     const supabase = getSupabaseClient();
     setReportStatus("submitting");
@@ -476,45 +725,74 @@ function ReportFormPageInner() {
     let uploadedPhotoPath: string | null = null;
     let uploadedLandmarkPaths: string[] = [];
     if (reportPhoto) {
-      const fileExt = reportPhoto.name.split(".").pop()?.toLowerCase() ?? "";
-      const uniqueFileName = `${crypto.randomUUID()}${
-        fileExt ? `.${fileExt}` : ""
-      }`;
-      const filePath = `reports/${uniqueFileName}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(PET_MEDIA_BUCKET)
-        .upload(filePath, reportPhoto, { cacheControl: "3600", upsert: false });
-
-      if (uploadError) {
-        console.error(
-          "Failed to upload report photo",
-          uploadError.message ?? uploadError
-        );
-        setReportStatus("error");
-        return;
-      }
-      uploadedPhotoPath = uploadData?.path ?? filePath;
-    }
-
-    // Upload landmark photos (max 5)
-    if (landmarkPhotos.length > 0) {
-      const paths: string[] = [];
-      for (const file of landmarkPhotos.slice(0, 5)) {
-        const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "";
-        const uniqueFileName = `${crypto.randomUUID()}${
-          fileExt ? `.${fileExt}` : ""
-        }`;
-        const filePath = `reports/landmarks/${uniqueFileName}`;
-        const { data: up, error: err } = await supabase.storage
-          .from(PET_MEDIA_BUCKET)
-          .upload(filePath, file, { cacheControl: "3600", upsert: false });
-        if (err) {
-          console.error("Failed to upload landmark photo", err.message ?? err);
+      if (reportPhotoKind === "video") {
+        try {
+          uploadedPhotoPath = await uploadProcessedVideo(
+            reportPhoto,
+            "reports",
+            reportPhotoTrim
+          );
+        } catch (err) {
+          console.error("Failed to upload report video", err);
           setReportStatus("error");
           return;
         }
-        paths.push(up?.path ?? filePath);
+      } else {
+        const fileExt = reportPhoto.name.split(".").pop()?.toLowerCase() ?? "";
+        const uniqueFileName = `${crypto.randomUUID()}${
+          fileExt ? `.${fileExt}` : ""
+        }`;
+        const filePath = `reports/${uniqueFileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(PET_MEDIA_BUCKET)
+          .upload(filePath, reportPhoto, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) {
+          console.error(
+            "Failed to upload report photo",
+            uploadError.message ?? uploadError
+          );
+          setReportStatus("error");
+          return;
+        }
+        uploadedPhotoPath = uploadData?.path ?? filePath;
+      }
+    }
+
+    // Upload landmark media (max 5)
+    if (landmarkMedia.length > 0) {
+      const paths: string[] = [];
+      for (const item of landmarkMedia.slice(0, 5)) {
+        if (item.kind === "video") {
+          try {
+            const path = await uploadProcessedVideo(
+              item.file,
+              "reports/landmarks",
+              item.trim
+            );
+            paths.push(path);
+          } catch (err) {
+            console.error("Failed to upload landmark video", err);
+            setReportStatus("error");
+            return;
+          }
+        } else {
+          const fileExt = item.file.name.split(".").pop()?.toLowerCase() ?? "";
+          const uniqueFileName = `${crypto.randomUUID()}${
+            fileExt ? `.${fileExt}` : ""
+          }`;
+          const filePath = `reports/landmarks/${uniqueFileName}`;
+          const { data: up, error: err } = await supabase.storage
+            .from(PET_MEDIA_BUCKET)
+            .upload(filePath, item.file, { cacheControl: "3600", upsert: false });
+          if (err) {
+            console.error("Failed to upload landmark photo", err.message ?? err);
+            setReportStatus("error");
+            return;
+          }
+          paths.push(up?.path ?? filePath);
+        }
       }
       uploadedLandmarkPaths = paths;
     }
@@ -572,19 +850,14 @@ function ReportFormPageInner() {
       setReportLocation("");
       setReportPhoto(null);
       setReportPhotoName("");
+      setReportPhotoKind(null);
+      setReportPhotoTrim(null);
       if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
       if (reportPhotoPreviewUrl) {
         URL.revokeObjectURL(reportPhotoPreviewUrl);
         setReportPhotoPreviewUrl(null);
       }
-      // Clear landmark previews
-      if (landmarkPreviewUrls.length) {
-        try {
-          landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
-        } catch {}
-      }
-      setLandmarkPhotos([]);
-      setLandmarkPreviewUrls([]);
+      clearLandmarkPhotos();
       // Reset all form fields to defaults
       setPetName("");
       setSpecies("");
@@ -617,10 +890,11 @@ function ReportFormPageInner() {
     reportDescription,
     reportLocation,
     reportPhoto,
+    reportPhotoKind,
+    reportPhotoTrim,
     reportPhotoPreviewUrl,
     reportType,
-    landmarkPhotos,
-    landmarkPreviewUrls,
+    landmarkMedia,
     reportLat,
     reportLng,
     petName,
@@ -636,6 +910,8 @@ function ReportFormPageInner() {
     aggressiveFlag,
     friendly,
     when,
+    clearLandmarkPhotos,
+    uploadProcessedVideo,
   ]);
 
   const isFormValid = isCruelty
@@ -699,11 +975,11 @@ function ReportFormPageInner() {
                 htmlFor="report-photo-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  id="report-photo-mobile"
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    className="hidden"
+                    id="report-photo-mobile"
                   onChange={handlePhotoChange}
                   ref={reportPhotoInputRef}
                 />
@@ -720,7 +996,7 @@ function ReportFormPageInner() {
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
-                        : "Upload one or more photos"}
+                        : "Upload photo or video"}
                     </span>
                     <div className="mt-2">
                       <div
@@ -734,14 +1010,23 @@ function ReportFormPageInner() {
                       </div>
                     </div>
                   </>
-                ) : (
-                  <div className="relative h-full w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={reportPhotoPreviewUrl}
-                      alt="Selected photo preview"
-                      className="h-full w-full object-cover rounded-xl"
-                    />
+                  ) : (
+                    <div className="relative h-full w-full">
+                      {reportPhotoKind === "video" ? (
+                        <video
+                          src={reportPhotoPreviewUrl}
+                          className="h-full w-full object-cover rounded-xl"
+                          controls
+                          playsInline
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={reportPhotoPreviewUrl}
+                          alt="Selected photo preview"
+                          className="h-full w-full object-cover rounded-xl"
+                        />
+                      )}
                     <button
                       type="button"
                       aria-label="Remove photo"
@@ -755,14 +1040,7 @@ function ReportFormPageInner() {
                         e.stopPropagation();
                         if (reportPhotoInputRef.current)
                           reportPhotoInputRef.current.value = "";
-                        setReportPhoto(null);
-                        if (reportPhotoPreviewUrl) {
-                          try {
-                            URL.revokeObjectURL(reportPhotoPreviewUrl);
-                          } catch {}
-                        }
-                        setReportPhotoPreviewUrl(null);
-                        setReportPhotoName("");
+                        clearMainMedia();
                       }}
                     >
                       Remove
@@ -777,16 +1055,16 @@ function ReportFormPageInner() {
                 htmlFor="report-landmarks-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                   className="hidden"
                   id="report-landmarks-mobile"
                   onChange={handleLandmarkPhotosChange}
                   ref={landmarkInputMobileRef}
                 />
-                {landmarkPreviewUrls.length === 0 ? (
+                {landmarkMedia.length === 0 ? (
                   <>
                     <MapPinHouse
                       size={30}
@@ -797,7 +1075,7 @@ function ReportFormPageInner() {
                       }}
                     />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      Upload landmark photos (up to 5)
+                      Upload landmark media (up to 5)
                     </span>
                     <div className="mt-2">
                       <div
@@ -814,7 +1092,10 @@ function ReportFormPageInner() {
                 ) : (
                   <div className="relative h-full w-full">
                     <LandmarkCarousel
-                      urls={landmarkPreviewUrls}
+                      items={landmarkMedia.map((item) => ({
+                        url: item.url,
+                        kind: item.kind,
+                      }))}
                       onRemove={(idx) => removeLandmarkAt(idx)}
                       onClearAll={() => clearLandmarkPhotos()}
                       onAdd={() => landmarkInputMobileRef.current?.click()}
@@ -831,11 +1112,11 @@ function ReportFormPageInner() {
                 htmlFor="report-photo"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  id="report-photo"
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    className="hidden"
+                    id="report-photo"
                   onChange={handlePhotoChange}
                   ref={reportPhotoInputRef}
                 />
@@ -852,7 +1133,7 @@ function ReportFormPageInner() {
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
-                        : "Upload photo of the pet"}
+                        : "Upload photo or video of the pet"}
                     </span>
                     {!reportPhotoName && prevPhotoName && (
                       <span className="mt-1 block text-xs ink-subtle">
@@ -871,14 +1152,23 @@ function ReportFormPageInner() {
                       </div>
                     </div>
                   </>
-                ) : (
-                  <div className="relative h-full w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={reportPhotoPreviewUrl!}
-                      alt="Selected photo preview"
-                      className="h-full w-full object-cover rounded-xl"
-                    />
+                  ) : (
+                    <div className="relative h-full w-full">
+                      {reportPhotoKind === "video" ? (
+                        <video
+                          src={reportPhotoPreviewUrl!}
+                          className="h-full w-full object-cover rounded-xl"
+                          controls
+                          playsInline
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={reportPhotoPreviewUrl!}
+                          alt="Selected photo preview"
+                          className="h-full w-full object-cover rounded-xl"
+                        />
+                      )}
                     <button
                       type="button"
                       aria-label="Remove photo"
@@ -892,14 +1182,7 @@ function ReportFormPageInner() {
                         e.stopPropagation();
                         if (reportPhotoInputRef.current)
                           reportPhotoInputRef.current.value = "";
-                        setReportPhoto(null);
-                        if (reportPhotoPreviewUrl) {
-                          try {
-                            URL.revokeObjectURL(reportPhotoPreviewUrl);
-                          } catch {}
-                        }
-                        setReportPhotoPreviewUrl(null);
-                        setReportPhotoName("");
+                        clearMainMedia();
                       }}
                     >
                       Remove
@@ -913,16 +1196,16 @@ function ReportFormPageInner() {
                 htmlFor="report-landmarks"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                   className="hidden"
                   id="report-landmarks"
                   onChange={handleLandmarkPhotosChange}
                   ref={landmarkInputRef}
                 />
-                {landmarkPreviewUrls.length === 0 ? (
+                {landmarkMedia.length === 0 ? (
                   <>
                     <MapPinHouse
                       size={36}
@@ -933,7 +1216,7 @@ function ReportFormPageInner() {
                       }}
                     />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      Upload landmark photos (up to 5)
+                      Upload landmark media (up to 5)
                     </span>
                     <div className="mt-2">
                       <div
@@ -950,7 +1233,10 @@ function ReportFormPageInner() {
                 ) : (
                   <div className="relative h-full w-full">
                     <LandmarkCarousel
-                      urls={landmarkPreviewUrls}
+                      items={landmarkMedia.map((item) => ({
+                        url: item.url,
+                        kind: item.kind,
+                      }))}
                       onRemove={(idx) => removeLandmarkAt(idx)}
                       onClearAll={() => clearLandmarkPhotos()}
                       onAdd={() => landmarkInputRef.current?.click()}
@@ -1526,6 +1812,19 @@ function ReportFormPageInner() {
             )
           : null}
       </div>
+      <VideoTrimModal
+        open={!!activeTrim}
+        fileName={activeTrim?.file?.name ?? null}
+        fileUrl={trimPreviewUrl}
+        duration={activeTrim?.duration ?? 0}
+        start={trimStart}
+        end={trimEnd}
+        maxDuration={MAX_VIDEO_SECONDS}
+        onChangeStart={onTrimStartChange}
+        onChangeEnd={onTrimEndChange}
+        onConfirm={confirmTrim}
+        onCancel={cancelTrim}
+      />
     </main>
   );
 }
@@ -1539,21 +1838,21 @@ export default function ReportFormPage() {
 }
 
 function LandmarkCarousel({
-  urls,
+  items,
   onRemove,
   onClearAll,
   onAdd,
 }: {
-  urls: string[];
+  items: { url: string; kind: "image" | "video" }[];
   onRemove: (index: number) => void;
   onClearAll: () => void;
   onAdd?: () => void;
 }) {
   const [index, setIndex] = useState(0);
-  const count = urls.length;
+  const count = items.length;
   const current = useMemo(
-    () => (count ? urls[Math.min(index, count - 1)] : null),
-    [urls, index, count]
+    () => (count ? items[Math.min(index, count - 1)] : null),
+    [items, index, count]
   );
   useEffect(() => {
     if (index > count - 1) setIndex(Math.max(0, count - 1));
@@ -1569,14 +1868,23 @@ function LandmarkCarousel({
   return (
     <div className="relative h-full w-full">
       {/* image */}
-      {current && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={current}
-          alt={`landmark ${index + 1} of ${count}`}
-          className="h-full w-full object-cover rounded-xl"
-        />
-      )}
+      {current ? (
+        current.kind === "video" ? (
+          <video
+            src={current.url}
+            className="h-full w-full object-cover rounded-xl"
+            controls
+            playsInline
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={current.url}
+            alt={`landmark ${index + 1} of ${count}`}
+            className="h-full w-full object-cover rounded-xl"
+          />
+        )
+      ) : null}
       {/* arrows */}
       {count > 1 && (
         <>
@@ -1630,13 +1938,13 @@ function LandmarkCarousel({
             background: "var(--white)",
             border: "1px solid var(--border-color)",
           }}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAdd();
-          }}
-          aria-label="Add more photos"
-        >
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onAdd();
+        }}
+        aria-label="Add more media"
+      >
           +
         </button>
       )}

@@ -1,0 +1,271 @@
+PAWSAGIP USER WORKFLOW WITH INPUTS AND CONDITIONS
+================================================
+
+Purpose:
+This version shows the user workflow plus the common inputs, decisions/conditions, and outcomes.
+
+LEGEND
+- Input (R) = Required
+- Input (O) = Optional
+- Condition = Decision/check that changes the path
+- Output = Result after the step
+
+[START]
+   |
+   v
+[User opens PawSagip]
+Input:
+- None
+Condition:
+- Internet connection available?
+  - Yes -> continue
+  - No -> app cannot load properly
+Output:
+- User reaches homepage
+
+   |
+   v
+[Choose user goal]
+Condition:
+- What does the user want to do?
+  1. Report a case
+  2. Search/Browse alerts
+  3. Adopt a pet
+  4. Track my activity (Account)
+
+============================================================
+1) REPORT A CASE WORKFLOW (Lost / Found / Cruelty / Adoption)
+============================================================
+
+[Open Report Form]
+Input:
+- Report type (R): lost / found / cruelty / adoption
+Output:
+- Correct report form context shown
+
+   |
+   v
+[Fill report details]
+Input:
+- Description (R in practice / strongly expected)
+- Location text (R)
+- Condition/status of pet (O, e.g., healthy/injured)
+- Pet details (O): name, species, breed, gender, age/size, features
+- Event date/time (O)
+- Reporter name/contact (O or hidden if anonymous)
+- Coordinates / map pin (O but important)
+- Main photo/video (O)
+- Landmark photos/videos (O)
+- Anonymous flag (O)
+Condition:
+- Is required info present (report type + core description/location)?
+  - Yes -> continue
+  - No -> user must complete fields
+Output:
+- Report draft ready to submit
+
+   |
+   v
+[Media handling]
+Condition:
+- Did user attach media?
+  - No -> skip upload step
+  - Yes -> upload media before final report save
+Condition:
+- Is media valid (file type/size/duration)?
+  - Yes -> continue
+  - No -> show error and ask user to replace/remove file
+Output:
+- Media path(s) prepared (if any)
+
+   |
+   v
+[Submit report]
+Input:
+- Final report form payload + uploaded media paths
+Condition:
+- API validation passes?
+  - Yes -> report saved
+  - No -> show submission error
+Output:
+- Report created successfully
+- Alert can appear in community feed (depending on app/admin handling)
+
+   |
+   v
+[Post-submit user actions]
+Output:
+- User can monitor feed, responses, or account updates
+- Community/responders can view and act on the report
+
+============================================================
+2) SEARCH / BROWSE ALERTS WORKFLOW
+============================================================
+
+[Search for pet/case]
+Input:
+- Search keyword (R for search flow)
+  Examples: pet name, area/barangay, case type
+Condition:
+- Query length sufficient?
+  - Yes -> search runs
+  - No -> minimal/no results shown
+Output:
+- Grouped results (Alerts / Adoption)
+
+   |
+   v
+[Browse alert feed]
+Input:
+- Filter selection (O): all/lost/found/cruelty/adoption
+Condition:
+- Data available?
+  - Yes -> list shown
+  - No -> empty state shown
+Output:
+- User sees available alerts/cases
+
+   |
+   v
+[Open alert details]
+Input:
+- User selects an alert card/result
+Condition:
+- Alert has coordinates?
+  - Yes -> show map/navigation option
+  - No -> hide/disable map navigation
+Condition:
+- Alert has contact details?
+  - Yes -> show contact option
+  - No -> limited contact actions
+Output:
+- User can review details and decide to respond/help
+
+============================================================
+3) ADOPTION WORKFLOW (USER/APPLICANT SIDE)
+============================================================
+
+[Browse Adoption Center]
+Input:
+- Filter (O): dog/cat/all
+- Sort (O): newest/nearest (or available options)
+Condition:
+- Adoptable pets available?
+  - Yes -> show pet listings
+  - No -> empty state shown
+Output:
+- User finds possible pets to adopt
+
+   |
+   v
+[Open pet profile]
+Input:
+- Selected pet listing
+Output:
+- Pet details displayed (status/info/media)
+
+   |
+   v
+[Start adoption application]
+Input:
+- Terms acknowledgment (R)
+Condition:
+- Terms accepted?
+  - Yes -> continue to form
+  - No -> cannot submit application
+Output:
+- Application form unlocked
+
+   |
+   v
+[Fill application form]
+Input:
+- Applicant info (mostly R): name, address, phone/email
+- Personal/background info (varies)
+- Questionnaire answers (R for full submission)
+- Home/environment details (R/expected)
+- Uploaded photos/docs (O or required by process depending on form rules)
+Condition:
+- Minimum required fields present?
+  - Yes -> continue
+  - No -> prompt user to complete missing fields
+Output:
+- Application ready to submit
+
+   |
+   v
+[Submit adoption application]
+Condition:
+- Server validation passes?
+  - Yes -> application stored (status typically pending)
+  - No -> show error and keep form for correction
+Output:
+- Applicant receives success state / pending review status
+
+   |
+   v
+[Wait for review / updates]
+Output:
+- Barangay/admin/shelter side reviews and updates status
+- User checks account for progress/decision
+
+============================================================
+4) ACCOUNT / TRACK MY ACTIVITY WORKFLOW
+============================================================
+
+[Open Login / Account]
+Condition:
+- User logged in?
+  - Yes -> open account dashboard
+  - No -> prompt login/signup
+Output:
+- Authenticated access to personal records
+
+   |
+   v
+[View personal activity]
+Output:
+- My reports list
+- My adoption applications list
+- Status/progress updates (if available)
+
+============================================================
+CROSS-CUTTING CONDITIONS (APPLIES TO MULTIPLE FLOWS)
+============================================================
+
+[Location / Geolocation]
+Condition:
+- User allows location permission?
+  - Yes -> app may show distance/nearby relevance
+  - No -> app still works, but no distance-based display for user
+
+[Realtime updates]
+Condition:
+- Realtime/data connection available?
+  - Yes -> new alerts may appear live
+  - No -> user sees last loaded data / manual refresh behavior
+
+[Media uploads]
+Condition:
+- Upload succeeds?
+  - Yes -> media attached to submission
+  - No -> user may retry or submit without media (depends on form rule)
+
+[Emergency/response action]
+Condition:
+- Case includes hotline/contact/map data?
+  - Yes -> quick action buttons available
+  - No -> limited actions available
+
+============================================================
+END RESULT (USER IDEA)
+============================================================
+
+PawSagip supports a complete community user loop:
+- Report pet-related cases
+- Search and monitor alerts
+- Coordinate response actions
+- Apply for adoption
+- Track personal submissions and updates
+
+[END / CONTINUOUS COMMUNITY WORKFLOW]

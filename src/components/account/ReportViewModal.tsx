@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight, CircleX } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
+import { isVideoUrl } from "@/lib/media";
 import type { PetStatus } from "@/types/app";
 
 export type ReportViewData = {
@@ -93,6 +94,9 @@ const GENDER_OPTIONS = ["Unknown", "Male", "Female"] as const;
 function normalizeSpecies(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
+function isOtherSpecies(value?: string | null) {
+  return /^others?(?:\b|;)/.test(normalizeSpecies(value));
+}
 function getAgeOptions(species: string | undefined | null) {
   const s = normalizeSpecies(species);
   if (s === "dog") return ["Puppy", "Adult", "Senior"] as const;
@@ -121,6 +125,7 @@ function toLocalInput(value?: string | null): string {
 
 function petEmojiFor(species?: string | null) {
   const s = normalizeSpecies(species);
+  if (isOtherSpecies(species)) return "🐾";
   if (s.includes("dog")) return "🐶";
   if (s.includes("cat")) return "🐱";
   return "🐾";
@@ -128,6 +133,9 @@ function petEmojiFor(species?: string | null) {
 
 function petFallbackBackground(species?: string | null): string {
   const s = normalizeSpecies(species);
+  if (isOtherSpecies(species)) {
+    return "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)";
+  }
   if (s.includes("dog")) {
     return "radial-gradient(circle at 50% 50%, #F8ECD9 0%, #EED9C2 45%, #DDBC9F 100%)";
   }
@@ -996,23 +1004,32 @@ export default function ReportViewModal({
                       >
                         {/* main photo */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {effectiveData?.mainUrl && !mainBroken ? (
-                          <img
-                            src={effectiveData.mainUrl}
-                            alt="report"
-                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewer({
-                                urls: [effectiveData.mainUrl as string],
-                                index: 0,
-                              });
-                            }}
-                            loading="lazy"
-                            decoding="async"
-                            onError={() => setMainBroken(true)}
-                          />
-                        ) : (
+                          {effectiveData?.mainUrl && !mainBroken ? (
+                            isVideoUrl(effectiveData.mainUrl) ? (
+                              <video
+                                src={effectiveData.mainUrl}
+                                className="absolute inset-0 h-full w-full object-cover"
+                                controls
+                                playsInline
+                              />
+                            ) : (
+                              <img
+                                src={effectiveData.mainUrl}
+                                alt="report"
+                                className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewer({
+                                    urls: [effectiveData.mainUrl as string],
+                                    index: 0,
+                                  });
+                                }}
+                                loading="lazy"
+                                decoding="async"
+                                onError={() => setMainBroken(true)}
+                              />
+                            )
+                          ) : (
                           <div
                             className="absolute inset-0 grid place-content-center text-6xl"
                             style={{
@@ -1030,33 +1047,42 @@ export default function ReportViewModal({
                         style={{ aspectRatio: "4 / 3" }}
                       >
                         {/* landmark carousel */}
-                        {currentLm && !lmBrokenBySrc[currentLm] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={currentLm}
-                            alt={`landmark ${Math.min(
-                              lmIndex + 1,
-                              lmCount
-                            )} of ${lmCount}`}
-                            className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewer({
-                                urls: displayLandmarks,
-                                index: Math.min(lmIndex, lmCount - 1),
-                              });
-                            }}
-                            loading="lazy"
-                            decoding="async"
-                            onError={() =>
-                              setLmBrokenBySrc((prev) =>
-                                currentLm
-                                  ? { ...prev, [currentLm]: true }
-                                  : prev
-                              )
-                            }
-                          />
-                        ) : (
+                          {currentLm && !lmBrokenBySrc[currentLm] ? (
+                            isVideoUrl(currentLm) ? (
+                              <video
+                                src={currentLm}
+                                className="absolute inset-0 h-full w-full object-cover"
+                                controls
+                                playsInline
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={currentLm}
+                                alt={`landmark ${Math.min(
+                                  lmIndex + 1,
+                                  lmCount
+                                )} of ${lmCount}`}
+                                className="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewer({
+                                    urls: displayLandmarks,
+                                    index: Math.min(lmIndex, lmCount - 1),
+                                  });
+                                }}
+                                loading="lazy"
+                                decoding="async"
+                                onError={() =>
+                                  setLmBrokenBySrc((prev) =>
+                                    currentLm
+                                      ? { ...prev, [currentLm]: true }
+                                      : prev
+                                  )
+                                }
+                              />
+                            )
+                          ) : (
                           <div
                             className="absolute inset-0 grid place-content-center text-6xl"
                             style={{
@@ -1289,15 +1315,33 @@ export default function ReportViewModal({
                 </>
               )}
               <div className="relative z-[81] grid place-items-center w-full h-full p-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]
-                  }
-                  alt="Full size"
-                  className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                />
+                {isVideoUrl(
+                  viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]
+                ) ? (
+                  <video
+                    src={
+                      viewer.urls[
+                        Math.min(viewer.index, viewer.urls.length - 1)
+                      ]
+                    }
+                    className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+                    controls
+                    playsInline
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      viewer.urls[
+                        Math.min(viewer.index, viewer.urls.length - 1)
+                      ]
+                    }
+                    alt="Full size"
+                    className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
               </div>
             </div>
           )}

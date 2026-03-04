@@ -227,14 +227,28 @@ function emojiTheme(emoji?: string | null): EmojiTheme | null {
   return EMOJI_THEME_MAP[normalizeEmoji(emoji)] ?? null;
 }
 
+function isOtherSpecies(value?: string | null) {
+  return /^others?(?:\b|;)/.test((value ?? "").trim().toLowerCase());
+}
+
 function petFallbackTheme(kind?: string | null) {
   const value = (kind || "").toLowerCase();
+  if (isOtherSpecies(value)) return null;
   if (value.includes("dog")) return DOG_FALLBACK;
   if (value.includes("cat")) return CAT_FALLBACK;
   return null;
 }
 
 function speciesHint(a: Alert): "dog" | "cat" | "" {
+  const directValues = [
+    (a as any).animal,
+    (a as any).pet_kind,
+    (a as any).petType,
+    (a as any).species,
+    (a as any).kind,
+    (a as any).title,
+  ].filter((value): value is string => typeof value === "string");
+  if (directValues.some((value) => isOtherSpecies(value))) return "";
   const raw = [
     (a as any).animal,
     (a as any).pet_kind,

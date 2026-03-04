@@ -24,6 +24,7 @@ import { useEffect } from "react";
 import { showToast } from "@/lib/toast";
 import { useMemo } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { SPECIES_SUGGESTIONS } from "@/constants/species";
 
 type ReportSectionProps = {
   reportType: Exclude<AlertType, "all">;
@@ -51,28 +52,15 @@ type ReportSectionProps = {
   ) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
   reportPhotoPreviewUrl: string | null;
+  reportPhotoKind?: "image" | "video" | null;
   // Landmark photos (multiple)
-  landmarkPreviewUrls: string[];
+  landmarkMedia: { url: string; kind: "image" | "video" }[];
   handleLandmarkPhotosChange: (event: ChangeEvent<HTMLInputElement>) => void;
   removeLandmarkAt: (index: number) => void;
   clearLandmarkPhotos: () => void;
   landmarkInputRef: RefObject<HTMLInputElement>;
   landmarkInputMobileRef: RefObject<HTMLInputElement>;
 };
-
-const SPECIES_SUGGESTIONS = [
-  "Dog",
-  "Cat",
-  "Bird",
-  "Rabbit",
-  "Hamster",
-  "Guinea Pig",
-  "Fish",
-  "Turtle",
-  "Snake",
-  "Lizard",
-  "Other",
-] as const;
 
 export function ReportSection({
   reportType,
@@ -92,7 +80,8 @@ export function ReportSection({
   handleSubmitReport,
   reportPhotoInputRef,
   reportPhotoPreviewUrl,
-  landmarkPreviewUrls,
+  reportPhotoKind,
+  landmarkMedia,
   handleLandmarkPhotosChange,
   removeLandmarkAt,
   clearLandmarkPhotos,
@@ -101,6 +90,7 @@ export function ReportSection({
 }: ReportSectionProps) {
   // Local UI state for the quick form and modal behavior
   const [qSpecies, setQSpecies] = useState("");
+  const [qSpeciesOther, setQSpeciesOther] = useState("");
   const [qWhen, setQWhen] = useState("");
   const [qContact, setQContact] = useState("");
   const [qAggressive, setQAggressive] = useState(false);
@@ -135,6 +125,28 @@ export function ReportSection({
 
   // Derived flags
   const isCruelty = reportType === "cruelty";
+  const speciesValue = qSpecies.trim();
+  const speciesKey = speciesValue.toLowerCase();
+  const isOtherSpecies = speciesKey === "other" || speciesKey === "others";
+  const otherSpeciesValue = qSpeciesOther.trim();
+  const requiresOtherSpecies = !isCruelty && isOtherSpecies;
+  const isSpeciesMissing = !isCruelty && !speciesValue;
+  const isOtherSpeciesMissing = requiresOtherSpecies && !otherSpeciesValue;
+  const showSpeciesError = showQuickValidation
+    && (isSpeciesMissing || isOtherSpeciesMissing);
+  const effectiveSpecies = isOtherSpecies
+    ? otherSpeciesValue
+      ? `others;${otherSpeciesValue}`
+      : speciesValue
+    : speciesValue;
+  const speciesBorderStyle = {
+    border: "1px solid var(--border-color)",
+    ...(showSpeciesError ? { borderColor: "var(--primary-red)" } : {}),
+  } as React.CSSProperties;
+  const speciesDividerStyle = {
+    width: 1,
+    background: showSpeciesError ? "var(--primary-red)" : "var(--border-color)",
+  } as React.CSSProperties;
 
   const getTipContent = (key: "aggressive" | "friendly" | "anonymous") => {
     switch (key) {
@@ -395,7 +407,7 @@ export function ReportSection({
     try {
       const draft = {
         type: reportType,
-        species: qSpecies,
+        species: effectiveSpecies,
         location: reportLocation,
         when: qWhen,
         feature: reportDescription,
@@ -415,6 +427,8 @@ export function ReportSection({
     qAnon,
     qContact,
     qSpecies,
+    qSpeciesOther,
+    effectiveSpecies,
     qWhen,
     reportDescription,
     reportLocation,
@@ -451,6 +465,7 @@ export function ReportSection({
         setReportCondition("Healthy");
       } catch {}
       setQSpecies("");
+      setQSpeciesOther("");
       setQWhen("");
       setQContact("");
       setQAggressive(false);
@@ -488,7 +503,11 @@ export function ReportSection({
       const formValid = isCruelty
         ? Boolean(reportLocation.trim() && reportDescription.trim())
         : Boolean(
-            reportType && qSpecies.trim() && reportLocation.trim() && qWhen.trim()
+            reportType
+              && speciesValue
+              && reportLocation.trim()
+              && qWhen.trim()
+              && (!requiresOtherSpecies || otherSpeciesValue)
           );
       if (!formValid) {
         setShowQuickValidation(true);
@@ -498,7 +517,7 @@ export function ReportSection({
       // without altering the API. We only do this if the description is empty.
       if (!reportDescription.trim() && !isCruelty) {
         const parts = [
-          qSpecies ? `Species: ${qSpecies}` : "",
+          effectiveSpecies ? `Species: ${effectiveSpecies}` : "",
           qWhen ? `When: ${qWhen}` : "",
           qAnon ? "(Submitted anonymously)" : "",
         ].filter(Boolean);
@@ -513,7 +532,7 @@ export function ReportSection({
       const reporterName = qAnon ? null : userName || null;
       const toPetStatus = (label: string): PetStatus =>
         label.trim().toLowerCase() === "in custody" ? "in_custody" : "roaming";
-      handleSubmitReport(qSpecies, {
+      handleSubmitReport(effectiveSpecies, {
         reporterContact,
         reporterName,
         isAnonymous: qAnon,
@@ -525,6 +544,7 @@ export function ReportSection({
       qAnon,
       qContact,
       qSpecies,
+      qSpeciesOther,
       qWhen,
       reportDescription,
       setReportDescription,
@@ -533,6 +553,10 @@ export function ReportSection({
       isCruelty,
       userEmail,
       userName,
+      effectiveSpecies,
+      requiresOtherSpecies,
+      otherSpeciesValue,
+      speciesValue,
     ]
   );
 
@@ -540,7 +564,11 @@ export function ReportSection({
   const isQuickFormValid = isCruelty
     ? Boolean(reportLocation.trim() && reportDescription.trim())
     : Boolean(
-        reportType && qSpecies.trim() && reportLocation.trim() && qWhen.trim()
+        reportType
+          && speciesValue
+          && reportLocation.trim()
+          && qWhen.trim()
+          && (!requiresOtherSpecies || otherSpeciesValue)
       );
 
   const missingFields = [] as string[];
@@ -548,6 +576,10 @@ export function ReportSection({
   if (isCruelty) {
     if (!reportDescription.trim()) missingFields.push("Description");
   } else {
+    if (!speciesValue) missingFields.push("Species");
+    if (requiresOtherSpecies && !otherSpeciesValue) {
+      missingFields.push("Specify Pet");
+    }
     if (!qWhen.trim()) missingFields.push("When");
   }
 
@@ -573,7 +605,7 @@ export function ReportSection({
                 >
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
                     className="hidden"
                     id="report-photo-mobile"
                     onChange={handlePhotoChange}
@@ -592,7 +624,7 @@ export function ReportSection({
                       <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                         {reportPhotoName
                           ? `Selected: ${reportPhotoName}`
-                          : "Upload one or more photos"}
+                          : "Upload photo or video"}
                       </span>
                       <div className="mt-2">
                         <div
@@ -606,14 +638,23 @@ export function ReportSection({
                         </div>
                       </div>
                     </>
-                  ) : (
-                    <div className="relative h-full w-full">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={reportPhotoPreviewUrl}
-                        alt="Selected photo preview"
-                        className="h-full w-full object-cover rounded-xl"
-                      />
+                    ) : (
+                      <div className="relative h-full w-full">
+                        {reportPhotoKind === "video" ? (
+                          <video
+                            src={reportPhotoPreviewUrl}
+                            className="h-full w-full object-cover rounded-xl"
+                            controls
+                            playsInline
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={reportPhotoPreviewUrl}
+                            alt="Selected photo preview"
+                            className="h-full w-full object-cover rounded-xl"
+                          />
+                        )}
 
                       <button
                         type="button"
@@ -646,14 +687,14 @@ export function ReportSection({
                 >
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
                     multiple
                     className="hidden"
                     id="report-landmarks-mobile"
                     onChange={handleLandmarkPhotosChange}
                     ref={landmarkInputMobileRef}
                   />
-                  {landmarkPreviewUrls.length === 0 ? (
+                  {landmarkMedia.length === 0 ? (
                     <>
                       <MapPinHouse
                         size={30}
@@ -664,7 +705,7 @@ export function ReportSection({
                         }}
                       />
                       <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                        Upload landmark photos (up to 5)
+                        Upload landmark media (up to 5)
                       </span>
                       <div className="mt-2">
                         <div
@@ -682,7 +723,7 @@ export function ReportSection({
                     <div className="relative h-full w-full">
                       {/* Simple carousel: show current slide; use index in dataset */}
                       <LandmarkCarousel
-                        urls={landmarkPreviewUrls}
+                        items={landmarkMedia}
                         onRemove={(idx) => removeLandmarkAt(idx)}
                         onClearAll={() => clearLandmarkPhotos()}
                         onAdd={() => landmarkInputMobileRef.current?.click()}
@@ -714,16 +755,57 @@ export function ReportSection({
                 </label>
                 <label className="block text-sm">
                   Species
-                  <input
-                    list="species-options-mobile"
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    data-onboard="report-species"
-                    value={qSpecies}
-                    onChange={(e) => setQSpecies(e.target.value)}
-                    placeholder="Dog, Cat, Bird, etc."
-                    required={!isCruelty}
-                  />
+                  {isOtherSpecies ? (
+                    <div
+                      className="mt-1 flex items-stretch rounded-xl overflow-hidden"
+                      style={speciesBorderStyle}
+                    >
+                      <input
+                        list="species-options-mobile"
+                        className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                        style={{ border: "none" }}
+                        data-onboard="report-species"
+                        value={qSpecies}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setQSpecies(next);
+                          const key = next.trim().toLowerCase();
+                          if (key !== "other" && key !== "others") {
+                            setQSpeciesOther("");
+                          }
+                        }}
+                        placeholder="Dog, Cat, Bird, etc."
+                        required={!isCruelty}
+                      />
+                      <span aria-hidden="true" style={speciesDividerStyle} />
+                      <input
+                        className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                        style={{ border: "none" }}
+                        value={qSpeciesOther}
+                        onChange={(e) => setQSpeciesOther(e.target.value)}
+                        placeholder="Please specify the pet"
+                        required={requiresOtherSpecies}
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      list="species-options-mobile"
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      style={speciesBorderStyle}
+                      data-onboard="report-species"
+                      value={qSpecies}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setQSpecies(next);
+                        const key = next.trim().toLowerCase();
+                        if (key !== "other" && key !== "others") {
+                          setQSpeciesOther("");
+                        }
+                      }}
+                      placeholder="Dog, Cat, Bird, etc."
+                      required={!isCruelty}
+                    />
+                  )}
                   <datalist id="species-options-mobile">
                     {SPECIES_SUGGESTIONS.map((opt) => (
                       <option key={opt} value={opt} />
@@ -1037,11 +1119,11 @@ export function ReportSection({
                       htmlFor="report-photo"
                       style={{ border: "2px dashed var(--border-color)" }}
                     >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        id="report-photo"
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4,video/quicktime,video/webm"
+                      className="hidden"
+                      id="report-photo"
                         onChange={handlePhotoChange}
                         ref={reportPhotoInputRef}
                       />
@@ -1058,7 +1140,7 @@ export function ReportSection({
                           <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                             {reportPhotoName
                               ? `Selected: ${reportPhotoName}`
-                              : "Upload photo of the pet"}
+                              : "Upload photo or video of the pet"}
                           </span>
                           <div className="mt-2">
                             <div
@@ -1072,13 +1154,23 @@ export function ReportSection({
                             </div>
                           </div>
                         </>
-                      ) : (
-                        <div className="relative h-full w-full">
-                          <img
-                            src={reportPhotoPreviewUrl!}
-                            alt="Selected photo preview"
-                            className="h-full w-full object-cover rounded-xl"
-                          />
+                        ) : (
+                          <div className="relative h-full w-full">
+                            {reportPhotoKind === "video" ? (
+                              <video
+                                src={reportPhotoPreviewUrl!}
+                                className="h-full w-full object-cover rounded-xl"
+                                controls
+                                playsInline
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={reportPhotoPreviewUrl!}
+                                alt="Selected photo preview"
+                                className="h-full w-full object-cover rounded-xl"
+                              />
+                            )}
                           <button
                             type="button"
                             aria-label="Remove photo"
@@ -1105,16 +1197,16 @@ export function ReportSection({
                       htmlFor="report-landmarks"
                       style={{ border: "2px dashed var(--border-color)" }}
                     >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                         className="hidden"
                         id="report-landmarks"
                         onChange={handleLandmarkPhotosChange}
                         ref={landmarkInputRef}
                       />
-                      {landmarkPreviewUrls.length === 0 ? (
+                      {landmarkMedia.length === 0 ? (
                         <>
                           <MapPinHouse
                             size={36}
@@ -1125,7 +1217,7 @@ export function ReportSection({
                             }}
                           />
                           <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                            Upload landmark photos (up to 5)
+                            Upload landmark media (up to 5)
                           </span>
                           <div className="mt-2">
                             <div
@@ -1142,7 +1234,7 @@ export function ReportSection({
                       ) : (
                         <div className="relative h-full w-full">
                           <LandmarkCarousel
-                            urls={landmarkPreviewUrls}
+                            items={landmarkMedia}
                             onRemove={(idx) => removeLandmarkAt(idx)}
                             onClearAll={() => clearLandmarkPhotos()}
                             onAdd={() => landmarkInputRef.current?.click()}
@@ -1176,16 +1268,60 @@ export function ReportSection({
                       </label>
                       <label className="block text-sm">
                         Species
-                        <input
-                          list="species-options-desktop"
-                          className="mt-1 w-full rounded-xl px-3 py-2"
-                          style={{ border: "1px solid var(--border-color)" }}
-                          data-onboard="report-species"
-                          value={qSpecies}
-                          onChange={(e) => setQSpecies(e.target.value)}
-                          placeholder="Dog, Cat, Bird, etc."
-                          required={!isCruelty}
-                        />
+                        {isOtherSpecies ? (
+                          <div
+                            className="mt-1 flex items-stretch rounded-xl overflow-hidden"
+                            style={speciesBorderStyle}
+                          >
+                            <input
+                              list="species-options-desktop"
+                              className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                              style={{ border: "none" }}
+                              data-onboard="report-species"
+                              value={qSpecies}
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                setQSpecies(next);
+                                const key = next.trim().toLowerCase();
+                                if (key !== "other" && key !== "others") {
+                                  setQSpeciesOther("");
+                                }
+                              }}
+                              placeholder="Dog, Cat, Bird, etc."
+                              required={!isCruelty}
+                            />
+                            <span
+                              aria-hidden="true"
+                              style={speciesDividerStyle}
+                            />
+                            <input
+                              className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                              style={{ border: "none" }}
+                              value={qSpeciesOther}
+                              onChange={(e) => setQSpeciesOther(e.target.value)}
+                              placeholder="Please specify the pet"
+                              required={requiresOtherSpecies}
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            list="species-options-desktop"
+                            className="mt-1 w-full rounded-xl px-3 py-2"
+                            style={speciesBorderStyle}
+                            data-onboard="report-species"
+                            value={qSpecies}
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              setQSpecies(next);
+                              const key = next.trim().toLowerCase();
+                              if (key !== "other" && key !== "others") {
+                                setQSpeciesOther("");
+                              }
+                            }}
+                            placeholder="Dog, Cat, Bird, etc."
+                            required={!isCruelty}
+                          />
+                        )}
                         <datalist id="species-options-desktop">
                           {SPECIES_SUGGESTIONS.map((opt) => (
                             <option key={opt} value={opt} />
@@ -1566,16 +1702,57 @@ export function ReportSection({
               <>
                 <label className="block text-sm">
                   Species
-                  <input
-                    list="species-options-hidden"
-                    className="mt-1 w-full rounded-xl px-3 py-2"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    data-onboard="report-species"
-                    value={qSpecies}
-                    onChange={(e) => setQSpecies(e.target.value)}
-                    placeholder="Dog, Cat, Bird, etc."
-                    required={!isCruelty}
-                  />
+                  {isOtherSpecies ? (
+                    <div
+                      className="mt-1 flex items-stretch rounded-xl overflow-hidden"
+                      style={speciesBorderStyle}
+                    >
+                      <input
+                        list="species-options-hidden"
+                        className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                        style={{ border: "none" }}
+                        data-onboard="report-species"
+                        value={qSpecies}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setQSpecies(next);
+                          const key = next.trim().toLowerCase();
+                          if (key !== "other" && key !== "others") {
+                            setQSpeciesOther("");
+                          }
+                        }}
+                        placeholder="Dog, Cat, Bird, etc."
+                        required={!isCruelty}
+                      />
+                      <span aria-hidden="true" style={speciesDividerStyle} />
+                      <input
+                        className="flex-1 min-w-0 px-3 py-2 bg-transparent outline-none"
+                        style={{ border: "none" }}
+                        value={qSpeciesOther}
+                        onChange={(e) => setQSpeciesOther(e.target.value)}
+                        placeholder="Please specify the pet"
+                        required={requiresOtherSpecies}
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      list="species-options-hidden"
+                      className="mt-1 w-full rounded-xl px-3 py-2"
+                      style={speciesBorderStyle}
+                      data-onboard="report-species"
+                      value={qSpecies}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setQSpecies(next);
+                        const key = next.trim().toLowerCase();
+                        if (key !== "other" && key !== "others") {
+                          setQSpeciesOther("");
+                        }
+                      }}
+                      placeholder="Dog, Cat, Bird, etc."
+                      required={!isCruelty}
+                    />
+                  )}
                   <datalist id="species-options-hidden">
                     {SPECIES_SUGGESTIONS.map((opt) => (
                       <option key={opt} value={opt} />
@@ -1849,21 +2026,21 @@ export function ReportSection({
 }
 
 function LandmarkCarousel({
-  urls,
+  items,
   onRemove,
   onClearAll,
   onAdd,
 }: {
-  urls: string[];
+  items: { url: string; kind: "image" | "video" }[];
   onRemove: (index: number) => void;
   onClearAll: () => void;
   onAdd?: () => void;
 }) {
   const [index, setIndex] = useState(0);
-  const count = urls.length;
+  const count = items.length;
   const current = useMemo(
-    () => (count ? urls[Math.min(index, count - 1)] : null),
-    [urls, index, count]
+    () => (count ? items[Math.min(index, count - 1)] : null),
+    [items, index, count]
   );
   useEffect(() => {
     if (index > count - 1) setIndex(Math.max(0, count - 1));
@@ -1880,14 +2057,23 @@ function LandmarkCarousel({
   return (
     <div className="relative h-full w-full">
       {/* image */}
-      {current && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={current}
-          alt={`landmark ${index + 1} of ${count}`}
-          className="h-full w-full object-cover rounded-xl"
-        />
-      )}
+      {current ? (
+        current.kind === "video" ? (
+          <video
+            src={current.url}
+            className="h-full w-full object-cover rounded-xl"
+            controls
+            playsInline
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={current.url}
+            alt={`landmark ${index + 1} of ${count}`}
+            className="h-full w-full object-cover rounded-xl"
+          />
+        )
+      ) : null}
       {/* arrows */}
       {count > 1 && (
         <>
@@ -1941,13 +2127,13 @@ function LandmarkCarousel({
             background: "var(--white)",
             border: "1px solid var(--border-color)",
           }}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAdd();
-          }}
-          aria-label="Add more photos"
-        >
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onAdd();
+        }}
+        aria-label="Add more media"
+      >
           +
         </button>
       )}

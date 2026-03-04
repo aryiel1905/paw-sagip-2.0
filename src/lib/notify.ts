@@ -5,17 +5,18 @@
   - Includes a simple cooldown to avoid spam
 */
 
-// LocalStorage key for user preference
+// LocalStorage keys for user preference
 export const ALERTS_NOTIFY_KEY = "ps:alertsNotify"; // "1" | "0"
 export const SYSTEM_NOTIFY_KEY = "ps:alertsSystemNotify"; // "1" | "0"
+export const ALERTS_NOTIFY_SOUND_KEY = "ps:alertsNotifySound"; // url string
 
 let audioCtx: AudioContext | null = null;
 let lastNotifyAt = 0;
 const COOLDOWN_MS = 2500;
 
 // Optional custom sound support (served from Next.js public dir)
-const DEFAULT_SOUND_URL = "/sounds/notifyy.mp3"; // place file at public/sounds/notify.mp3
-let soundUrl: string | null = DEFAULT_SOUND_URL;
+export const DEFAULT_NOTIFY_SOUND_URL = "/sounds/notifyy.mp3"; // place file at public/sounds/notifyy.mp3
+let soundUrl: string | null = DEFAULT_NOTIFY_SOUND_URL;
 let triedLoadCustom = false;
 let customBuffer: AudioBuffer | null = null;
 
@@ -86,6 +87,49 @@ export async function requestSystemNotifyPermission(): Promise<
   }
 }
 
+function syncSoundPreferenceFromStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    const stored = window.localStorage.getItem(ALERTS_NOTIFY_SOUND_KEY);
+    const nextUrl = stored || DEFAULT_NOTIFY_SOUND_URL;
+    if (soundUrl !== nextUrl) {
+      soundUrl = nextUrl;
+      triedLoadCustom = false;
+      customBuffer = null;
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function getNotifySoundPreference(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(ALERTS_NOTIFY_SOUND_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setNotifySoundPreference(url: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (url) {
+      window.localStorage.setItem(ALERTS_NOTIFY_SOUND_KEY, url);
+    } else {
+      window.localStorage.removeItem(ALERTS_NOTIFY_SOUND_KEY);
+    }
+  } catch {}
+  setCustomNotifySound(url ?? DEFAULT_NOTIFY_SOUND_URL);
+  try {
+    window.dispatchEvent(
+      new CustomEvent("ps:alertsNotifySoundChanged", {
+        detail: { url: url ?? DEFAULT_NOTIFY_SOUND_URL },
+      })
+    );
+  } catch {}
+}
+
 // Must be called in response to a user gesture to satisfy autoplay policies.
 export async function ensureAudioReady(): Promise<boolean> {
   if (typeof window === "undefined") return false;
@@ -143,7 +187,9 @@ export function vibrate(pattern: number | number[] = [40, 30, 40]) {
 
 async function tryLoadCustomBuffer(): Promise<boolean> {
   try {
-    if (!audioCtx || !soundUrl) return false;
+    if (!audioCtx) return false;
+    syncSoundPreferenceFromStorage();
+    if (!soundUrl) return false;
     if (customBuffer) return true;
     if (triedLoadCustom) return false;
     triedLoadCustom = true;

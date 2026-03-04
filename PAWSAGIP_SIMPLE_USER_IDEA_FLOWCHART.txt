@@ -1,0 +1,94 @@
+PAWSAGIP - SIMPLE USER IDEA FLOWCHART (NORMAL FLOWCHART STYLE)
+==============================================================
+
+  (START)
+     |
+     v
+[Open PawSagip App]
+     |
+     v
+[View Home Page / Main Menu]
+     |
+     v
+<Choose User Goal?>
+  |-------------------|----------------------|-------------------|------------------|
+  |                   |                      |                   |                  |
+  v                   v                      v                   v                  v
+[Report a Case]   [Search/Browse]       [Adopt a Pet]     [Track Activity]   [Exit App]
+  |                   |                      |                   |                  |
+  v                   v                      v                   v                  v
+<Report Type?>    <Search or Feed?>      [Browse Pets]      <Logged In?>       (END)
+  |----|----|----|    |---------|            |                   |---|              
+  |    |    |    |    |         |            v                   |   |
+  v    v    v    v    v         v       [Open Pet Profile]       |   v
+[Lost][Found][Cruelty][Adopt] [Search] [Alert Feed]              | [Login/Sign Up]
+  |    |    |    |      |         |      |                        |   |
+  |    |    |    |      v         v      v                        |   v
+  |    |    |    | [Enter Keyword] [Filter Alerts]                | [Open Account]
+  |    |    |    |      |         |      |                        |   |
+  |    |    |    |      v         |      v                        |   v
+  |    |    |    | [View Results] | [Open Alert Details]          | [View My Reports /
+  |    |    |    |      |         |      |                        |  Applications]
+  |    |    |    |      v         |      v                        |   |
+  |    |    |    | [Open Case/Pet]| [Contact / Map / Hotline]     |   v
+  |    |    |    |      |         |      |                        |  (END)
+  |    |    |    |      v         |      v                        |
+  |    |    |    |     (END)      |     (END)                     |
+  |    |    |    |                |                               |
+  |    |    |    |                +-------------------------------+
+  |    |    |    |
+  |    |    |    v
+  |    |    | [Fill Report Form]
+  |    |    |   - details
+  |    |    |   - location
+  |    |    |   - media (optional)
+  |    |    |   - contact/anonymous
+  |    |    |      |
+  |    |    |      v
+  |    |    | <Required Info Complete?>
+  |    |    |      |Yes                 No|
+  |    |    |      v                     v
+  |    |    | [Submit Report]      [Complete Missing Fields]
+  |    |    |      |                     |
+  |    |    |      v                     +------->(back to check)
+  |    |    | <Submission Successful?>
+  |    |    |      |Yes                 No|
+  |    |    |      v                     v
+  |    |    | [Alert Posted / Visible] [Show Error / Retry]
+  |    |    |      |                     |
+  |    |    |      v                     +-------> [Submit Report]
+  |    |    |     (END)
+  |    |    |
+  |    |    +-- same report flow (different report type)
+  |    +------- same report flow (different report type)
+  +------------ same report flow (different report type)
+
+Adoption branch continuation:
+[Open Pet Profile]
+     |
+     v
+[Start Adoption Application]
+     |
+     v
+<Accept Terms?>
+   |Yes                 No|
+   v                     v
+[Fill Application]   [Cancel / Return]
+   |                   |
+   v                   v
+<Required Fields Complete?>  (END)
+   |Yes                 No|
+   v                     v
+[Submit Application]   [Complete Missing Fields]
+   |                   |
+   v                   +------->(back to check)
+<Submission Successful?>
+   |Yes                 No|
+   v                     v
+[Application Pending Review] [Show Error / Retry]
+   |                     |
+   v                     +-------> [Submit Application]
+  (END)
+
+Result (overall user idea):
+Users can report cases, search alerts, coordinate responses, and apply for adoption in one platform.

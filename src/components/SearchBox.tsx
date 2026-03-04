@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CARD_VIDEO_FALLBACK_ICON, isVideoUrl } from "@/lib/media";
 import { useSearch } from "@/contexts/SearchContext";
 
 type SearchBoxProps = {
@@ -85,12 +86,24 @@ export function SearchBox({
                           onClick={() => openItem({ kind: "alert", alert: a })}
                         >
                           {a.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={a.imageUrl}
-                              alt="alert"
-                              className="h-8 w-8 rounded-md object-cover"
-                            />
+                            isVideoUrl(a.imageUrl) ? (
+                              <div
+                                className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                style={{
+                                  background:
+                                    "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                }}
+                              >
+                                {CARD_VIDEO_FALLBACK_ICON}
+                              </div>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={a.imageUrl}
+                                alt="alert"
+                                className="h-8 w-8 rounded-md object-cover"
+                              />
+                            )
                           ) : (
                             <div
                               className="grid h-8 w-8 place-content-center rounded-md text-base"

@@ -80,21 +80,40 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
           {/* Left: header + grid of small cards */}
           <div className="lg:col-span-2 min-h-[420px] flex flex-col">
             <div className="px-6 pt-4 pb-6 text-white">
-              <div className="flex items-center gap-3">
-                <HeartHandshake
-                  size={45}
-                  strokeWidth={2.5}
-                  className="shrink-0"
-                />
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
-                    ADOPTION
-                  </h2>
-
-                  <p className="opacity-90">
-                    Browse rescued animals looking for a home.
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <HeartHandshake
+                    size={45}
+                    strokeWidth={2.5}
+                    className="shrink-0"
+                  />
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
+                      ADOPTION
+                    </h2>
+                    <p className="opacity-90">
+                      Browse rescued animals looking for a home.
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  className="pill px-4 py-2 text-sm sm:text-base font-semibold whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                  style={{
+                    border: "1px solid var(--border-color)",
+                    background: "var(--white)",
+                    color: "#F57C00",
+                    boxShadow:
+                      "0 8px 16px -10px color-mix(in srgb, #F57C00 45%, transparent)",
+                  }}
+                  onClick={() => {
+                    try {
+                      window.dispatchEvent(new CustomEvent("app:find-my-match"));
+                    } catch {}
+                  }}
+                >
+                  Find my match
+                </button>
               </div>
             </div>
             <div className="px-6  flex-1 flex flex-col">
@@ -201,8 +220,10 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
           <div className="hidden lg:block items-center justify-end pl-7">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/Adopt Illustration.svg"
+              src="/Adopt Illustration.webp"
               alt="Adoption illustration"
+              loading="lazy"
+              decoding="async"
               className="p-2 max-w-[90%] h-auto"
             />
           </div>

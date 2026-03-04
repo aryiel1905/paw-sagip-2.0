@@ -5,6 +5,7 @@ import { Alert } from "@/types/app";
 import { DetailsModal } from "@/components/DetailsModal";
 import { MapPin, Search, AlertTriangle } from "lucide-react";
 import { alertFallbackTheme } from "@/lib/alertFallbackTheme";
+import { CARD_VIDEO_FALLBACK_ICON, isVideoUrl } from "@/lib/media";
 
 type AlertsSectionProps = {
   alerts: Alert[];
@@ -164,14 +165,25 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                       <div className="p-3">
                         <div className="rounded-xl overflow-hidden mb-2">
                           {alert.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={alert.imageUrl}
-                              alt="alert"
-                              className="w-full h-24 sm:h-28 object-cover"
-                              loading="lazy"
-                              decoding="async"
-                            />
+                            isVideoUrl(alert.imageUrl) ? (
+                              <div
+                                className="grid place-content-center h-24 sm:h-28 text-3xl sm:text-4xl"
+                                style={{
+                                  background: `color-mix(in srgb, ${col.base} 16%, #fff)`,
+                                }}
+                              >
+                                {CARD_VIDEO_FALLBACK_ICON}
+                              </div>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={alert.imageUrl}
+                                alt="alert"
+                                className="w-full h-24 sm:h-28 object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            )
                           ) : (
                             <div
                               className="grid place-content-center h-24 sm:h-28 text-5xl sm:text-6xl font-semibold"

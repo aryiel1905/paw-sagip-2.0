@@ -444,7 +444,7 @@ export function AuthModal({
           <div className="relative hidden bg-muted md:block h-full aspect-[3/4] justify-self-end">
             {/* login image */}
             <img
-              src="/LoginImage2.svg"
+              src="/LoginImage2.webp"
               alt="Login illustration"
               className={[
                 "absolute inset-0 h-full w-full object-cover object-center ",
@@ -453,7 +453,7 @@ export function AuthModal({
             />
             {/* placeholder for signup (reuse same asset) */}
             <img
-              src="/SigninImage.svg"
+              src="/SigninImage.webp"
               alt="Signup illustration"
               className={[
                 "absolute inset-0 h-full w-full object-cover object-center ",

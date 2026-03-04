@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { resolveScopeFromRequest, isSuper } from "@/lib/adminScope";
+import { resolveSpeciesIdWithClient } from "@/lib/speciesResolver";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
   }
 
   const insert = {
+    species_id: (await resolveSpeciesIdWithClient(supabase as any, (r as any).species ?? null)).speciesId,
     species: (r as any).species ?? null,
     pet_name: (r as any).pet_name ?? null,
     age_size: (r as any).age_size ?? null,

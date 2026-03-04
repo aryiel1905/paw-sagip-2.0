@@ -107,13 +107,21 @@ export default function AdoptionBrowse() {
 
   const pages = useMemo(() => buildPages(page, totalPages), [page, totalPages]);
 
+  useEffect(() => {
+    const shouldOpenMatcher = params.get("match") === "1";
+    if (!shouldOpenMatcher) return;
+    try {
+      window.dispatchEvent(new CustomEvent("app:find-my-match"));
+    } catch {}
+  }, [params]);
+
   return (
     <div
       className="min-h-screen w-full"
       style={{ background: gradient(ACCENT) }}
     >
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 pt-10 pb-12">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             className="pill px-3 py-1 flex items-center gap-2"
@@ -132,6 +140,22 @@ export default function AdoptionBrowse() {
             {/* Left arrow using unicode to avoid extra icon import */}
             <span aria-hidden>←</span>
             Back
+          </button>
+          <button
+            type="button"
+            className="pill px-3 py-1 font-semibold"
+            style={{
+              border: "1px solid var(--border-color)",
+              background: "var(--white)",
+              color: ACCENT,
+            }}
+            onClick={() => {
+              try {
+                window.dispatchEvent(new CustomEvent("app:find-my-match"));
+              } catch {}
+            }}
+          >
+            Find my match
           </button>
         </div>
 
@@ -157,8 +181,8 @@ export default function AdoptionBrowse() {
                   }}
                 >
                   <div className="p-3">
-                    <div className="relative rounded-xl overflow-hidden mb-2 h-32" />
-                    <div className="font-semibold text-sm truncate text-black/50">
+                    <div className="relative rounded-xl overflow-hidden mb-2 h-28 sm:h-32" />
+                    <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                       &nbsp;
                     </div>
                     <div className="text-xs truncate text-black/30">&nbsp;</div>
@@ -214,21 +238,23 @@ export default function AdoptionBrowse() {
                         <img
                           src={pet.imageUrl}
                           alt={`${pet.name} photo`}
-                          className="w-full h-32 object-cover"
+                          className="w-full h-28 sm:h-32 object-cover"
                           loading="lazy"
                           decoding="async"
                         />
                       ) : (
                         <div
-                          className="grid place-content-center h-32 text-6xl md:text-6xl font-semibold"
+                          className="grid place-content-center h-28 sm:h-32 text-5xl sm:text-6xl"
                           style={petFallbackTheme(pet.kind)}
                         >
                           {pet.emoji}
                         </div>
                       )}
                     </div>
-                    <div className="font-semibold text-sm truncate text-black">
-                      {pet.kind.toUpperCase()}
+                    <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black">
+                      {pet.name?.trim()
+                        ? pet.name
+                        : pet.kind?.toUpperCase?.() ?? ""}
                     </div>
                     <div className="text-xs truncate text-black/70">
                       {(() => {
@@ -302,6 +328,7 @@ export default function AdoptionBrowse() {
           </nav>
         )}
       </main>
+
     </div>
   );
 }

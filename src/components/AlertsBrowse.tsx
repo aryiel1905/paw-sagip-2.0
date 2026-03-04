@@ -8,6 +8,7 @@ import { fetchAlertsPaged } from "@/data/supabaseApi";
 import { DetailsModal } from "@/components/DetailsModal";
 import { ArrowLeft } from "lucide-react";
 import { alertFallbackTheme } from "@/lib/alertFallbackTheme";
+import { CARD_VIDEO_FALLBACK_ICON, isVideoUrl } from "@/lib/media";
 
 const PAGE_SIZE = 60;
 
@@ -109,7 +110,7 @@ export default function AlertsBrowse() {
         type,
         page,
         PAGE_SIZE,
-        { signal: ctrl.signal }
+        { signal: ctrl.signal },
       );
       setItems(list);
       setTotal(t);
@@ -169,8 +170,8 @@ export default function AlertsBrowse() {
           {loading
             ? "Loading alerts…"
             : total > 0
-            ? `${total} report${total === 1 ? "" : "s"} found`
-            : "No alerts found"}
+              ? `${total} report${total === 1 ? "" : "s"} found`
+              : "No alerts found"}
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
@@ -211,14 +212,25 @@ export default function AlertsBrowse() {
                   <div className="p-3">
                     <div className="rounded-xl overflow-hidden mb-2">
                       {alert.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={alert.imageUrl}
-                          alt="alert"
-                          className="w-full h-28 object-cover"
-                          loading="lazy"
-                          decoding="async"
-                        />
+                        isVideoUrl(alert.imageUrl) ? (
+                          <div
+                            className="grid place-content-center h-28 text-4xl"
+                            style={{
+                              background: `color-mix(in srgb, ${accent} 16%, #fff)`,
+                            }}
+                          >
+                            {CARD_VIDEO_FALLBACK_ICON}
+                          </div>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={alert.imageUrl}
+                            alt="alert"
+                            className="w-full h-28 object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        )
                       ) : (
                         <div
                           className="grid place-content-center h-28 text-6xl font-semibold md:text-6xl"
@@ -281,7 +293,7 @@ export default function AlertsBrowse() {
                 <span key={`dots-${idx}`} className="px-2 select-none">
                   {p}
                 </span>
-              )
+              ),
             )}
 
             {/* Next */}

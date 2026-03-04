@@ -22,8 +22,9 @@ function withAbort<T extends { abortSignal?: (s: AbortSignal) => T }>(
 }
 
 function speciesToEmoji(species?: string | null) {
-  const s = (species ?? "").toLowerCase();
+  const s = (species ?? "").trim().toLowerCase();
   if (!s) return "\u{1F43E}";
+  if (/^others?(?:\b|;)/.test(s)) return "\u{1F43E}";
 
   const tokens = s.split(/[^a-z]+/).filter(Boolean);
   const hasToken = (value: string) => tokens.includes(value);
@@ -161,6 +162,12 @@ function toAdoption(row: AdoptionRow): AdoptionPet {
   return {
     id: row.id,
     kind,
+    species: row.species ?? null,
+    speciesId: (row as any).species_id ?? null,
+    isDomesticAdoptable:
+      typeof (row as any).is_domestic_adoptable === "boolean"
+        ? (row as any).is_domestic_adoptable
+        : null,
     name: row.pet_name ?? "",
     age: row.age_size ?? "",
     note: row.features ?? "",

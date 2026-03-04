@@ -25,6 +25,9 @@ export type Alert = {
 export type AdoptionPet = {
   id: string;
   kind: "dog" | "cat" | "other";
+  species?: string | null;
+  speciesId?: string | null;
+  isDomesticAdoptable?: boolean | null;
   name: string;
   breed?: string | null;
   sex?: string | null;
@@ -64,6 +67,8 @@ export type AlertRow = {
 export type AdoptionRow = {
   id: string;
   species?: string | null;
+  species_id?: string | null;
+  is_domestic_adoptable?: boolean | null;
   pet_name?: string | null;
   age_size?: string | null;
   features?: string | null;

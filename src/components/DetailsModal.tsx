@@ -3,6 +3,7 @@
 import { Alert, AdoptionPet, ModalItem } from "@/types/app";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { isVideoUrl } from "@/lib/media";
 import {
   fetchLandmarkImageUrlsByAlertImage,
   fetchReportDetailsForAlert,
@@ -191,21 +192,30 @@ function DetailsModalInner({
             <div className="md:col-span-1">
               {isAlert ? (
                 item.alert.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.alert.imageUrl}
-                    alt="alert"
-                    className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewer({
-                        urls: [item.alert.imageUrl as string],
-                        index: 0,
-                      });
-                    }}
-                    loading="lazy"
-                    decoding="async"
-                  />
+                  isVideoUrl(item.alert.imageUrl) ? (
+                    <video
+                      src={item.alert.imageUrl}
+                      className="h-32 w-full max-w-[180px] rounded-xl object-cover"
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.alert.imageUrl}
+                      alt="alert"
+                      className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewer({
+                          urls: [item.alert.imageUrl as string],
+                          index: 0,
+                        });
+                      }}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )
                 ) : (
                   <div
                     className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
@@ -267,26 +277,34 @@ function DetailsModalInner({
               {/* Landmark carousel (same size) */}
               {isAlert && lmCount > 0 && (
                 <div className="relative mt-3 h-32 w-full max-w-[180px]">
-                  {currentLm && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={currentLm}
-                      alt={`landmark ${Math.min(
-                        lmIndex + 1,
-                        lmCount
-                      )} of ${lmCount}`}
-                      className="h-full w-full object-cover rounded-xl cursor-zoom-in"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setViewer({
-                          urls: lmUrls,
-                          index: Math.min(lmIndex, lmCount - 1),
-                        });
-                      }}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  )}
+                  {currentLm &&
+                    (isVideoUrl(currentLm) ? (
+                      <video
+                        src={currentLm}
+                        className="h-full w-full object-cover rounded-xl"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentLm}
+                        alt={`landmark ${Math.min(
+                          lmIndex + 1,
+                          lmCount
+                        )} of ${lmCount}`}
+                        className="h-full w-full object-cover rounded-xl cursor-zoom-in"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewer({
+                            urls: lmUrls,
+                            index: Math.min(lmIndex, lmCount - 1),
+                          });
+                        }}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ))}
                   {lmCount > 1 && (
                     <>
                       <button
@@ -474,13 +492,25 @@ function DetailsModalInner({
             </>
           )}
           <div className="relative z-[81] grid place-items-center w-full h-full p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
-              alt="Full size"
-              className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
+            {isVideoUrl(
+              viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]
+            ) ? (
+              <video
+                src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
+                className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+                controls
+                playsInline
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
+                alt="Full size"
+                className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
           </div>
         </div>
       )}

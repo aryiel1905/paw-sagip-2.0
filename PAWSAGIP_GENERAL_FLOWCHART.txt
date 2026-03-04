@@ -1,0 +1,123 @@
+PAWSAGIP - USER IDEA / USER JOURNEY FLOWCHART
+============================================
+
+[Start]
+   |
+   v
+[User opens PawSagip]
+   |
+   v
+[Sees home page + main actions]
+   |
+   v
+[What does the user need?]
+   |
+   +--> [I lost a pet]
+   |       |
+   |       v
+   |    [Create LOST report]
+   |       |-- add pet details
+   |       |-- add photo/video (optional)
+   |       |-- set location / pin map
+   |       |-- contact info or anonymous (if allowed)
+   |       |
+   |       v
+   |    [Submit report]
+   |       |
+   |       v
+   |    [Community sees alert]
+   |       |
+   |       v
+   |    [User monitors updates / contacts responders]
+   |
+   +--> [I found a pet / stray]
+   |       |
+   |       v
+   |    [Create FOUND report]
+   |       |-- describe pet condition
+   |       |-- upload photo/video
+   |       |-- pin location
+   |       |
+   |       v
+   |    [Submit report]
+   |       |
+   |       v
+   |    [Owner / rescuers discover alert]
+   |
+   +--> [I want to report cruelty]
+   |       |
+   |       v
+   |    [Create CRUELTY report]
+   |       |-- describe incident
+   |       |-- upload evidence (optional)
+   |       |-- pin exact location
+   |       |
+   |       v
+   |    [Submit report]
+   |       |
+   |       v
+   |    [Barangay / responders review and act]
+   |
+   +--> [I want to adopt a pet]
+   |       |
+   |       v
+   |    [Browse Adoption Center]
+   |       |-- filter (dog/cat)
+   |       |-- sort listings
+   |       |
+   |       v
+   |    [Open pet profile]
+   |       |
+   |       v
+   |    [Start adoption application]
+   |       |-- accept terms
+   |       |-- fill applicant info
+   |       |-- answer questionnaire
+   |       |-- upload required photos/docs
+   |       |
+   |       v
+   |    [Submit application]
+   |       |
+   |       v
+   |    [Wait for review / decision]
+   |
+   +--> [I want to check alerts nearby]
+   |       |
+   |       v
+   |    [Browse alerts feed]
+   |       |-- filter by Lost / Found / Cruelty / Adoption
+   |       |-- open details
+   |       |-- contact reporter / open map / hotline
+   |
+   +--> [I want to search for a pet/case]
+   |       |
+   |       v
+   |    [Use search bar]
+   |       |
+   |       v
+   |    [View results: Alerts + Adoption]
+   |       |
+   |       v
+   |    [Open matching item]
+   |
+   +--> [I want to check my activity]
+           |
+           v
+        [Login / Account]
+           |-- view my reports
+           |-- view my adoption applications
+           |-- track statuses/updates
+
+   |
+   v
+[Community participation loop]
+   |-- More reports are posted
+   |-- More users discover and respond
+   |-- Pets are reunited / rescued / adopted
+   |
+   v
+[End (continuous community use)]
+
+Core idea (user perspective):
+- PawSagip helps people report, search, and respond to pet-related cases in one place.
+- It connects pet owners, finders, adopters, and local responders/barangay partners.

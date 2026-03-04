@@ -32,13 +32,39 @@ export async function GET(request: Request) {
       : []
   );
 
+  async function speciesMetaMap(rows: any[]) {
+    const ids = Array.from(
+      new Set(
+        rows
+          .map((r) => (r?.species_id ? String(r.species_id) : null))
+          .filter(Boolean) as string[]
+      )
+    );
+    if (ids.length === 0) return new Map<string, { canonical_name?: string; is_domestic_adoptable?: boolean }>();
+    const { data } = await supabase
+      .from("animal_species")
+      .select("id, canonical_name, is_domestic_adoptable")
+      .in("id", ids);
+    const map = new Map<string, { canonical_name?: string; is_domestic_adoptable?: boolean }>();
+    if (Array.isArray(data)) {
+      for (const row of data as any[]) {
+        map.set(String((row as any).id), {
+          canonical_name: (row as any).canonical_name ?? undefined,
+          is_domestic_adoptable: (row as any).is_domestic_adoptable ?? undefined,
+        });
+      }
+    }
+    return map;
+  }
+
   // Helper to map rows to UI shape (with public image URL if present)
-  const mapRowBase = (row: any) => {
+  const mapRowBase = (row: any, sMeta?: { canonical_name?: string; is_domestic_adoptable?: boolean }) => {
     const imageUrl = row.photo_path
       ? supabase.storage.from("pet-media").getPublicUrl(row.photo_path).data
           .publicUrl
       : null;
-    const kind = toKind(row.species);
+    const displaySpecies = (sMeta?.canonical_name as string | undefined) ?? ((row.species as string | null) ?? null);
+    const kind = toKind(displaySpecies);
     const emoji =
       row.emoji_code ??
       (kind === "dog"
@@ -49,6 +75,12 @@ export async function GET(request: Request) {
     return {
       id: row.id as string,
       kind,
+      species: displaySpecies,
+      speciesId: (row.species_id as string | null) ?? null,
+      isDomesticAdoptable:
+        typeof sMeta?.is_domestic_adoptable === "boolean"
+          ? sMeta.is_domestic_adoptable
+          : null,
       name: (row.pet_name as string | null) ?? "",
       age: (row.age_size as string | null) ?? "",
       note: (row.features as string | null) ?? "",
@@ -63,7 +95,8 @@ export async function GET(request: Request) {
   };
 
   const enrichWithReportDetails = async (rows: any[]) => {
-    const items = rows.map(mapRowBase);
+    const sMap = await speciesMetaMap(rows);
+    const items = rows.map((r) => mapRowBase(r, r?.species_id ? sMap.get(String(r.species_id)) : undefined));
     const ids = rows.map((r) => String(r.id));
     if (ids.length === 0) return items;
     // Fetch breed/sex/age from reports via promoted_to_pet_id
@@ -100,7 +133,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase
       .from("adoption_pets")
       .select(
-        "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
+        "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
       )
       .eq("status", "available")
       .order("created_at", { ascending: false })
@@ -121,7 +154,7 @@ export async function GET(request: Request) {
   const { data, error, count } = await supabase
     .from("adoption_pets")
     .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status",
+      "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status",
       { count: "exact" }
     )
     .eq("status", "available")

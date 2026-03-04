@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { resolveSpeciesIdWithClient } from "@/lib/speciesResolver";
 
 // Ensure this route always runs on the Node.js runtime (not Edge)
 export const runtime = "nodejs";
@@ -115,6 +116,10 @@ export async function POST(request: Request) {
     return s === "in_custody" ? "in_custody" : "roaming";
   };
   const petStatus = normalizePetStatus(payload.petStatus);
+  const resolvedSpecies = await resolveSpeciesIdWithClient(
+    supabase as any,
+    payload.species ?? null
+  );
 
   const { data: inserted, error } = await supabase
     .from("reports")
@@ -133,6 +138,7 @@ export async function POST(request: Request) {
         // newly mapped fields
         pet_name: payload.petName ?? null,
         species: payload.species ?? null,
+        species_id: resolvedSpecies.speciesId,
         breed: payload.breed ?? null,
         gender: payload.gender ?? null,
         age_size: payload.ageSize ?? null,

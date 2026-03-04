@@ -1,6 +1,7 @@
 ﻿import { Navbar } from "@/components/Navbar";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { GlobalDetailsModal } from "@/components/GlobalDetailsModal";
+import { GlobalFindMyMatchModal } from "@/components/GlobalFindMyMatchModal";
 import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 import { GlobalOnboarding } from "@/components/OnboardingTour";
 import type { Metadata } from "next";
@@ -31,11 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
-      <head>
-        {/* Preload background images so the composed tile appears without flash */}
-        <link rel="preload" as="image" href="/HeaderBackground.png" />
-        <link rel="preload" as="image" href="/Continuation.png" />
-      </head>
+      <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -44,7 +41,7 @@ export default function RootLayout({
             <Navbar />
             <Script
               src="https://cdn.lordicon.com/xdjxvujz.js"
-              strategy="afterInteractive"
+              strategy="lazyOnload"
             />
             {/* Suppress noisy unhandled rejections from background auth refresh when offline */}
             <Script id="suppress-auth-refresh-failed" strategy="afterInteractive">
@@ -59,8 +56,8 @@ export default function RootLayout({
                 } catch {}
               `}
             </Script>
-            {/* Compose a single tile from HeaderBackground.png + Continuation.png and set as CSS var */}
-            <Script id="bg-pair-tile" strategy="beforeInteractive">
+            {/* Compose a single tile from HeaderBackground.png + Continuation.png after load */}
+            <Script id="bg-pair-tile" strategy="lazyOnload">
               {`
               (function(){
                 function composePairTile(header, cont){
@@ -97,6 +94,7 @@ export default function RootLayout({
             </Script>
             {children}
             <GlobalDetailsModal />
+            <GlobalFindMyMatchModal />
             <GlobalAuthModal />
             <GlobalOnboarding />
           </SearchProvider>

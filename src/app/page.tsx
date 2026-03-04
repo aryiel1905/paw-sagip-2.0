@@ -39,10 +39,18 @@ import {
   ensureAudioReady,
 } from "@/lib/notify";
 import { ReportSection } from "@/components/ReportSection";
+import { VideoTrimModal } from "@/components/VideoTrimModal";
 import { RegistrySection } from "@/components/RegistrySection";
 import { AdoptionSection } from "@/components/AdoptionSection";
 import { CrueltySection } from "@/components/CrueltySection";
 import { showToast } from "@/lib/toast";
+import {
+  CARD_VIDEO_FALLBACK_ICON,
+  getMediaKindFromFile,
+  getVideoDuration,
+  isVideoFile,
+  isVideoUrl,
+} from "@/lib/media";
 import {
   HeartHandshake,
   BellRing,
@@ -78,9 +86,22 @@ type ModalItem =
   | { kind: "adoption"; adoption: AdoptionPet }
   | null;
 
+type TrimInfo = { start: number; end: number; duration: number };
+type LandmarkMediaItem = {
+  file: File;
+  url: string;
+  kind: "image" | "video";
+  trim?: TrimInfo;
+};
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const MAX_VIDEO_SECONDS = 20;
+
 // Emoji fallback for missing photos based on species
 function speciesToEmoji(species?: string | null) {
-  const s = (species ?? "").toLowerCase();
+  const s = (species ?? "").trim().toLowerCase();
+  if (/^others?(?:\b|;)/.test(s)) return "🐾";
   if (s.includes("dog")) return "🐶";
   if (s.includes("cat")) return "🐱";
   return "🐾";
@@ -133,6 +154,10 @@ export default function Home() {
   const geoWatchIdRef = useRef<number | null>(null);
   const [reportPhoto, setReportPhoto] = useState<File | null>(null);
   const [reportPhotoName, setReportPhotoName] = useState("");
+  const [reportPhotoKind, setReportPhotoKind] = useState<
+    "image" | "video" | null
+  >(null);
+  const [reportPhotoTrim, setReportPhotoTrim] = useState<TrimInfo | null>(null);
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
   const reportPhotoInputRef = useRef<HTMLInputElement>(null!);
   const landmarkInputRef = useRef<HTMLInputElement>(null!);
@@ -140,10 +165,22 @@ export default function Home() {
   const isMountedRef = useRef(true);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
   // Landmark photos (multiple)
-  const [landmarkPhotos, setLandmarkPhotos] = useState<File[]>([]);
-  const [landmarkPreviewUrls, setLandmarkPreviewUrls] = useState<string[]>([]);
+  const [landmarkMedia, setLandmarkMedia] = useState<LandmarkMediaItem[]>([]);
   const [isReadyAuth, setIsReadyAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [trimQueue, setTrimQueue] = useState<
+    { file: File; duration: number; target: "main" | "landmark" }[]
+  >([]);
+  const [activeTrim, setActiveTrim] = useState<{
+    file: File;
+    duration: number;
+    target: "main" | "landmark";
+  } | null>(null);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimPreviewUrl, setTrimPreviewUrl] = useState<string | null>(null);
+  const trimPreviewUrlRef = useRef<string | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -622,17 +659,193 @@ export default function Home() {
     []
   );
 
-  // Track the selected photo locally so it can be uploaded prior to submitting the report
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setReportPhoto(file);
-    setReportPhotoName(file ? file.name : "");
+  const clearMainMedia = useCallback(() => {
+    setReportPhoto(null);
+    setReportPhotoName("");
+    setReportPhotoKind(null);
+    setReportPhotoTrim(null);
     setReportPhotoPreviewUrl((prev) => {
       if (prev) {
         URL.revokeObjectURL(prev);
       }
-      return file ? URL.createObjectURL(file) : null;
+      return null;
     });
+  }, []);
+
+  const setMainMedia = useCallback((file: File, kind: "image" | "video", trim?: TrimInfo) => {
+    setReportPhoto(file);
+    setReportPhotoName(file.name);
+    setReportPhotoKind(kind);
+    setReportPhotoTrim(trim ?? null);
+    setReportPhotoPreviewUrl((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev);
+      }
+      return URL.createObjectURL(file);
+    });
+  }, []);
+
+  const addLandmarkMedia = useCallback((file: File, trim?: TrimInfo) => {
+    const url = URL.createObjectURL(file);
+    setLandmarkMedia((prev) => [
+      ...prev,
+      { file, url, kind: getMediaKindFromFile(file), trim },
+    ]);
+  }, []);
+
+  useEffect(() => {
+    if (activeTrim || trimQueue.length === 0) return;
+    const [next, ...rest] = trimQueue;
+    setTrimQueue(rest);
+    setActiveTrim(next);
+    setTrimStart(0);
+    setTrimEnd(Math.min(next.duration, MAX_VIDEO_SECONDS));
+  }, [activeTrim, trimQueue]);
+
+  useEffect(() => {
+    if (!activeTrim) {
+      if (trimPreviewUrlRef.current) {
+        try {
+          URL.revokeObjectURL(trimPreviewUrlRef.current);
+        } catch {}
+        trimPreviewUrlRef.current = null;
+      }
+      setTrimPreviewUrl((prev) => (prev ? null : prev));
+      return;
+    }
+    const url = URL.createObjectURL(activeTrim.file);
+    if (trimPreviewUrlRef.current) {
+      try {
+        URL.revokeObjectURL(trimPreviewUrlRef.current);
+      } catch {}
+    }
+    trimPreviewUrlRef.current = url;
+    setTrimPreviewUrl(url);
+    return () => {
+      if (trimPreviewUrlRef.current === url) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+        trimPreviewUrlRef.current = null;
+      }
+    };
+  }, [activeTrim]);
+
+  const clampTrim = useCallback(
+    (start: number, end: number, duration: number) => {
+      const safeDuration = Math.max(0, duration || 0);
+      const s = Math.max(0, Math.min(start, safeDuration));
+      let e = Math.max(0, Math.min(end, safeDuration));
+      if (e - s > MAX_VIDEO_SECONDS) {
+        e = Math.min(s + MAX_VIDEO_SECONDS, safeDuration);
+      }
+      if (e < s) e = s;
+      return { s, e };
+    },
+    []
+  );
+
+  const onTrimStartChange = useCallback(
+    (value: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(value, trimEnd, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim, trimEnd]
+  );
+
+  const onTrimEndChange = useCallback(
+    (value: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(trimStart, value, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim, trimStart]
+  );
+
+  const confirmTrim = useCallback(() => {
+    if (!activeTrim) return;
+    const info: TrimInfo = {
+      start: trimStart,
+      end: trimEnd,
+      duration: activeTrim.duration,
+    };
+    if (activeTrim.target === "main") {
+      setMainMedia(activeTrim.file, "video", info);
+    } else {
+      addLandmarkMedia(activeTrim.file, info);
+    }
+    setActiveTrim(null);
+  }, [activeTrim, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
+
+  const cancelTrim = useCallback(() => {
+    if (!activeTrim) return;
+    if (activeTrim.target === "main") {
+      try {
+        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
+      } catch {}
+      clearMainMedia();
+    }
+    setActiveTrim(null);
+  }, [activeTrim, clearMainMedia]);
+
+  const isAllowedVideo = useCallback((file: File) => {
+    const name = file.name.toLowerCase();
+    const allowedExt =
+      name.endsWith(".mp4") || name.endsWith(".mov") || name.endsWith(".webm");
+    const allowedType =
+      file.type === "video/mp4" ||
+      file.type === "video/quicktime" ||
+      file.type === "video/webm";
+    return allowedExt || allowedType;
+  }, []);
+
+  // Track the selected photo/video locally so it can be uploaded prior to submitting the report
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      clearMainMedia();
+      return;
+    }
+    clearMainMedia();
+    const isVideo = isVideoFile(file);
+    if (isVideo) {
+      if (!isAllowedVideo(file)) {
+        showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+        clearMainMedia();
+        return;
+      }
+      if (file.size > MAX_VIDEO_BYTES) {
+        showToast("error", "Each video must be under 100 MB.");
+        clearMainMedia();
+        return;
+      }
+      try {
+        const duration = await getVideoDuration(file);
+        if (duration > MAX_VIDEO_SECONDS) {
+          setTrimQueue((prev) => [
+            ...prev,
+            { file, duration, target: "main" },
+          ]);
+          return;
+        }
+        setMainMedia(file, "video", { start: 0, end: duration, duration });
+        return;
+      } catch {
+        showToast("error", "Unable to read video duration.");
+        clearMainMedia();
+        return;
+      }
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      showToast("error", "Each photo must be under 5 MB.");
+      clearMainMedia();
+      return;
+    }
+    setMainMedia(file, "image");
   };
 
   // Handle the full report submission flow including optional photo upload
@@ -642,14 +855,40 @@ export default function Home() {
       if (reportPhotoPreviewUrl) {
         URL.revokeObjectURL(reportPhotoPreviewUrl);
       }
+      try {
+        landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
+      } catch {}
     };
-  }, [reportPhotoPreviewUrl]);
+  }, [reportPhotoPreviewUrl, landmarkMedia]);
 
   type QuickReporter = {
     reporterContact?: string | null;
     reporterName?: string | null;
     isAnonymous?: boolean;
     petStatus?: "roaming" | "in_custody";
+  };
+
+  const uploadProcessedVideo = async (
+    file: File,
+    target: "reports" | "reports/landmarks",
+    trim?: TrimInfo | null
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("target", target);
+    if (trim) {
+      form.append("trimStart", String(trim.start));
+      form.append("trimEnd", String(trim.end));
+    }
+    const res = await fetch("/api/media/ingest", {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.path) {
+      throw new Error(data?.error || "Video upload failed");
+    }
+    return data.path as string;
   };
 
   const handleSubmitReport = async (
@@ -663,49 +902,81 @@ export default function Home() {
     let uploadedLandmarkPaths: string[] = [];
 
     if (reportPhoto) {
-      const fileExt = reportPhoto.name.split(".").pop()?.toLowerCase() ?? "";
-      const uniqueFileName = `${crypto.randomUUID()}${
-        fileExt ? `.${fileExt}` : ""
-      }`;
-      const filePath = `reports/${uniqueFileName}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(PET_MEDIA_BUCKET)
-        .upload(filePath, reportPhoto, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error(
-          "Failed to upload report photo",
-          uploadError.message ?? uploadError
-        );
-        setReportStatus("error");
-        return;
-      }
-
-      uploadedPhotoPath = uploadData?.path ?? filePath;
-    }
-
-    // Upload landmark photos (max 5)
-    if (landmarkPhotos.length > 0) {
-      const paths: string[] = [];
-      for (const file of landmarkPhotos.slice(0, 5)) {
-        const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "";
-        const uniqueFileName = `${crypto.randomUUID()}${
-          fileExt ? `.${fileExt}` : ""
-        }`;
-        const filePath = `reports/landmarks/${uniqueFileName}`;
-        const { data: up, error: err } = await supabase.storage
-          .from(PET_MEDIA_BUCKET)
-          .upload(filePath, file, { cacheControl: "3600", upsert: false });
-        if (err) {
-          console.error("Failed to upload landmark photo", err.message ?? err);
+      if (reportPhotoKind === "video") {
+        try {
+          uploadedPhotoPath = await uploadProcessedVideo(
+            reportPhoto,
+            "reports",
+            reportPhotoTrim
+          );
+        } catch (err) {
+          console.error("Failed to upload report video", err);
           setReportStatus("error");
           return;
         }
-        paths.push(up?.path ?? filePath);
+      } else {
+        const fileExt = reportPhoto.name.split(".").pop()?.toLowerCase() ?? "";
+        const uniqueFileName = `${crypto.randomUUID()}${
+          fileExt ? `.${fileExt}` : ""
+        }`;
+        const filePath = `reports/${uniqueFileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(PET_MEDIA_BUCKET)
+          .upload(filePath, reportPhoto, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(
+            "Failed to upload report photo",
+            uploadError.message ?? uploadError
+          );
+          setReportStatus("error");
+          return;
+        }
+
+        uploadedPhotoPath = uploadData?.path ?? filePath;
+      }
+    }
+
+    // Upload landmark media (max 5)
+    if (landmarkMedia.length > 0) {
+      const paths: string[] = [];
+      for (const item of landmarkMedia.slice(0, 5)) {
+        if (item.kind === "video") {
+          try {
+            const path = await uploadProcessedVideo(
+              item.file,
+              "reports/landmarks",
+              item.trim
+            );
+            paths.push(path);
+          } catch (err) {
+            console.error("Failed to upload landmark video", err);
+            setReportStatus("error");
+            return;
+          }
+        } else {
+          const fileExt = item.file.name.split(".").pop()?.toLowerCase() ?? "";
+          const uniqueFileName = `${crypto.randomUUID()}${
+            fileExt ? `.${fileExt}` : ""
+          }`;
+          const filePath = `reports/landmarks/${uniqueFileName}`;
+          const { data: up, error: err } = await supabase.storage
+            .from(PET_MEDIA_BUCKET)
+            .upload(filePath, item.file, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+          if (err) {
+            console.error("Failed to upload landmark photo", err.message ?? err);
+            setReportStatus("error");
+            return;
+          }
+          paths.push(up?.path ?? filePath);
+        }
       }
       uploadedLandmarkPaths = paths;
     }
@@ -775,6 +1046,8 @@ export default function Home() {
       setReportLocation("");
       setReportPhoto(null);
       setReportPhotoName("");
+      setReportPhotoKind(null);
+      setReportPhotoTrim(null);
       if (reportPhotoInputRef.current) {
         reportPhotoInputRef.current.value = "";
       }
@@ -782,14 +1055,7 @@ export default function Home() {
         URL.revokeObjectURL(reportPhotoPreviewUrl);
         setReportPhotoPreviewUrl(null);
       }
-      // Clear landmark previews
-      if (landmarkPreviewUrls.length) {
-        try {
-          landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
-        } catch {}
-      }
-      setLandmarkPhotos([]);
-      setLandmarkPreviewUrls([]);
+      clearLandmarkPhotos();
       if (isMountedRef.current) {
         setTimeout(() => {
           if (isMountedRef.current) {
@@ -806,49 +1072,71 @@ export default function Home() {
   };
 
   // Handle landmark file selection with limits and previews
-  const handleLandmarkPhotosChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleLandmarkPhotosChange = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
-    const existing = landmarkPhotos.length;
+    const existing = landmarkMedia.length;
     const availableSlots = Math.max(0, 5 - existing);
     const toAdd = files.slice(0, availableSlots);
     const tooMany = files.length > availableSlots;
-    const overSize = toAdd.some((f) => f.size > 5 * 1024 * 1024);
-    if (overSize) {
-      showToast("error", "Each photo must be under 5 MB.");
-      return;
+
+    for (const file of toAdd) {
+      const isVideo = isVideoFile(file);
+      if (isVideo) {
+        if (!isAllowedVideo(file)) {
+          showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+          continue;
+        }
+        if (file.size > MAX_VIDEO_BYTES) {
+          showToast("error", "Each video must be under 100 MB.");
+          continue;
+        }
+        try {
+          const duration = await getVideoDuration(file);
+          if (duration > MAX_VIDEO_SECONDS) {
+            setTrimQueue((prev) => [
+              ...prev,
+              { file, duration, target: "landmark" },
+            ]);
+          } else {
+            addLandmarkMedia(file, { start: 0, end: duration, duration });
+          }
+        } catch {
+          showToast("error", "Unable to read video duration.");
+        }
+      } else {
+        if (file.size > MAX_IMAGE_BYTES) {
+          showToast("error", "Each photo must be under 5 MB.");
+          continue;
+        }
+        addLandmarkMedia(file);
+      }
     }
-    const newFiles = [...landmarkPhotos, ...toAdd];
-    const newUrls = [
-      ...landmarkPreviewUrls,
-      ...toAdd.map((f) => URL.createObjectURL(f)),
-    ];
-    setLandmarkPhotos(newFiles);
-    setLandmarkPreviewUrls(newUrls);
+
     // Allow selecting the same file again by clearing input value
     try {
       (event.target as HTMLInputElement).value = "";
     } catch {}
     if (tooMany) {
-      showToast("error", "You can upload up to 5 landmark photos.");
+      showToast("error", "You can upload up to 5 landmark items.");
     }
   };
 
   const removeLandmarkAt = (index: number) => {
-    if (index < 0 || index >= landmarkPhotos.length) return;
-    const nextFiles = landmarkPhotos.filter((_, i) => i !== index);
-    const nextUrls = landmarkPreviewUrls.filter((u, i) => {
-      if (i === index) {
+    if (index < 0 || index >= landmarkMedia.length) return;
+    setLandmarkMedia((prev) => {
+      const target = prev[index];
+      const next = prev.filter((_, i) => i !== index);
+      if (target?.url) {
         try {
-          URL.revokeObjectURL(u);
+          URL.revokeObjectURL(target.url);
         } catch {}
-        return false;
       }
-      return true;
+      return next;
     });
-    setLandmarkPhotos(nextFiles);
-    setLandmarkPreviewUrls(nextUrls);
-    if (nextFiles.length === 0) {
+    if (landmarkMedia.length === 1) {
       if (landmarkInputRef.current) landmarkInputRef.current.value = "";
       if (landmarkInputMobileRef.current)
         landmarkInputMobileRef.current.value = "";
@@ -857,10 +1145,9 @@ export default function Home() {
 
   const clearLandmarkPhotos = () => {
     try {
-      landmarkPreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+      landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
     } catch {}
-    setLandmarkPhotos([]);
-    setLandmarkPreviewUrls([]);
+    setLandmarkMedia([]);
     if (landmarkInputRef.current) landmarkInputRef.current.value = "";
     if (landmarkInputMobileRef.current)
       landmarkInputMobileRef.current.value = "";
@@ -876,6 +1163,44 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nodes = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-home-reveal]")
+    );
+    if (nodes.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (prefersReducedMotion) {
+      nodes.forEach((el) => el.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const el = entry.target as HTMLElement;
+          if (entry.isIntersecting) {
+            el.classList.add("is-visible");
+          } else {
+            el.classList.remove("is-visible");
+          }
+        });
+      },
+      {
+        root: null,
+        threshold: 0.2,
+        rootMargin: "0px 0px -8% 0px",
+      }
+    );
+
+    nodes.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       <main className="pt-5">
@@ -883,10 +1208,14 @@ export default function Home() {
         <section
           id="home"
           className="mb-11.5 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-30 "
-          style={{ scrollMarginTop: 91 }}
+            style={{ scrollMarginTop: 91 }}
         >
           <div className="mb-3 max-w-7xl mx-auto pb-15 px-4 grid grid-cols-1 gap-10 md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] items-center">
-            <div className="order-last md:order-first text-left">
+            <div
+              data-home-reveal
+              className="home-reveal order-last md:order-first text-left"
+              style={{ transitionDelay: "40ms" }}
+            >
               <h1 className="hero-title">
                 Find.
                 <br />
@@ -991,12 +1320,24 @@ export default function Home() {
                                               }}
                                             >
                                               {a.imageUrl ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                  src={a.imageUrl}
-                                                  alt="alert"
-                                                  className="h-8 w-8 rounded-md object-cover"
-                                                />
+                                                isVideoUrl(a.imageUrl) ? (
+                                                  <div
+                                                    className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                                    style={{
+                                                      background:
+                                                        "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                                    }}
+                                                  >
+                                                    {CARD_VIDEO_FALLBACK_ICON}
+                                                  </div>
+                                                ) : (
+                                                  // eslint-disable-next-line @next/next/no-img-element
+                                                  <img
+                                                    src={a.imageUrl}
+                                                    alt="alert"
+                                                    className="h-8 w-8 rounded-md object-cover"
+                                                  />
+                                                )
                                               ) : (
                                                 <div
                                                   className="grid h-8 w-8 place-content-center rounded-md text-base"
@@ -1117,12 +1458,24 @@ export default function Home() {
                                           }}
                                         >
                                           {a.imageUrl ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={a.imageUrl}
-                                              alt="alert"
-                                              className="h-8 w-8 rounded-md object-cover"
-                                            />
+                                            isVideoUrl(a.imageUrl) ? (
+                                              <div
+                                                className="grid h-8 w-8 place-content-center rounded-md text-base"
+                                                style={{
+                                                  background:
+                                                    "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                                                }}
+                                              >
+                                                {CARD_VIDEO_FALLBACK_ICON}
+                                              </div>
+                                            ) : (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={a.imageUrl}
+                                                alt="alert"
+                                                className="h-8 w-8 rounded-md object-cover"
+                                              />
+                                            )
                                           ) : (
                                             <div
                                               className="grid h-8 w-8 place-content-center rounded-md text-base"
@@ -1204,58 +1557,73 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="w-full relative order-first md:order-last mb-8 md:mb-0 flex justify-center">
+            <div
+              data-home-reveal
+              className="home-reveal w-full relative order-first md:order-last mb-8 md:mb-0 flex justify-center"
+              style={{ transitionDelay: "120ms" }}
+            >
               <div className="hero-ellipse-shadow" aria-hidden="true"></div>
               <Image
-                src="/LandingPage_PawSagip.svg"
+                src="/LandingPage_PawSagip.webp"
                 alt="Illustration of rescuing pets"
                 width={700}
                 height={520}
-                priority
+                loading="lazy"
+                fetchPriority="low"
                 className="relative z-10 w-full h-auto max-w-md md:max-w-none"
               />
             </div>
           </div>
         </section>
 
-        <AlertsSection alerts={alerts} />
+        <div data-home-reveal className="home-reveal">
+          <AlertsSection alerts={alerts} />
+        </div>
 
-        <ReportSection
-          reportType={reportType}
-          setReportType={handleReportTypeChange}
-          reportDescription={reportDescription}
-          setReportDescription={setReportDescription}
-          reportCondition={reportCondition}
-          setReportCondition={setReportCondition}
-          reportLocation={reportLocation}
-          setReportLocation={setReportLocation}
-          reportLat={reportLat}
-          reportLng={reportLng}
-          setReportCoords={(lat, lng) => {
-            setReportLat(lat);
-            setReportLng(lng);
-          }}
-          reportPhotoName={reportPhotoName}
-          reportStatus={reportStatus}
-          handlePhotoChange={handlePhotoChange}
-          handleSubmitReport={handleSubmitReport}
-          reportPhotoInputRef={reportPhotoInputRef}
-          reportPhotoPreviewUrl={reportPhotoPreviewUrl}
-          landmarkPreviewUrls={landmarkPreviewUrls}
-          handleLandmarkPhotosChange={handleLandmarkPhotosChange}
-          removeLandmarkAt={removeLandmarkAt}
-          clearLandmarkPhotos={clearLandmarkPhotos}
-          landmarkInputRef={landmarkInputRef}
-          landmarkInputMobileRef={landmarkInputMobileRef}
-        />
+        <div data-home-reveal className="home-reveal">
+          <ReportSection
+            reportType={reportType}
+            setReportType={handleReportTypeChange}
+            reportDescription={reportDescription}
+            setReportDescription={setReportDescription}
+            reportCondition={reportCondition}
+            setReportCondition={setReportCondition}
+            reportLocation={reportLocation}
+            setReportLocation={setReportLocation}
+            reportLat={reportLat}
+            reportLng={reportLng}
+            setReportCoords={(lat, lng) => {
+              setReportLat(lat);
+              setReportLng(lng);
+            }}
+            reportPhotoName={reportPhotoName}
+            reportStatus={reportStatus}
+            handlePhotoChange={handlePhotoChange}
+            handleSubmitReport={handleSubmitReport}
+            reportPhotoInputRef={reportPhotoInputRef}
+            reportPhotoPreviewUrl={reportPhotoPreviewUrl}
+            reportPhotoKind={reportPhotoKind}
+            landmarkMedia={landmarkMedia.map((item) => ({
+              url: item.url,
+              kind: item.kind,
+            }))}
+            handleLandmarkPhotosChange={handleLandmarkPhotosChange}
+            removeLandmarkAt={removeLandmarkAt}
+            clearLandmarkPhotos={clearLandmarkPhotos}
+            landmarkInputRef={landmarkInputRef}
+            landmarkInputMobileRef={landmarkInputMobileRef}
+          />
+        </div>
 
-        <AdoptionSection
-          adoptionResults={adoptionResults}
-          adoptionFilter={adoptionFilter}
-          setAdoptionFilter={setAdoptionFilter}
-          adoptionSort={adoptionSort}
-          setAdoptionSort={setAdoptionSort}
-        />
+        <div data-home-reveal className="home-reveal">
+          <AdoptionSection
+            adoptionResults={adoptionResults}
+            adoptionFilter={adoptionFilter}
+            setAdoptionFilter={setAdoptionFilter}
+            adoptionSort={adoptionSort}
+            setAdoptionSort={setAdoptionSort}
+          />
+        </div>
 
         <nav className="fixed inset-x-0 bottom-4 px-4 md:hidden">
           <div className="surface mx-auto grid max-w-md grid-flow-col auto-cols-fr rounded-2xl text-center text-sm shadow-soft">
@@ -1298,6 +1666,19 @@ export default function Home() {
           </div>
         </nav>
       </main>
+      <VideoTrimModal
+        open={!!activeTrim}
+        fileName={activeTrim?.file?.name ?? null}
+        fileUrl={trimPreviewUrl}
+        duration={activeTrim?.duration ?? 0}
+        start={trimStart}
+        end={trimEnd}
+        maxDuration={MAX_VIDEO_SECONDS}
+        onChangeStart={onTrimStartChange}
+        onChangeEnd={onTrimEndChange}
+        onConfirm={confirmTrim}
+        onCancel={cancelTrim}
+      />
       {/* DetailsModal moved to global layout */}
     </>
   );
