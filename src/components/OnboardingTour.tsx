@@ -153,6 +153,7 @@ export function GlobalOnboarding() {
   const [deferAutoOpen, setDeferAutoOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [confirmSkipOpen, setConfirmSkipOpen] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
@@ -168,6 +169,23 @@ export function GlobalOnboarding() {
     setOpen(false);
     setBannerDismissed(true);
   }, []);
+
+  const requestSkip = useCallback(() => {
+    setConfirmSkipOpen(true);
+  }, []);
+
+  const cancelSkip = useCallback(() => {
+    setConfirmSkipOpen(false);
+  }, []);
+
+  const goBack = useCallback(() => {
+    setStep((s) => Math.max(0, s - 1));
+  }, []);
+
+  const goNext = useCallback(() => {
+    if (isLast) markSeen();
+    else setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  }, [isLast, markSeen]);
 
   const startTour = useCallback(() => {
     setBannerDismissed(true);
@@ -372,6 +390,45 @@ export function GlobalOnboarding() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (confirmSkipOpen) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancelSkip();
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          markSeen();
+          return;
+        }
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        if (canBack) {
+          e.preventDefault();
+          goBack();
+        }
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        goNext();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        requestSkip();
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, confirmSkipOpen, canBack, goBack, goNext, requestSkip, cancelSkip, markSeen]);
+
   const bannerVisible =
     hasSeen === false &&
     !open &&
@@ -455,8 +512,8 @@ export function GlobalOnboarding() {
                 </div>
                 <button
                   type="button"
-                  className="pill px-2 py-1 text-xs border border-[var(--border-color)]"
-                  onClick={markSeen}
+                  className="pill px-2 py-1 text-xs border border-[var(--border-color)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:bg-[var(--soft-bg)]"
+                  onClick={requestSkip}
                 >
                   Skip
                 </button>
@@ -466,8 +523,8 @@ export function GlobalOnboarding() {
                 {canBack && (
                   <button
                     type="button"
-                    className="pill px-4 py-2 text-sm border border-[var(--border-color)]"
-                    onClick={() => setStep((s) => Math.max(0, s - 1))}
+                    className="pill px-4 py-2 text-sm border border-[var(--border-color)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:bg-[var(--soft-bg)]"
+                    onClick={goBack}
                   >
                     Back
                   </button>
@@ -492,16 +549,43 @@ export function GlobalOnboarding() {
                   )}
                   <button
                     type="button"
-                    className="btn btn-accent px-4 py-2 text-sm"
-                    onClick={() => {
-                      if (isLast) markSeen();
-                      else setStep((s) => Math.min(STEPS.length - 1, s + 1));
-                    }}
+                    className="btn btn-accent px-4 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                    onClick={goNext}
                   >
                     {isLast ? "Finish" : "Next"}
                   </button>
                 </div>
               </div>
+
+              {confirmSkipOpen && (
+                <div
+                  className="mt-3 rounded-xl border p-3"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <p className="text-sm ink-heading font-semibold">
+                    Skip the tutorial?
+                  </p>
+                  <p className="mt-1 text-xs ink-muted">
+                    You can start it again later from the tour banner.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="pill px-3 py-1 text-xs border border-[var(--border-color)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:bg-[var(--soft-bg)]"
+                      onClick={cancelSkip}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="pill px-3 py-1 text-xs border border-[var(--border-color)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:bg-[var(--soft-bg)]"
+                      onClick={markSeen}
+                    >
+                      Yes, skip
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
