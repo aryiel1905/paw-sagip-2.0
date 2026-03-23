@@ -67,10 +67,10 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
     <section
       id="adoption"
       data-onboard="adoption-section"
-      className="mx-auto mt-23 mb-10 max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-23 snap-start overflow-hidden"
+      className="mx-auto mt-23 mb-10 max-w-screen-2xl sm:px-6 lg:px-8 scroll-mt-23 snap-start"
     >
       <div
-        className=" rounded-2xl p-2 shadow-soft lg:h-[80vh]"
+        className="sm:rounded-2xl p-2 shadow-soft"
         style={{
           background:
             "radial-gradient(circle at 50% 55%, color-mix(in srgb, #F57C00 60%, white 85%) 0%, color-mix(in srgb, #F57C00 80%, white 45%) 35%, #F57C00 65%, color-mix(in srgb, #F57C00 95%, black 10%) 100%)",
@@ -79,46 +79,44 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 items-stretch h-full">
           {/* Left: header + grid of small cards */}
           <div className="lg:col-span-2 min-h-[420px] flex flex-col">
-            <div className="px-6 pt-4 pb-6 text-white">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <HeartHandshake
-                    size={45}
-                    strokeWidth={2.5}
-                    className="shrink-0"
-                  />
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
-                      ADOPTION
-                    </h2>
-                    <p className="opacity-90">
-                      Browse rescued animals looking for a home.
-                    </p>
-                  </div>
+            <div className="px-6 pt-10 pb-4 text-white">
+              <div className="flex items-center gap-3">
+                <HeartHandshake
+                  size={40}
+                  strokeWidth={2.5}
+                  className="shrink-0"
+                />
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-wide">
+                    ADOPTION
+                  </h2>
+                  <p className="opacity-90">
+                    Browse rescued animals looking for a home.
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  className="pill px-4 py-2 text-sm sm:text-base font-semibold whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{
-                    border: "1px solid var(--border-color)",
-                    background: "var(--white)",
-                    color: "#F57C00",
-                    boxShadow:
-                      "0 8px 16px -10px color-mix(in srgb, #F57C00 45%, transparent)",
-                  }}
-                  onClick={() => {
-                    try {
-                      window.dispatchEvent(
-                        new CustomEvent("app:find-my-match"),
-                      );
-                    } catch {}
-                  }}
-                >
-                  Find my match
-                </button>
               </div>
+              <button
+                type="button"
+                className="pill mt-3 w-full sm:w-auto px-4 py-2 text-sm sm:text-base font-semibold whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{
+                  border: "1px solid var(--border-color)",
+                  background: "var(--white)",
+                  color: "#F57C00",
+                  boxShadow:
+                    "0 8px 16px -10px color-mix(in srgb, #F57C00 45%, transparent)",
+                }}
+                onClick={() => {
+                  try {
+                    window.dispatchEvent(
+                      new CustomEvent("app:find-my-match"),
+                    );
+                  } catch {}
+                }}
+              >
+                Find my match
+              </button>
             </div>
-            <div className="px-6  flex-1 flex flex-col">
+            <div className="px-6 pt-2 pb-10 flex-1 flex flex-col">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
                 {adoptionResults.slice(0, 9).map((pet) => (
                   <Link

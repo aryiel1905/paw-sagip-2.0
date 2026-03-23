@@ -1,0 +1,268 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "PawSagip Community Pet Rescue" [ref=e6] [cursor=pointer]:
+          - /url: "#home"
+          - img [ref=e8]
+          - generic [ref=e13]:
+            - paragraph [ref=e14]: PawSagip
+            - paragraph [ref=e15]: Community Pet Rescue
+        - button "Open menu" [ref=e16]:
+          - img [ref=e17]
+      - complementary [ref=e18]:
+        - generic [ref=e20]:
+          - button [ref=e22]:
+            - img [ref=e23]
+          - generic [ref=e26]:
+            - paragraph [ref=e27]: Sign in to view your account.
+            - button [ref=e28]: Sign in
+          - button [ref=e29]: Home
+          - button [ref=e30]: Contacts
+    - main [ref=e31]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - heading "Find. Rescue. Reunite." [level=1] [ref=e35]:
+            - text: Find.
+            - text: Rescue.
+            - text: Reunite.
+          - paragraph [ref=e36]: Report lost or found pets, and help coordinate safe rescues in your barangay.
+          - generic [ref=e37]:
+            - button "Quick Report" [ref=e38]
+            - button "Adopt a Pet" [ref=e39]
+        - img "Illustration of rescuing pets" [ref=e41]
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e47]:
+            - img [ref=e48]
+            - generic [ref=e51]:
+              - heading "FOUND" [level=3] [ref=e52]
+              - paragraph [ref=e53]: Mga alagang nakita o nasagip.
+          - generic [ref=e54]:
+            - generic [ref=e55]:
+              - button "🐶 FOUND Dog Zone 6, Iba" [ref=e56]:
+                - generic [ref=e57]:
+                  - generic [ref=e59]: 🐶
+                  - generic [ref=e60]: FOUND Dog
+                  - generic [ref=e61]: Zone 6, Iba
+              - button "🐾 FOUND others;cobra J. P. Rizal Street, Palanginan" [ref=e62]:
+                - generic [ref=e63]:
+                  - generic [ref=e65]: 🐾
+                  - generic [ref=e66]: FOUND others;cobra
+                  - generic [ref=e67]: J. P. Rizal Street, Palanginan
+              - button "🐍 FOUND Snake J. P. Rizal Street, Palanginan" [ref=e68]:
+                - generic [ref=e69]:
+                  - generic [ref=e71]: 🐍
+                  - generic [ref=e72]: FOUND Snake
+                  - generic [ref=e73]: J. P. Rizal Street, Palanginan
+              - button "🐶 FOUND Dog J. P. Rizal Street, Palanginan" [ref=e74]:
+                - generic [ref=e75]:
+                  - generic [ref=e77]: 🐶
+                  - generic [ref=e78]: FOUND Dog
+                  - generic [ref=e79]: J. P. Rizal Street, Palanginan
+              - button "🐶 FOUND Dog J. P. Rizal Street, Palanginan" [ref=e80]:
+                - generic [ref=e81]:
+                  - generic [ref=e83]: 🐶
+                  - generic [ref=e84]: FOUND Dog
+                  - generic [ref=e85]: J. P. Rizal Street, Palanginan
+              - button "🐶 FOUND Dog J. P. Rizal Street, Palanginan" [ref=e86]:
+                - generic [ref=e87]:
+                  - generic [ref=e89]: 🐶
+                  - generic [ref=e90]: FOUND Dog
+                  - generic [ref=e91]: J. P. Rizal Street, Palanginan
+            - link "View More" [ref=e93] [cursor=pointer]:
+              - /url: /alerts?type=found
+        - generic [ref=e94]:
+          - generic [ref=e96]:
+            - img [ref=e97]
+            - generic [ref=e100]:
+              - heading "LOST" [level=3] [ref=e101]
+              - paragraph [ref=e102]: Mga alagang nawawala.
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - button "🐢 LOST Turtle J. P. Rizal Street, Zone 6" [ref=e105]:
+                - generic [ref=e106]:
+                  - generic [ref=e108]: 🐢
+                  - generic [ref=e109]: LOST Turtle
+                  - generic [ref=e110]: J. P. Rizal Street, Zone 6
+              - button "🐱 LOST Cat Zone 6, Iba" [ref=e111]:
+                - generic [ref=e112]:
+                  - generic [ref=e114]: 🐱
+                  - generic [ref=e115]: LOST Cat
+                  - generic [ref=e116]: Zone 6, Iba
+              - button "alert LOST Cat J. P. Rizal Street, Palanginan" [ref=e117]:
+                - generic [ref=e118]:
+                  - img "alert" [ref=e120]
+                  - generic [ref=e121]: LOST Cat
+                  - generic [ref=e122]: J. P. Rizal Street, Palanginan
+              - button "alert Chuchay Lawak, Bangantalinga" [ref=e123]:
+                - generic [ref=e124]:
+                  - img "alert" [ref=e126]
+                  - generic [ref=e127]: Chuchay
+                  - generic [ref=e128]: Lawak, Bangantalinga
+              - button "alert Hiro Iba - Palauig Road, Purok 2" [ref=e129]:
+                - generic [ref=e130]:
+                  - img "alert" [ref=e132]
+                  - generic [ref=e133]: Hiro
+                  - generic [ref=e134]: Iba - Palauig Road, Purok 2
+              - button "alert Monay San Jose-Palauig Road" [ref=e135]:
+                - generic [ref=e136]:
+                  - img "alert" [ref=e138]
+                  - generic [ref=e139]: Monay
+                  - generic [ref=e140]: San Jose-Palauig Road
+            - link "View More" [ref=e142] [cursor=pointer]:
+              - /url: /alerts?type=lost
+        - generic [ref=e143]:
+          - generic [ref=e145]:
+            - img [ref=e146]
+            - generic [ref=e148]:
+              - heading "CRUELTY" [level=3] [ref=e149]
+              - paragraph [ref=e150]: Mga ulat ng pagmamalupit sa hayop.
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - button "alert Ginger J. P. Rizal Street, Zone 6" [ref=e153]:
+                - generic [ref=e154]:
+                  - img "alert" [ref=e156]
+                  - generic [ref=e157]: Ginger
+                  - generic [ref=e158]: J. P. Rizal Street, Zone 6
+              - button "alert CRUELTY Dog San Rafael, San Narciso" [ref=e159]:
+                - generic [ref=e160]:
+                  - img "alert" [ref=e162]
+                  - generic [ref=e163]: CRUELTY Dog
+                  - generic [ref=e164]: San Rafael, San Narciso
+            - link "View More" [ref=e186] [cursor=pointer]:
+              - /url: /alerts?type=cruelty
+      - generic [ref=e190]:
+        - generic [ref=e192]:
+          - generic [ref=e194] [cursor=pointer]:
+            - img [ref=e195]
+            - generic [ref=e200]: Upload photo or video
+            - generic [ref=e202]: +
+          - generic [ref=e204] [cursor=pointer]:
+            - img [ref=e205]
+            - generic [ref=e209]: Upload landmark media (up to 5)
+            - generic [ref=e211]: +
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - text: Report Type
+              - combobox "Report Type" [ref=e214]:
+                - option "Found" [selected]
+                - option "Lost"
+                - option "Cruelty"
+            - generic [ref=e215]:
+              - text: Species
+              - combobox "Species" [ref=e216]
+            - generic [ref=e217]:
+              - text: Location
+              - generic [ref=e218]:
+                - textbox "Location Open map picker Use the pin to pick an exact location." [disabled] [ref=e219]:
+                  - /placeholder: Use the pin to pick location
+                - button "Open map picker" [ref=e220]: Pin
+              - paragraph [ref=e221]: Use the pin to pick an exact location.
+            - generic [ref=e222]:
+              - text: When
+              - generic [ref=e223]:
+                - textbox "When Set current date & time" [ref=e224]
+                - button "Set current date & time" [ref=e225]:
+                  - img [ref=e226]
+          - generic [ref=e229]:
+            - generic [ref=e230]:
+              - text: Distinctive Features (optional)
+              - textbox "Distinctive Features (optional)" [ref=e231]:
+                - /placeholder: e.g., blue collar
+            - generic [ref=e232]:
+              - text: Phone / Email (optional)
+              - textbox "Phone / Email (optional)" [ref=e233]:
+                - /placeholder: 0900 000 0000 / you@example.com
+            - generic [ref=e234]:
+              - text: Pet Status
+              - combobox "Pet Status" [ref=e235]:
+                - option "Roaming" [selected]
+                - option "In Custody"
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - checkbox "Aggressive" [ref=e238]
+                - generic [ref=e239]: Aggressive
+              - generic [ref=e240]:
+                - checkbox "Friendly" [ref=e241]
+                - generic [ref=e242]: Friendly
+            - generic [ref=e243]:
+              - checkbox "Submit anonymously" [ref=e244]
+              - generic [ref=e245]: Submit anonymously
+        - generic [ref=e246]:
+          - button "Submit" [ref=e247]
+          - link "More Detailed Form" [ref=e248] [cursor=pointer]:
+            - /url: /report-form
+      - generic [ref=e253]:
+        - generic [ref=e255]:
+          - generic [ref=e256]:
+            - img [ref=e257]
+            - generic [ref=e259]:
+              - heading "ADOPTION" [level=2] [ref=e260]
+              - paragraph [ref=e261]: Browse rescued animals looking for a home.
+          - button "Find my match" [ref=e262]
+        - generic [ref=e264]:
+          - link "Monay photo Monay Puspin / Female / Kitten" [ref=e265] [cursor=pointer]:
+            - /url: /adopt/2854f604-bb87-4954-ab14-32abae441dff
+            - generic [ref=e266]:
+              - img "Monay photo" [ref=e268]
+              - generic [ref=e269]: Monay
+              - generic [ref=e270]: Puspin / Female / Kitten
+          - link "Jiggy photo Jiggy Aspin / Male / Adult" [ref=e271] [cursor=pointer]:
+            - /url: /adopt/b04e9a64-2c4c-4cca-ac79-ed28cf2a023c
+            - generic [ref=e272]:
+              - img "Jiggy photo" [ref=e274]
+              - generic [ref=e275]: Jiggy
+              - generic [ref=e276]: Aspin / Male / Adult
+          - link "Chuchay photo Chuchay Puspin / Male / Adult" [ref=e277] [cursor=pointer]:
+            - /url: /adopt/07d1cff1-ae3b-4bb9-a24a-b7df11395db2
+            - generic [ref=e278]:
+              - img "Chuchay photo" [ref=e280]
+              - generic [ref=e281]: Chuchay
+              - generic [ref=e282]: Puspin / Male / Adult
+          - link "Ginger photo Ginger Siberian Cat / Female / Kitten" [ref=e283] [cursor=pointer]:
+            - /url: /adopt/deb18893-035b-4249-b074-5f2dc124ed49
+            - generic [ref=e284]:
+              - img "Ginger photo" [ref=e286]
+              - generic [ref=e287]: Ginger
+              - generic [ref=e288]: Siberian Cat / Female / Kitten
+          - link "Dawg photo Dawg Male / Adult" [ref=e289] [cursor=pointer]:
+            - /url: /adopt/0fc0a23b-56e5-4e47-a63b-518296f9e5d7
+            - generic [ref=e290]:
+              - img "Dawg photo" [ref=e292]
+              - generic [ref=e293]: Dawg
+              - generic [ref=e294]: Male / Adult
+          - link "... MORE" [ref=e315] [cursor=pointer]:
+            - /url: /adopt
+            - generic [ref=e316]:
+              - generic [ref=e318]: ...
+              - generic [ref=e319]: MORE
+      - navigation [ref=e320]:
+        - generic [ref=e321]:
+          - generic [ref=e322]:
+            - img [ref=e323]
+            - generic [ref=e326]: Home
+          - generic [ref=e327]:
+            - img [ref=e328]
+            - generic [ref=e333]: Alerts
+          - generic [ref=e334]:
+            - img [ref=e335]
+            - generic [ref=e338]: Report
+          - generic [ref=e339]:
+            - img [ref=e340]
+            - generic [ref=e342]: Adoption
+    - generic [ref=e345]:
+      - generic [ref=e346]:
+        - generic [ref=e347]:
+          - heading "Quick Report" [level=2] [ref=e348]
+          - paragraph [ref=e349]: Tap Quick Report to jump to the form. We will guide you field by field.
+          - generic [ref=e350]: 30-sec tour - Step 1 of 15
+        - button "Skip" [ref=e351]
+      - button "Next" [ref=e354]
+  - button "Open Next.js Dev Tools" [ref=e360] [cursor=pointer]:
+    - img [ref=e361]
+  - alert [ref=e364]
+```

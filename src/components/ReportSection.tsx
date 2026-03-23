@@ -586,7 +586,7 @@ export function ReportSection({
   return (
     <section
       id="report"
-      className="relative mt-12 px-4 pt-8 pb-8 sm:px-6 lg:px-8 snap-start w-full "
+      className="relative mt-4 md:mt-12 px-4 pt-4 md:pt-8 pb-8 sm:px-6 lg:px-8 snap-start w-full "
     >
       {/* Quick Report content (header and white background removed) */}
 
@@ -659,7 +659,7 @@ export function ReportSection({
                       <button
                         type="button"
                         aria-label="Remove photo"
-                        className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                        className="absolute top-2 right-2 pill px-3 py-2 text-xs"
                         style={{
                           background: "var(--white)",
                           border: "1px solid var(--border-color)",
@@ -1167,7 +1167,7 @@ export function ReportSection({
                           <button
                             type="button"
                             aria-label="Remove photo"
-                            className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+                            className="absolute top-2 right-2 pill px-3 py-2 text-xs"
                             style={{
                               background: "var(--white)",
                               border: "1px solid var(--border-color)",
@@ -2059,7 +2059,7 @@ function LandmarkCarousel({
           <button
             type="button"
             aria-label="Previous"
-            className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-2 text-sm shadow-soft"
             style={{
               background: "var(--white)",
               border: "1px solid var(--border-color)",
@@ -2075,7 +2075,7 @@ function LandmarkCarousel({
           <button
             type="button"
             aria-label="Next"
-            className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-2 text-sm shadow-soft"
             style={{
               background: "var(--white)",
               border: "1px solid var(--border-color)",
@@ -2101,7 +2101,7 @@ function LandmarkCarousel({
       {count < 5 && onAdd && (
         <button
           type="button"
-          className="absolute bottom-2 right-2 pill px-2 py-1 text-xs"
+          className="absolute bottom-2 right-2 pill px-3 py-2 text-xs"
           style={{
             background: "var(--white)",
             border: "1px solid var(--border-color)",
@@ -2119,7 +2119,7 @@ function LandmarkCarousel({
       {/* remove pill (current) */}
       <button
         type="button"
-        className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+        className="absolute top-2 right-2 pill px-3 py-2 text-xs"
         style={{
           background: "var(--white)",
           border: "1px solid var(--border-color)",
@@ -2136,7 +2136,7 @@ function LandmarkCarousel({
       {/* clear all pill */}
       <button
         type="button"
-        className="absolute top-2 left-2 pill px-2 py-1 text-xs"
+        className="absolute top-2 left-2 pill px-3 py-2 text-xs"
         style={{
           background: "var(--white)",
           border: "1px solid var(--border-color)",

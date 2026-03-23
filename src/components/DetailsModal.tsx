@@ -157,7 +157,7 @@ function DetailsModalInner({
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl shadow-soft surface">
+      <div className="relative w-full max-w-2xl rounded-2xl shadow-soft surface max-h-[90vh] flex flex-col overflow-hidden">
         <div
           className="flex items-center justify-between border-b p-5"
           style={{ borderColor: "var(--border-color)" }}
@@ -187,7 +187,7 @@ function DetailsModalInner({
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
           <div className="grid gap-5 md:grid-cols-3">
             <div className="md:col-span-1">
               {isAlert ? (
@@ -195,7 +195,7 @@ function DetailsModalInner({
                   isVideoUrl(item.alert.imageUrl) ? (
                     <video
                       src={item.alert.imageUrl}
-                      className="h-32 w-full max-w-[180px] rounded-xl object-cover"
+                      className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover"
                       controls
                       playsInline
                     />
@@ -204,7 +204,7 @@ function DetailsModalInner({
                     <img
                       src={item.alert.imageUrl}
                       alt="alert"
-                      className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                      className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover cursor-zoom-in"
                       onClick={(e) => {
                         e.stopPropagation();
                         setViewer({
@@ -218,7 +218,7 @@ function DetailsModalInner({
                   )
                 ) : (
                   <div
-                    className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
+                    className="grid h-40 w-full sm:max-w-[200px] place-content-center rounded-xl text-5xl"
                     style={{
                       background:
                         "color-mix(in srgb, var(--primary-green) 12%, #fff)",
@@ -232,7 +232,7 @@ function DetailsModalInner({
                 <img
                   src={item.adoption.imageUrl}
                   alt="adoption"
-                  className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                  className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover cursor-zoom-in"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (item.adoption.imageUrl) {
@@ -251,7 +251,7 @@ function DetailsModalInner({
                 <img
                   src={item.adoption.imageUrl}
                   alt="adoption"
-                  className="h-32 w-full max-w-[180px] rounded-xl object-cover cursor-zoom-in"
+                  className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover cursor-zoom-in"
                   onClick={(e) => {
                     e.stopPropagation();
                     setViewer({
@@ -264,7 +264,7 @@ function DetailsModalInner({
                 />
               ) : (
                 <div
-                  className="grid h-32 w-full max-w-[180px] place-content-center rounded-xl text-4xl"
+                  className="grid h-40 w-full sm:max-w-[200px] place-content-center rounded-xl text-5xl"
                   style={{
                     background:
                       "color-mix(in srgb, var(--primary-green) 12%, #fff)",
@@ -276,7 +276,7 @@ function DetailsModalInner({
 
               {/* Landmark carousel (same size) */}
               {isAlert && lmCount > 0 && (
-                <div className="relative mt-3 h-32 w-full max-w-[180px]">
+                <div className="relative mt-3 h-40 w-full sm:max-w-[200px]">
                   {currentLm &&
                     (isVideoUrl(currentLm) ? (
                       <video
@@ -345,7 +345,7 @@ function DetailsModalInner({
               )}
             </div>
 
-            <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {isAlert ? (
                 <>
                   <DetailsRow

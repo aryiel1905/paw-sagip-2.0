@@ -436,7 +436,7 @@ export function Navbar({
           </div>
 
           {/* Mobile: replace hamburger with inline Account/Sign in + Contacts */}
-          <div className="ml-auto md:hidden hidden items-center gap-2">
+          <div className="ml-auto hidden md:hidden items-center gap-2">
             {isReady && isLoggedIn ? (
               (() => {
                 const isAccountActive = pathname?.startsWith("/account");
@@ -452,7 +452,7 @@ export function Navbar({
                     aria-current={isAccountActive ? "page" : undefined}
                   >
                     <UserRound className="h-4 w-4" aria-hidden="true" />
-                    <span className="max-w-[8ch] truncate">{userName?.trim() || userEmail || "Account"}</span>
+                    <span className="max-w-[12ch] truncate">{userName?.trim() || userEmail || "Account"}</span>
                   </button>
                 );
               })()

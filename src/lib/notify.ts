@@ -10,9 +10,11 @@ export const ALERTS_NOTIFY_KEY = "ps:alertsNotify"; // "1" | "0"
 export const SYSTEM_NOTIFY_KEY = "ps:alertsSystemNotify"; // "1" | "0"
 export const ALERTS_NOTIFY_SOUND_KEY = "ps:alertsNotifySound"; // url string
 
+import { ALERT_NOTIFY_COOLDOWN_MS } from "@/constants/app";
+
 let audioCtx: AudioContext | null = null;
 let lastNotifyAt = 0;
-const COOLDOWN_MS = 2500;
+const COOLDOWN_MS = ALERT_NOTIFY_COOLDOWN_MS;
 
 // Optional custom sound support (served from Next.js public dir)
 export const DEFAULT_NOTIFY_SOUND_URL = "/sounds/notifyy.mp3"; // place file at public/sounds/notifyy.mp3

@@ -513,7 +513,7 @@ export default function MapPickerModal({
       aria-modal="true"
     >
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-3xl rounded-2xl shadow-soft surface overflow-hidden">
+      <div className="relative w-full max-w-3xl rounded-2xl shadow-soft surface overflow-hidden max-h-[95vh] flex flex-col">
         <div
           className="flex items-center justify-between border-b p-4"
           style={{ borderColor: "var(--border-color)" }}
@@ -531,11 +531,11 @@ export default function MapPickerModal({
           </button>
         </div>
 
-        <div className="p-4">
+        <div className="p-4 flex-1 overflow-y-auto">
           <div
             ref={containerRef}
             onClick={onStubClick}
-            className="relative h-96 w-full cursor-crosshair overflow-hidden rounded-xl"
+            className="relative h-[40vh] min-h-[200px] sm:h-[50vh] md:h-96 w-full cursor-crosshair overflow-hidden rounded-xl"
             style={{ background: `linear-gradient(180deg, #e2e8f0, #f8fafc)` }}
           >
             {/* Grid overlay always visible; real map renders underneath via maplibre */}
@@ -595,17 +595,15 @@ export default function MapPickerModal({
             )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <div className="opacity-70">
+          <div className="mt-3 flex flex-col gap-3 text-sm sm:flex-row sm:items-start sm:justify-between">
+            <div className="opacity-70 min-w-0">
               {pin ? (
-                <>
-                  Selected: {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
-                </>
+                <>Selected: {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</>
               ) : (
-                <>Click on the map to drop a pin.</>
+                <>Tap on the map to drop a pin.</>
               )}
               {me && (
-                <span className="ml-3">
+                <span className="ml-2">
                   • You: {me.lat.toFixed(5)}, {me.lng.toFixed(5)}
                 </span>
               )}
@@ -614,10 +612,10 @@ export default function MapPickerModal({
                 {addressLoading ? "Looking up…" : address || "—"}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <button
                 type="button"
-                className="pill px-3 py-1"
+                className="pill px-3 py-2 text-sm"
                 style={{ border: "1px solid var(--border-color)" }}
                 onClick={getMyLocation}
               >

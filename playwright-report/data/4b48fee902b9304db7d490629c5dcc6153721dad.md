@@ -1,0 +1,140 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - link "PawSagip Community Pet Rescue" [ref=e6]:
+        - /url: "#home"
+        - img [ref=e8]
+        - generic [ref=e13]:
+          - paragraph [ref=e14]: PawSagip
+          - paragraph [ref=e15]: Community Pet Rescue
+      - button "Open menu" [ref=e16]:
+        - img [ref=e17]
+  - main [ref=e18]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - heading "Find. Rescue. Reunite." [level=1] [ref=e22]:
+          - text: Find.
+          - text: Rescue.
+          - text: Reunite.
+        - paragraph [ref=e23]: Report lost or found pets, and help coordinate safe rescues in your barangay.
+        - generic [ref=e24]:
+          - button "Quick Report" [ref=e25]
+          - button "Adopt a Pet" [ref=e26]
+      - img "Illustration of rescuing pets" [ref=e28]
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]:
+            - heading "FOUND" [level=3] [ref=e39]
+            - paragraph [ref=e40]: Mga alagang nakita o nasagip.
+        - link "View More" [ref=e74]:
+          - /url: /alerts?type=found
+      - generic [ref=e75]:
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - generic [ref=e81]:
+            - heading "LOST" [level=3] [ref=e82]
+            - paragraph [ref=e83]: Mga alagang nawawala.
+        - link "View More" [ref=e117]:
+          - /url: /alerts?type=lost
+      - generic [ref=e118]:
+        - generic [ref=e120]:
+          - img [ref=e121]
+          - generic [ref=e123]:
+            - heading "CRUELTY" [level=3] [ref=e124]
+            - paragraph [ref=e125]: Mga ulat ng pagmamalupit sa hayop.
+        - link "View More" [ref=e159]:
+          - /url: /alerts?type=cruelty
+    - generic [ref=e163]:
+      - generic [ref=e165]:
+        - generic [ref=e167] [cursor=pointer]:
+          - img [ref=e168]
+          - generic [ref=e173]: Upload photo or video
+          - generic [ref=e175]: +
+        - generic [ref=e177] [cursor=pointer]:
+          - img [ref=e178]
+          - generic [ref=e182]: Upload landmark media (up to 5)
+          - generic [ref=e184]: +
+        - generic [ref=e185]:
+          - generic [ref=e186]:
+            - text: Report Type
+            - combobox "Report Type" [ref=e187]:
+              - option "Found" [selected]
+              - option "Lost"
+              - option "Cruelty"
+          - generic [ref=e188]:
+            - text: Species
+            - combobox "Species" [ref=e189]
+          - generic [ref=e190]:
+            - text: Location
+            - generic [ref=e191]:
+              - textbox "Location Open map picker Use the pin to pick an exact location." [disabled] [ref=e192]:
+                - /placeholder: Use the pin to pick location
+              - button "Open map picker" [ref=e193]: Pin
+            - paragraph [ref=e194]: Use the pin to pick an exact location.
+          - generic [ref=e195]:
+            - text: When
+            - generic [ref=e196]:
+              - textbox "When Set current date & time" [ref=e197]
+              - button "Set current date & time" [ref=e198]:
+                - img [ref=e199]
+        - generic [ref=e202]:
+          - generic [ref=e203]:
+            - text: Distinctive Features (optional)
+            - textbox "Distinctive Features (optional)" [ref=e204]:
+              - /placeholder: e.g., blue collar
+          - generic [ref=e205]:
+            - text: Phone / Email (optional)
+            - textbox "Phone / Email (optional)" [ref=e206]:
+              - /placeholder: 0900 000 0000 / you@example.com
+          - generic [ref=e207]:
+            - text: Pet Status
+            - combobox "Pet Status" [ref=e208]:
+              - option "Roaming" [selected]
+              - option "In Custody"
+          - generic [ref=e209]:
+            - generic [ref=e210]:
+              - checkbox "Aggressive" [ref=e211]
+              - generic [ref=e212]: Aggressive
+            - generic [ref=e213]:
+              - checkbox "Friendly" [ref=e214]
+              - generic [ref=e215]: Friendly
+          - generic [ref=e216]:
+            - checkbox "Submit anonymously" [ref=e217]
+            - generic [ref=e218]: Submit anonymously
+      - generic [ref=e219]:
+        - button "Submit" [ref=e220]
+        - link "More Detailed Form" [ref=e221]:
+          - /url: /report-form
+    - generic [ref=e226]:
+      - generic [ref=e228]:
+        - generic [ref=e229]:
+          - img [ref=e230]
+          - generic [ref=e232]:
+            - heading "ADOPTION" [level=2] [ref=e233]
+            - paragraph [ref=e234]: Browse rescued animals looking for a home.
+        - button "Find my match" [ref=e235]
+      - link "... MORE" [ref=e283]:
+        - /url: /adopt
+        - generic [ref=e284]:
+          - generic [ref=e286]: ...
+          - generic [ref=e287]: MORE
+    - navigation [ref=e288]:
+      - generic [ref=e289]:
+        - generic [ref=e290]:
+          - img [ref=e291]
+          - generic [ref=e294]: Home
+        - generic [ref=e295]:
+          - img [ref=e296]
+          - generic [ref=e301]: Alerts
+        - generic [ref=e302]:
+          - img [ref=e303]
+          - generic [ref=e306]: Report
+        - generic [ref=e307]:
+          - img [ref=e308]
+          - generic [ref=e310]: Adoption
+```

@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -283,7 +282,7 @@ export default function AdoptionBrowse() {
                 pathname: "/adopt",
                 query: { page: Math.max(1, page - 1) },
               }}
-              className="pill px-3 py-1"
+              className="pill px-4 py-2.5"
               style={{ border: "1px solid var(--border-color)" }}
               aria-disabled={page <= 1}
               aria-label="Previous page"
@@ -296,7 +295,7 @@ export default function AdoptionBrowse() {
                 <Link
                   key={`p-${p}-${idx}`}
                   href={{ pathname: "/adopt", query: { page: p } }}
-                  className="pill px-3 py-1"
+                  className="pill px-4 py-2.5"
                   style={{
                     border: `1px solid var(--border-color)`,
                     background: p === page ? "var(--white)" : undefined,
@@ -318,7 +317,7 @@ export default function AdoptionBrowse() {
                 pathname: "/adopt",
                 query: { page: Math.min(totalPages, page + 1) },
               }}
-              className="pill px-3 py-1"
+              className="pill px-4 py-2.5"
               style={{ border: "1px solid var(--border-color)" }}
               aria-disabled={page >= totalPages}
               aria-label="Next page"

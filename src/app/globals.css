@@ -230,6 +230,25 @@ body::before {
   }
 }
 
+/* Disable scroll-snap and entrance animations on mobile */
+@media (max-width: 767px) {
+  body {
+    scroll-snap-type: none;
+  }
+
+  section[id] {
+    scroll-snap-align: none;
+    scroll-snap-stop: normal;
+  }
+
+  .home-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none !important;
+  }
+}
+
 /* Mobile-only refinements: larger hero and button text when space allows */
 @media (max-width: 640px) {
   .hero-title {

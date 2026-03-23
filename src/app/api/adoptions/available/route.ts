@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/constants/app";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +16,9 @@ export async function GET(request: Request) {
   const supabase = createServerSupabaseClient();
   const url = new URL(request.url);
   const paged = url.searchParams.has("paged");
-  const limit = Math.max(1, Math.min(200, Number(url.searchParams.get("limit") || "50")));
+  const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, Number(url.searchParams.get("limit") || "50")));
   const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
-  const pageSize = Math.max(1, Math.min(200, Number(url.searchParams.get("pageSize") || "60")));
+  const pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, Number(url.searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE))));
 
   // Collect all pet_ids with any pending application (service role bypasses RLS)
   const { data: pendingRows } = await supabase

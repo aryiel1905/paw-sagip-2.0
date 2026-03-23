@@ -1,6 +1,6 @@
 "use client";
 
-type Tab = { key: string; label: string };
+type Tab = { key: string; label: string; shortLabel?: string };
 
 type Props = {
   tabs: Tab[];
@@ -12,8 +12,8 @@ export default function Tabs({ tabs, active, onChange }: Props) {
   const cols = Math.max(1, tabs.length);
   return (
     <nav
-      className="surface rounded-full p-1  gap-1 w-full max-w-none overflow-x-auto"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 2fr))` }}
+      className="surface rounded-full p-1 grid gap-1 w-full max-w-none overflow-x-auto"
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {tabs.map((t) => (
         <button
@@ -24,7 +24,8 @@ export default function Tabs({ tabs, active, onChange }: Props) {
           }`}
           onClick={() => onChange(t.key)}
         >
-          {t.label}
+          <span className="sm:hidden">{t.shortLabel ?? t.label}</span>
+          <span className="hidden sm:inline">{t.label}</span>
         </button>
       ))}
     </nav>

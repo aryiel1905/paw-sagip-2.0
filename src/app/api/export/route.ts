@@ -48,7 +48,9 @@ export async function GET(request: Request) {
         currentUserEmail = (data.user.email as string | null) ?? null;
       }
     }
-  } catch {}
+  } catch (err) {
+    console.error("[export] Failed to resolve user from cookies:", err);
+  }
 
   if (!currentUserId && !currentUserEmail) {
     return NextResponse.json(

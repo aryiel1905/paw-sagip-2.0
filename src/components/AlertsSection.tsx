@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState } from "react";
 import { Alert } from "@/types/app";
 import { DetailsModal } from "@/components/DetailsModal";
@@ -38,8 +37,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
   };
 
   const getMapsLink = (a: Alert): string | null => {
-    const lat = (a as any).latitude as number | undefined;
-    const lng = (a as any).longitude as number | undefined;
+    const lat = a.latitude;
+    const lng = a.longitude;
     if (typeof lat === "number" && typeof lng === "number") {
       return `https://www.google.com/maps?q=${lat},${lng}`;
     }
@@ -95,7 +94,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
         ).map((col) => (
           <div
             key={col.key}
-            className="min-h-[420px] flex flex-col"
+            className="min-h-[300px] sm:min-h-[420px] flex flex-col"
             style={{
               background: `radial-gradient(circle at 50% 55%, color-mix(in srgb, ${col.base} 60%, white 85%) 0%, color-mix(in srgb, ${col.base} 80%, white 45%) 35%, ${col.base} 65%, color-mix(in srgb, ${col.base} 95%, black 10%) 100%)`,
             }}
@@ -114,19 +113,19 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-2 flex-1 flex flex-col">
+            <div className="px-6 pt-2 pb-10 flex-1 flex flex-col">
               {col.items.length === 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-white border border-dashed shadow-soft"
+                      className="rounded-2xl bg-white/20 border border-dashed"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
+                        <div className="rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
                         <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                           &nbsp;
                         </div>
@@ -207,13 +206,13 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   }).map((_, idx) => (
                     <div
                       key={`ph-${col.key}-${idx}`}
-                      className="rounded-2xl bg-white border border-dashed shadow-soft"
+                      className="rounded-2xl bg-white/20 border border-dashed"
                       style={{
                         borderColor: `color-mix(in srgb, ${col.base} 35%, white)`,
                       }}
                     >
                       <div className="p-3">
-                        <div className="relative rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
+                        <div className="rounded-xl overflow-hidden mb-2 h-24 sm:h-28"></div>
                         <div className="font-semibold text-[13px] sm:text-sm leading-5 truncate text-black/50">
                           &nbsp;
                         </div>
@@ -231,9 +230,9 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                   className="btn w-full py-3 text-center block font-semibold rounded-full transition-colors duration-300 ease-in-out bg-white text-[var(--btn-accent)] border-2 border-[var(--btn-accent)] hover:bg-[var(--btn-accent)] hover:text-white hover:border-white focus-visible:bg-[var(--btn-accent)] focus-visible:text-white focus-visible:border-white"
                   style={
                     {
-                      ["--btn-accent" as any]: col.base,
+                      "--btn-accent": col.base,
                       boxShadow: `0 10px 18px -12px color-mix(in srgb, ${col.base} 55%, transparent)`,
-                    } as React.CSSProperties
+                    } as React.CSSProperties & { "--btn-accent": string }
                   }
                 >
                   View More

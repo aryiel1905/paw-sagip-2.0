@@ -93,8 +93,8 @@ export async function POST(request: Request) {
           null;
       }
     }
-  } catch {
-    // ignore and keep nulls
+  } catch (err) {
+    console.error("[reports] Failed to resolve user from cookies:", err);
   }
 
   // Normalize coordinates if provided

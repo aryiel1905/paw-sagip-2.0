@@ -42,7 +42,7 @@ Use this first when you already know what case/pet you are looking for.
 In Alerts, users can:
 
 1. Browse recent cases.
-2. Filter by category (Lost/Found/Cruelty/Adoption/All).
+2. Browse by category columns (`Found`, `Lost`, `Cruelty`) in the Home layout.
 3. Open a card to view full details.
 4. Use available actions inside details modal:
    1. Contact details (if available)
@@ -204,4 +204,3 @@ For authorized users:
 ---
 
 End of Manual
-

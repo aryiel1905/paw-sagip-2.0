@@ -329,17 +329,3 @@ export async function fillAdoptionApplicationPdf(
   if (options?.flatten) form.flatten();
   return await pdfDoc.save();
 }
-
-export async function logPdfFields(templateBytes: ArrayBuffer) {
-  const pdfDoc = await PDFDocument.load(templateBytes);
-  const form = pdfDoc.getForm();
-  const fields = form.getFields();
-  // View in browser console
-  console.groupCollapsed("[PDF] Field names");
-  fields.forEach((f) => {
-    const name = f.getName();
-    const type = (f as any).constructor?.name || "Unknown";
-    console.log(type + ": " + name);
-  });
-  console.groupEnd();
-}

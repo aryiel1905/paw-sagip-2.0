@@ -4,6 +4,8 @@ import { GlobalDetailsModal } from "@/components/GlobalDetailsModal";
 import { GlobalFindMyMatchModal } from "@/components/GlobalFindMyMatchModal";
 import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 import { GlobalOnboarding } from "@/components/OnboardingTour";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { BgTileLoader } from "@/components/BgTileLoader";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -37,6 +39,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <div className="app-content">
+          <ErrorBoundary>
           <SearchProvider>
             <Navbar />
             <Script
@@ -56,48 +59,14 @@ export default function RootLayout({
                 } catch {}
               `}
             </Script>
-            {/* Compose a single tile from HeaderBackground.png + Continuation.png after load */}
-            <Script id="bg-pair-tile" strategy="lazyOnload">
-              {`
-              (function(){
-                function composePairTile(header, cont){
-                  var w = Math.max(header.naturalWidth || 0, cont.naturalWidth || 0);
-                  if(!w) return null;
-                  var h1 = Math.round((header.naturalHeight || 0) * (w / (header.naturalWidth || w)));
-                  var h2 = Math.round((cont.naturalHeight || 0) * (w / (cont.naturalWidth || w)));
-                  var canvas = document.createElement('canvas');
-                  canvas.width = w; canvas.height = h1 + h2;
-                  var ctx = canvas.getContext('2d');
-                  if(!ctx) return null;
-                  ctx.drawImage(header, 0, 0, w, h1);
-                  ctx.drawImage(cont, 0, h1, w, h2);
-                  return 'url(' + canvas.toDataURL('image/png') + ')';
-                }
-                try {
-                  var a = new Image();
-                  var b = new Image();
-                  var ready = 0;
-                  function done(){
-                    ready++;
-                    if(ready < 2) return;
-                    var url = composePairTile(a,b);
-                    if(url){
-                      document.documentElement.style.setProperty('--bg-pattern-url', url);
-                    }
-                  }
-                  a.onload = done; b.onload = done;
-                  a.src = '/HeaderBackground.png';
-                  b.src = '/Continuation.png';
-                } catch (e) { /* no-op */ }
-              })();
-            `}
-            </Script>
+            <BgTileLoader />
             {children}
             <GlobalDetailsModal />
             <GlobalFindMyMatchModal />
             <GlobalAuthModal />
             <GlobalOnboarding />
           </SearchProvider>
+          </ErrorBoundary>
         </div>
       </body>
     </html>

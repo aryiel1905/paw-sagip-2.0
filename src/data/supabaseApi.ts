@@ -8,6 +8,7 @@ import {
   PetStatus,
 } from "@/types/app";
 import type { Contact } from "@/types/app";
+import { DEFAULT_PAGE_SIZE } from "@/constants/app";
 
 export const PET_MEDIA_BUCKET = "pet-media";
 
@@ -227,10 +228,66 @@ export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): 
 }
 
 // Paged fetch with optional type filter and total count
+// Fetch alerts for the homepage grouped section — each type gets its own query
+// so cruelty/lost/found columns always show their latest items regardless of volume.
+export async function fetchAlertsGrouped(
+  perType = 6,
+  opts?: { signal?: AbortSignal }
+): Promise<Alert[]> {
+  const types: Exclude<AlertType, "all">[] = ["found", "lost", "cruelty"];
+  const results = await Promise.all(
+    types.map(async (type) => {
+      const supabase = getSupabaseClient();
+      const base = supabase
+        .from("alerts")
+        .select(
+          "id,report_type,location,created_at,photo_path,latitude,longitude,landmark_media_paths,pet_name,species,description,pet_status,status,source_table,source_id"
+        )
+        .eq("report_type", type)
+        .neq("status", "resolved")
+        .neq("status", "rescued")
+        .order("created_at", { ascending: false })
+        .limit(perType);
+      const query = withAbort(base as any, opts?.signal);
+      const { data, error } = await query;
+      if (error || !Array.isArray(data)) return [];
+      const rows = data as (AlertRow & { source_table?: string | null; source_id?: string | null })[];
+      const reportIds = rows
+        .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
+        .map((r) => String((r as any).source_id));
+      const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+      if (reportIds.length > 0) {
+        const { data: rep } = await supabase
+          .from("reports")
+          .select("id, breed, gender, age_size")
+          .in("id", reportIds);
+        if (Array.isArray(rep)) {
+          for (const r of rep as any[]) {
+            byReport[String(r.id)] = {
+              breed: r.breed ?? null,
+              gender: r.gender ?? null,
+              age_size: r.age_size ?? null,
+            };
+          }
+        }
+      }
+      return rows.map((row) => {
+        const base = toAlert(row);
+        const sid = (row as any).source_id as string | undefined;
+        const extra = sid ? byReport[sid] : undefined;
+        return extra
+          ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
+          : base;
+      });
+    })
+  );
+  return results.flat();
+}
+
 export async function fetchAlertsPaged(
   type: AlertType = "all",
   page = 1,
-  pageSize = 60,
+  pageSize = DEFAULT_PAGE_SIZE,
   opts?: { signal?: AbortSignal }
 ): Promise<{ items: Alert[]; total: number }> {
   const supabase = getSupabaseClient();
@@ -405,7 +462,7 @@ export async function searchAdoptionPets(
 // Paged adoption fetch with exact count
 export async function fetchAdoptionPetsPaged(
   page = 1,
-  pageSize = 60,
+  pageSize = DEFAULT_PAGE_SIZE,
   opts?: { signal?: AbortSignal }
 ): Promise<{ items: AdoptionPet[]; total: number }> {
   try {

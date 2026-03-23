@@ -391,8 +391,8 @@ export default function AccountDashboardPage() {
                   active={active}
                   onChange={(k) => setActive(k as TabKey)}
                   tabs={[
-                    { key: "reports", label: "My Reports" },
-                    { key: "apps", label: "Adoption Applications" },
+                    { key: "reports", label: "My Reports", shortLabel: "Reports" },
+                    { key: "apps", label: "Adoption Applications", shortLabel: "Applications" },
                     { key: "settings", label: "Settings" },
                   ]}
                 />

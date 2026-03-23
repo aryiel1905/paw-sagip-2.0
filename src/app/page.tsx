@@ -14,6 +14,7 @@ import Image from "next/image";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
   fetchAlerts,
+  fetchAlertsGrouped,
   fetchAdoptionPets,
   searchAlerts as searchAlertsApi,
   searchAdoptionPets as searchAdoptionPetsApi,
@@ -118,7 +119,7 @@ function resolveMinutes(item: AlertRow) {
   if (item.created_at) {
     return Math.max(
       0,
-      Math.round((Date.now() - new Date(item.created_at).getTime()) / 60000)
+      Math.round((Date.now() - new Date(item.created_at).getTime()) / 60000),
     );
   }
   return 0;
@@ -133,14 +134,14 @@ export default function Home() {
   const [adoptions, setAdoptions] = useState<AdoptionPet[]>([]);
   const [showPetProfile, setShowPetProfile] = useState(false);
   const [adoptionFilter, setAdoptionFilter] = useState<"all" | "dog" | "cat">(
-    "all"
+    "all",
   );
   const [reportPhotoPreviewUrl, setReportPhotoPreviewUrl] = useState<
     string | null
   >(null);
 
   const [adoptionSort, setAdoptionSort] = useState<"nearest" | "newest">(
-    "nearest"
+    "nearest",
   );
   const [reportType, setReportType] =
     useState<Exclude<AlertType, "all">>("found");
@@ -222,7 +223,7 @@ export default function Home() {
       score += Math.min(40, q.length); // longer query slightly higher
       return score;
     },
-    []
+    [],
   );
 
   const runSearch = useCallback(
@@ -298,11 +299,11 @@ export default function Home() {
         if (isMountedRef.current) setSearchLoading(false);
       }
     },
-    [scoreText]
+    [scoreText],
   );
 
   const loadAlerts = useCallback(async () => {
-    const data = await fetchAlerts(50);
+    const data = await fetchAlertsGrouped(6);
     if (isMountedRef.current) setAlerts(data);
   }, []);
 
@@ -427,7 +428,7 @@ export default function Home() {
       () => {
         // If permission denied or error, leave myLat/myLng as-is; distances will hide automatically
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
     );
     geoWatchIdRef.current = watchId;
     return () => {
@@ -508,20 +509,23 @@ export default function Home() {
     };
     const onCustom = () => read();
     window.addEventListener("storage", onStorage);
-    window.addEventListener("ps:alertsNotifyChanged", onCustom as EventListener);
+    window.addEventListener(
+      "ps:alertsNotifyChanged",
+      onCustom as EventListener,
+    );
     window.addEventListener(
       "ps:alertsSystemNotifyChanged",
-      onCustom as EventListener
+      onCustom as EventListener,
     );
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(
         "ps:alertsNotifyChanged",
-        onCustom as EventListener
+        onCustom as EventListener,
       );
       window.removeEventListener(
         "ps:alertsSystemNotifyChanged",
-        onCustom as EventListener
+        onCustom as EventListener,
       );
     };
   }, []);
@@ -547,18 +551,30 @@ export default function Home() {
         window.removeEventListener("touchstart", unlock as EventListener);
       } catch {}
     };
-    window.addEventListener("pointerdown", unlock as EventListener, { once: true } as any);
-    window.addEventListener("keydown", unlock as EventListener, { once: true } as any);
-    window.addEventListener("touchstart", unlock as EventListener, { once: true } as any);
+    window.addEventListener(
+      "pointerdown",
+      unlock as EventListener,
+      { once: true } as any,
+    );
+    window.addEventListener(
+      "keydown",
+      unlock as EventListener,
+      { once: true } as any,
+    );
+    window.addEventListener(
+      "touchstart",
+      unlock as EventListener,
+      { once: true } as any,
+    );
     return cleanup;
   }, []);
 
   const nearbyAlerts = useMemo(
     () =>
       alerts.filter(
-        (a) => a.type === "lost" || a.type === "found" || a.type === "cruelty"
+        (a) => a.type === "lost" || a.type === "found" || a.type === "cruelty",
       ),
-    [alerts]
+    [alerts],
   );
 
   // Human-friendly time formatter using minutes since creation
@@ -590,7 +606,7 @@ export default function Home() {
       // No coordinates -> do not provide a maps link to avoid imprecise geocoding
       return null;
     },
-    [myLat, myLng]
+    [myLat, myLng],
   );
 
   // Shorten area to two most-specific segments (e.g., "Street, Barangay" or "Barangay, Town")
@@ -611,7 +627,7 @@ export default function Home() {
       lat1?: number | null,
       lng1?: number | null,
       lat2?: number | null,
-      lng2?: number | null
+      lng2?: number | null,
     ) => {
       if (
         lat1 == null ||
@@ -634,7 +650,7 @@ export default function Home() {
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     },
-    []
+    [],
   );
 
   // Alerts are grouped by type within AlertsSection; no local filtering here.
@@ -656,7 +672,7 @@ export default function Home() {
     (type: Exclude<AlertType, "all">) => {
       setReportType(type);
     },
-    []
+    [],
   );
 
   const clearMainMedia = useCallback(() => {
@@ -672,18 +688,21 @@ export default function Home() {
     });
   }, []);
 
-  const setMainMedia = useCallback((file: File, kind: "image" | "video", trim?: TrimInfo) => {
-    setReportPhoto(file);
-    setReportPhotoName(file.name);
-    setReportPhotoKind(kind);
-    setReportPhotoTrim(trim ?? null);
-    setReportPhotoPreviewUrl((prev) => {
-      if (prev) {
-        URL.revokeObjectURL(prev);
-      }
-      return URL.createObjectURL(file);
-    });
-  }, []);
+  const setMainMedia = useCallback(
+    (file: File, kind: "image" | "video", trim?: TrimInfo) => {
+      setReportPhoto(file);
+      setReportPhotoName(file.name);
+      setReportPhotoKind(kind);
+      setReportPhotoTrim(trim ?? null);
+      setReportPhotoPreviewUrl((prev) => {
+        if (prev) {
+          URL.revokeObjectURL(prev);
+        }
+        return URL.createObjectURL(file);
+      });
+    },
+    [],
+  );
 
   const addLandmarkMedia = useCallback((file: File, trim?: TrimInfo) => {
     const url = URL.createObjectURL(file);
@@ -742,7 +761,7 @@ export default function Home() {
       if (e < s) e = s;
       return { s, e };
     },
-    []
+    [],
   );
 
   const onTrimStartChange = useCallback(
@@ -752,7 +771,7 @@ export default function Home() {
       setTrimStart(next.s);
       setTrimEnd(next.e);
     },
-    [activeTrim, clampTrim, trimEnd]
+    [activeTrim, clampTrim, trimEnd],
   );
 
   const onTrimEndChange = useCallback(
@@ -762,7 +781,7 @@ export default function Home() {
       setTrimStart(next.s);
       setTrimEnd(next.e);
     },
-    [activeTrim, clampTrim, trimStart]
+    [activeTrim, clampTrim, trimStart],
   );
 
   const confirmTrim = useCallback(() => {
@@ -825,10 +844,7 @@ export default function Home() {
       try {
         const duration = await getVideoDuration(file);
         if (duration > MAX_VIDEO_SECONDS) {
-          setTrimQueue((prev) => [
-            ...prev,
-            { file, duration, target: "main" },
-          ]);
+          setTrimQueue((prev) => [...prev, { file, duration, target: "main" }]);
           return;
         }
         setMainMedia(file, "video", { start: 0, end: duration, duration });
@@ -871,7 +887,7 @@ export default function Home() {
   const uploadProcessedVideo = async (
     file: File,
     target: "reports" | "reports/landmarks",
-    trim?: TrimInfo | null
+    trim?: TrimInfo | null,
   ) => {
     const form = new FormData();
     form.append("file", file);
@@ -893,7 +909,7 @@ export default function Home() {
 
   const handleSubmitReport = async (
     speciesValue?: string,
-    reporter?: QuickReporter
+    reporter?: QuickReporter,
   ) => {
     const supabase = getSupabaseClient();
     setReportStatus("submitting");
@@ -907,7 +923,7 @@ export default function Home() {
           uploadedPhotoPath = await uploadProcessedVideo(
             reportPhoto,
             "reports",
-            reportPhotoTrim
+            reportPhotoTrim,
           );
         } catch (err) {
           console.error("Failed to upload report video", err);
@@ -931,7 +947,7 @@ export default function Home() {
         if (uploadError) {
           console.error(
             "Failed to upload report photo",
-            uploadError.message ?? uploadError
+            uploadError.message ?? uploadError,
           );
           setReportStatus("error");
           return;
@@ -950,7 +966,7 @@ export default function Home() {
             const path = await uploadProcessedVideo(
               item.file,
               "reports/landmarks",
-              item.trim
+              item.trim,
             );
             paths.push(path);
           } catch (err) {
@@ -971,7 +987,10 @@ export default function Home() {
               upsert: false,
             });
           if (err) {
-            console.error("Failed to upload landmark photo", err.message ?? err);
+            console.error(
+              "Failed to upload landmark photo",
+              err.message ?? err,
+            );
             setReportStatus("error");
             return;
           }
@@ -1028,13 +1047,13 @@ export default function Home() {
           const data = await response.json();
           console.error(
             "Submit report failed:",
-            data?.error ?? response.statusText
+            data?.error ?? response.statusText,
           );
         } catch {
           console.error(
             "Submit report failed with status:",
             response.status,
-            response.statusText
+            response.statusText,
           );
         }
         setReportStatus("error");
@@ -1073,7 +1092,7 @@ export default function Home() {
 
   // Handle landmark file selection with limits and previews
   const handleLandmarkPhotosChange = async (
-    event: ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>,
   ) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
@@ -1166,12 +1185,12 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const nodes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-home-reveal]")
+      document.querySelectorAll<HTMLElement>("[data-home-reveal]"),
     );
     if (nodes.length === 0) return;
 
     const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
     if (prefersReducedMotion) {
       nodes.forEach((el) => el.classList.add("is-visible"));
@@ -1193,7 +1212,7 @@ export default function Home() {
         root: null,
         threshold: 0.2,
         rootMargin: "0px 0px -8% 0px",
-      }
+      },
     );
 
     nodes.forEach((el) => observer.observe(el));
@@ -1203,12 +1222,12 @@ export default function Home() {
 
   return (
     <>
-      <main className="pt-5">
+      <main className="pt-5 pb-24 md:pb-0">
         {/* Hero section with quick calls to action and nearby alerts */}
         <section
           id="home"
-          className="mb-11.5 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-30 "
-            style={{ scrollMarginTop: 91 }}
+          className="mb-11.5 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 scroll-mt-30 min-h-[calc(100svh-64px)] flex items-center md:block md:min-h-0 relative"
+          style={{ scrollMarginTop: 91 }}
         >
           <div className="mb-3 max-w-7xl mx-auto pb-15 px-4 grid grid-cols-1 gap-10 md:grid-cols-[40%_60%] xl:grid-cols-[35%_65%] items-center">
             <div
@@ -1559,7 +1578,7 @@ export default function Home() {
 
             <div
               data-home-reveal
-              className="home-reveal w-full relative order-first md:order-last mb-8 md:mb-0 flex justify-center"
+              className="home-reveal w-full relative order-first md:order-last mb-8 md:mb-0 hidden md:flex justify-center"
               style={{ transitionDelay: "120ms" }}
             >
               <div className="hero-ellipse-shadow" aria-hidden="true"></div>
@@ -1625,8 +1644,8 @@ export default function Home() {
           />
         </div>
 
-        <nav className="fixed inset-x-0 bottom-4 px-4 md:hidden">
-          <div className="surface mx-auto grid max-w-md grid-flow-col auto-cols-fr rounded-2xl text-center text-sm shadow-soft">
+        <nav className="fixed inset-x-0 bottom-3 px-3 md:hidden z-40">
+          <div className="surface mx-auto grid max-w-lg grid-flow-col auto-cols-fr rounded-2xl text-center text-sm shadow-soft">
             {(isReadyAuth
               ? [
                   ...MOBILE_NAV_LINKS,
@@ -1638,15 +1657,15 @@ export default function Home() {
             ).map((link) => (
               <a
                 key={link.href}
-                className="py-3"
+                className="py-3 px-1"
                 data-onboard={
                   link.href === "#report"
                     ? "report"
                     : link.href === "#adoption"
-                    ? "adoption"
-                    : link.href === "/account"
-                    ? "updates"
-                    : undefined
+                      ? "adoption"
+                      : link.href === "/account"
+                        ? "updates"
+                        : undefined
                 }
                 onClick={() => {
                   if (link.href.startsWith("/")) {
@@ -1654,13 +1673,13 @@ export default function Home() {
                   } else {
                     scrollToTarget(
                       link.href,
-                      MOBILE_NAV_OFFSETS[link.href] ?? 0
+                      MOBILE_NAV_OFFSETS[link.href] ?? 0,
                     );
                   }
                 }}
               >
                 <link.icon className="mx-auto mb-1 h-5 w-5" />
-                <div className="text-[11px]">{link.label}</div>
+                <div className="text-[12px] font-medium">{link.label}</div>
               </a>
             ))}
           </div>

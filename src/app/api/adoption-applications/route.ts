@@ -78,7 +78,9 @@ export async function POST(request: Request) {
       data: { user },
     } = await supabase.auth.getUser();
     userId = user?.id ?? null;
-  } catch {}
+  } catch (err) {
+    console.error("[adoption-applications] Failed to resolve user:", err);
+  }
 
   // Attempt to persist; if the table doesn't exist yet, return a graceful response.
   const insertRow = {
