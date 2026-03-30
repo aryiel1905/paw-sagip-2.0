@@ -1423,7 +1423,10 @@ export default function AdoptionViewModal({
                             style={{ border: "1px solid var(--border-color)" }}
                             onClick={(e) => {
                               e.preventDefault();
-                              setViewer({ urls: [idDocumentUrl], index: 0 });
+                              setViewer({
+                                items: [{ url: idDocumentUrl, kind: "image" }],
+                                index: 0,
+                              });
                             }}
                           >
                             View document
