@@ -160,6 +160,7 @@ export default function Home() {
     "image" | "video" | null
   >(null);
   const [reportPhotoTrim, setReportPhotoTrim] = useState<TrimInfo | null>(null);
+  const [mainExtraMedia, setMainExtraMedia] = useState<LandmarkMediaItem[]>([]);
   const [reportStatus, setReportStatus] = useState<ReportStatus>("idle");
   const reportPhotoInputRef = useRef<HTMLInputElement>(null!);
   const landmarkInputRef = useRef<HTMLInputElement>(null!);
@@ -172,17 +173,26 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const [trimQueue, setTrimQueue] = useState<
-    { file: File; duration: number; target: "main" | "landmark" }[]
+    {
+      file: File;
+      duration: number;
+      target: "main" | "landmark";
+      slot?: "primary" | "extra";
+    }[]
   >([]);
   const [activeTrim, setActiveTrim] = useState<{
     file: File;
     duration: number;
     target: "main" | "landmark";
+    slot?: "primary" | "extra";
   } | null>(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [trimPreviewUrl, setTrimPreviewUrl] = useState<string | null>(null);
   const trimPreviewUrlRef = useRef<string | null>(null);
+  const latestPrimaryPreviewRef = useRef<string | null>(null);
+  const latestMainExtraMediaRef = useRef<LandmarkMediaItem[]>([]);
+  const latestLandmarkMediaRef = useRef<LandmarkMediaItem[]>([]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -687,6 +697,14 @@ export default function Home() {
       }
       return null;
     });
+    setMainExtraMedia((prev) => {
+      prev.forEach((item) => {
+        try {
+          URL.revokeObjectURL(item.url);
+        } catch {}
+      });
+      return [];
+    });
   }, []);
 
   const setMainMedia = useCallback(
@@ -703,6 +721,68 @@ export default function Home() {
       });
     },
     [],
+  );
+
+  const addExtraMainMedia = useCallback((file: File, trim?: TrimInfo) => {
+    const url = URL.createObjectURL(file);
+    setMainExtraMedia((prev) => [
+      ...prev,
+      { file, url, kind: getMediaKindFromFile(file), trim },
+    ]);
+  }, []);
+
+  const removeMainMediaAt = useCallback(
+    (index: number) => {
+      if (index < 0) return;
+      if (index === 0) {
+        if (mainExtraMedia.length > 0) {
+          const [nextPrimary, ...remaining] = mainExtraMedia;
+          setReportPhoto(nextPrimary.file);
+          setReportPhotoName(nextPrimary.file.name);
+          setReportPhotoKind(nextPrimary.kind);
+          setReportPhotoTrim(nextPrimary.trim ?? null);
+          setReportPhotoPreviewUrl((prev) => {
+            if (prev) {
+              try {
+                URL.revokeObjectURL(prev);
+              } catch {}
+            }
+            return nextPrimary.url;
+          });
+          setMainExtraMedia(remaining);
+          return;
+        }
+        clearMainMedia();
+        try {
+          if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
+        } catch {}
+        return;
+      }
+      setMainExtraMedia((prev) => {
+        const target = prev[index - 1];
+        if (!target) return prev;
+        try {
+          URL.revokeObjectURL(target.url);
+        } catch {}
+        return prev.filter((_, i) => i !== index - 1);
+      });
+    },
+    [clearMainMedia, mainExtraMedia]
+  );
+
+  const mainMediaItems = useMemo(
+    () => [
+      ...(reportPhoto && reportPhotoPreviewUrl && reportPhotoKind
+        ? [
+            {
+              url: reportPhotoPreviewUrl,
+              kind: reportPhotoKind,
+            },
+          ]
+        : []),
+      ...mainExtraMedia.map((item) => ({ url: item.url, kind: item.kind })),
+    ],
+    [mainExtraMedia, reportPhoto, reportPhotoKind, reportPhotoPreviewUrl]
   );
 
   const addLandmarkMedia = useCallback((file: File, trim?: TrimInfo) => {
@@ -785,6 +865,16 @@ export default function Home() {
     [activeTrim, clampTrim, trimStart],
   );
 
+  const onTrimRangeChange = useCallback(
+    (startValue: number, endValue: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(startValue, endValue, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim]
+  );
+
   const confirmTrim = useCallback(() => {
     if (!activeTrim) return;
     const info: TrimInfo = {
@@ -793,23 +883,21 @@ export default function Home() {
       duration: activeTrim.duration,
     };
     if (activeTrim.target === "main") {
-      setMainMedia(activeTrim.file, "video", info);
+      if (activeTrim.slot === "extra") {
+        addExtraMainMedia(activeTrim.file, info);
+      } else {
+        setMainMedia(activeTrim.file, "video", info);
+      }
     } else {
       addLandmarkMedia(activeTrim.file, info);
     }
     setActiveTrim(null);
-  }, [activeTrim, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
+  }, [activeTrim, addExtraMainMedia, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
 
   const cancelTrim = useCallback(() => {
     if (!activeTrim) return;
-    if (activeTrim.target === "main") {
-      try {
-        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
-      } catch {}
-      clearMainMedia();
-    }
     setActiveTrim(null);
-  }, [activeTrim, clearMainMedia]);
+  }, [activeTrim]);
 
   const isAllowedVideo = useCallback((file: File) => {
     const name = file.name.toLowerCase();
@@ -824,59 +912,90 @@ export default function Home() {
 
   // Track the selected photo/video locally so it can be uploaded prior to submitting the report
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    if (!file) {
-      clearMainMedia();
-      return;
-    }
-    clearMainMedia();
-    const isVideo = isVideoFile(file);
-    if (isVideo) {
-      if (!isAllowedVideo(file)) {
-        showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
-        clearMainMedia();
-        return;
-      }
-      if (file.size > MAX_VIDEO_BYTES) {
-        showToast("error", "Each video must be under 100 MB.");
-        clearMainMedia();
-        return;
-      }
-      try {
-        const duration = await getVideoDuration(file);
-        if (duration > MAX_VIDEO_SECONDS) {
-          setTrimQueue((prev) => [...prev, { file, duration, target: "main" }]);
-          return;
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const existing = (reportPhoto ? 1 : 0) + mainExtraMedia.length;
+    const available = Math.max(0, 5 - existing);
+    const toAdd = files.slice(0, available);
+    let needsPrimary = existing === 0;
+
+    for (const file of toAdd) {
+      const slot: "primary" | "extra" = needsPrimary ? "primary" : "extra";
+      const isVideo = isVideoFile(file);
+      if (isVideo) {
+        if (!isAllowedVideo(file)) {
+          showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+          continue;
         }
-        setMainMedia(file, "video", { start: 0, end: duration, duration });
-        return;
-      } catch {
-        showToast("error", "Unable to read video duration.");
-        clearMainMedia();
-        return;
+        if (file.size > MAX_VIDEO_BYTES) {
+          showToast("error", "Each video must be under 100 MB.");
+          continue;
+        }
+        try {
+          const duration = await getVideoDuration(file);
+          if (duration > MAX_VIDEO_SECONDS) {
+            setTrimQueue((prev) => [...prev, { file, duration, target: "main", slot }]);
+          } else if (slot === "primary") {
+            setMainMedia(file, "video", { start: 0, end: duration, duration });
+          } else {
+            addExtraMainMedia(file, { start: 0, end: duration, duration });
+          }
+          needsPrimary = false;
+        } catch {
+          showToast("error", "Unable to read video duration.");
+        }
+        continue;
       }
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        showToast("error", "Each photo must be under 5 MB.");
+        continue;
+      }
+      if (slot === "primary") {
+        setMainMedia(file, "image");
+      } else {
+        addExtraMainMedia(file);
+      }
+      needsPrimary = false;
     }
 
-    if (file.size > MAX_IMAGE_BYTES) {
-      showToast("error", "Each photo must be under 5 MB.");
-      clearMainMedia();
-      return;
+    try {
+      event.target.value = "";
+    } catch {}
+    if (files.length > available) {
+      showToast("error", "You can upload up to 5 main media items.");
     }
-    setMainMedia(file, "image");
   };
 
   // Handle the full report submission flow including optional photo upload
   // and error handling. Resets the form on success and reloads alerts.
   useEffect(() => {
+    latestPrimaryPreviewRef.current = reportPhotoPreviewUrl;
+  }, [reportPhotoPreviewUrl]);
+
+  useEffect(() => {
+    latestMainExtraMediaRef.current = mainExtraMedia;
+  }, [mainExtraMedia]);
+
+  useEffect(() => {
+    latestLandmarkMediaRef.current = landmarkMedia;
+  }, [landmarkMedia]);
+
+  useEffect(() => {
     return () => {
-      if (reportPhotoPreviewUrl) {
-        URL.revokeObjectURL(reportPhotoPreviewUrl);
+      if (latestPrimaryPreviewRef.current) {
+        URL.revokeObjectURL(latestPrimaryPreviewRef.current);
       }
       try {
-        landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
+        latestMainExtraMediaRef.current.forEach((item) =>
+          URL.revokeObjectURL(item.url)
+        );
+        latestLandmarkMediaRef.current.forEach((item) =>
+          URL.revokeObjectURL(item.url)
+        );
       } catch {}
     };
-  }, [reportPhotoPreviewUrl, landmarkMedia]);
+  }, []);
 
   type QuickReporter = {
     reporterContact?: string | null;
@@ -980,10 +1099,11 @@ export default function Home() {
       }
     }
 
-    // Upload landmark media (max 5)
-    if (landmarkMedia.length > 0) {
+    const attachedMedia = [...mainExtraMedia, ...landmarkMedia];
+    // Upload attached media (main extras + landmarks, max 5)
+    if (attachedMedia.length > 0) {
       const paths: string[] = [];
-      for (const item of landmarkMedia.slice(0, 5)) {
+      for (const item of attachedMedia.slice(0, 5)) {
         if (item.kind === "video") {
           try {
             const path = await uploadProcessedVideo(
@@ -1091,6 +1211,14 @@ export default function Home() {
       setReportPhotoName("");
       setReportPhotoKind(null);
       setReportPhotoTrim(null);
+      setMainExtraMedia((prev) => {
+        prev.forEach((item) => {
+          try {
+            URL.revokeObjectURL(item.url);
+          } catch {}
+        });
+        return [];
+      });
       if (reportPhotoInputRef.current) {
         reportPhotoInputRef.current.value = "";
       }
@@ -1648,8 +1776,8 @@ export default function Home() {
             handlePhotoChange={handlePhotoChange}
             handleSubmitReport={handleSubmitReport}
             reportPhotoInputRef={reportPhotoInputRef}
-            reportPhotoPreviewUrl={reportPhotoPreviewUrl}
-            reportPhotoKind={reportPhotoKind}
+            mainMediaItems={mainMediaItems}
+            removeMainMediaAt={removeMainMediaAt}
             landmarkMedia={landmarkMedia.map((item) => ({
               url: item.url,
               kind: item.kind,
@@ -1715,14 +1843,12 @@ export default function Home() {
       </main>
       <VideoTrimModal
         open={!!activeTrim}
-        fileName={activeTrim?.file?.name ?? null}
         fileUrl={trimPreviewUrl}
         duration={activeTrim?.duration ?? 0}
         start={trimStart}
         end={trimEnd}
         maxDuration={MAX_VIDEO_SECONDS}
-        onChangeStart={onTrimStartChange}
-        onChangeEnd={onTrimEndChange}
+        onChangeRange={onTrimRangeChange}
         onConfirm={confirmTrim}
         onCancel={cancelTrim}
       />

@@ -26,6 +26,11 @@ type UserInfo = {
 
 type TabKey = "overview" | "reports" | "apps" | "settings";
 
+function isVideoLike(path?: string | null) {
+  if (!path) return false;
+  return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
+}
+
 export default function AccountDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -142,7 +147,7 @@ export default function AccountDashboardPage() {
       // Applications (email filter + future user linkage)
       try {
         const baseSelect = [
-          "id, created_at, status, email, phone, pet_id, user_id",
+          "id, created_at, status, email, phone, pet_id, user_id, applicant_id",
           // Select all pet columns to avoid unknown-column errors across environments
           "adoption_pets:pet_id ( * )",
         ].join(", ");
@@ -159,31 +164,38 @@ export default function AccountDashboardPage() {
         try {
           const query = buildQuery();
           const q = user.email
-            ? query.or(`user_id.eq.${user.id},email.eq.${user.email}`)
-            : query.eq("user_id", user.id);
+            ? query.or(
+                `applicant_id.eq.${user.id},user_id.eq.${user.id},email.eq.${user.email}`
+              )
+            : query.or(`applicant_id.eq.${user.id},user_id.eq.${user.id}`);
           const { data } = await (q as any).throwOnError();
           rows = data ?? null;
         } catch (e) {
           appsErrorMsg = e instanceof Error ? e.message : String(e ?? "");
         }
 
-        if (appsErrorMsg?.includes?.("user_id")) {
-          // Fallback for environments without user_id column yet.
+        if (
+          appsErrorMsg?.includes?.("user_id") ||
+          appsErrorMsg?.includes?.("applicant_id")
+        ) {
+          // Fallback for environments with only one of the user-link columns.
           try {
             let fallback = supabase
               .from("adoption_applications")
               .select(
                 [
-                  "id, created_at, status, email, phone, pet_id",
+                  "id, created_at, status, email, phone, pet_id, applicant_id",
                   "adoption_pets:pet_id ( * )",
                 ].join(", ")
               )
               .order("created_at", { ascending: false })
               .limit(100);
             if (user.email) {
-              fallback = fallback.eq("email", user.email);
+              fallback = fallback.or(
+                `applicant_id.eq.${user.id},email.eq.${user.email}`
+              );
             } else {
-              fallback = fallback.limit(0);
+              fallback = fallback.eq("applicant_id", user.id);
             }
             const { data: fbRows } = await (fallback as any).throwOnError();
             rows = fbRows ?? null;
@@ -197,6 +209,58 @@ export default function AccountDashboardPage() {
           console.error("Applications load failed", appsErrorMsg);
         }
         if (!cancelled && Array.isArray(rows)) {
+          const petIds = rows
+            .map((row: any) => (row?.pet_id ? String(row.pet_id) : null))
+            .filter(Boolean) as string[];
+          const reportPreviewByPet = new Map<
+            string,
+            { previewUrl: string | null }
+          >();
+          if (petIds.length > 0) {
+            try {
+              const { data: reports } = await supabase
+                .from("reports")
+                .select(
+                  "promoted_to_pet_id, photo_path, video_thumbnail_path, landmark_media_paths"
+                )
+                .in("promoted_to_pet_id", petIds);
+              if (Array.isArray(reports)) {
+                for (const report of reports as any[]) {
+                  const petId = String(report.promoted_to_pet_id ?? "");
+                  if (!petId) continue;
+                  const mainUrl = report.photo_path
+                    ? supabase.storage
+                        .from(PET_MEDIA_BUCKET)
+                        .getPublicUrl(report.photo_path).data.publicUrl
+                    : null;
+                  const thumbUrl = report.video_thumbnail_path
+                    ? supabase.storage
+                        .from(PET_MEDIA_BUCKET)
+                        .getPublicUrl(report.video_thumbnail_path).data.publicUrl
+                    : null;
+                  const firstImageLandmark = Array.isArray(
+                    report.landmark_media_paths
+                  )
+                    ? (report.landmark_media_paths as string[]).find(
+                        (path) => path && !isVideoLike(path)
+                      ) ?? null
+                    : null;
+                  const landmarkUrl = firstImageLandmark
+                    ? supabase.storage
+                        .from(PET_MEDIA_BUCKET)
+                        .getPublicUrl(firstImageLandmark).data.publicUrl
+                    : null;
+                  const previewUrl =
+                    mainUrl && !isVideoLike(report.photo_path)
+                      ? mainUrl
+                      : thumbUrl ?? landmarkUrl ?? mainUrl;
+                  reportPreviewByPet.set(petId, { previewUrl });
+                }
+              }
+            } catch (reportErr) {
+              console.error("Application report preview load failed", reportErr);
+            }
+          }
           setMyApps(
             rows.map((row: any) => {
               const ap = (
@@ -250,6 +314,10 @@ export default function AccountDashboardPage() {
                   urlCandidates[0] ||
                   null;
               }
+              const reportPreview =
+                row.pet_id && reportPreviewByPet.has(String(row.pet_id))
+                  ? reportPreviewByPet.get(String(row.pet_id))?.previewUrl ?? null
+                  : null;
               return {
                 id: row.id,
                 created_at: row.created_at ?? null,
@@ -262,6 +330,7 @@ export default function AccountDashboardPage() {
                 shelterPhone: ap?.shelter_contact_phone ?? undefined,
                 // Helps ApplicationsList resolve the image immediately
                 petPhotoUrl,
+                petPreviewUrl: reportPreview,
               } as SimpleApplication & { petPhotoUrl?: string | null };
             })
           );

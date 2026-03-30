@@ -4,7 +4,9 @@
       "Bash(npm test:*)",
       "Bash(find 'c:\\\\Users\\\\Aryiel Joshua\\\\paw-sagip_2.0' -maxdepth 3 -type f \\\\\\(-name playwright* -o -name vitest* -o -name .env* \\\\\\))",
       "Bash(ls /c/Users/\"Aryiel Joshua\"/paw-sagip_2.0/.env*)",
-      "Bash(npx playwright:*)"
+      "Bash(npx playwright:*)",
+      "Read(//c/Users/**)",
+      "Bash(ls -lh /c/Users/Aryiel Joshua/paw-sagip_admin/*.json)"
     ]
   }
 }

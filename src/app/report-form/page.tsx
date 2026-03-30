@@ -19,6 +19,8 @@ import {
   MapPinHouse,
   PawPrint,
   ChevronLeft,
+  Maximize2,
+  X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import MapPickerModal from "@/components/MapPickerModal";
@@ -110,6 +112,8 @@ function ReportFormPageInner() {
     "image" | "video" | null
   >(null);
   const [reportPhotoTrim, setReportPhotoTrim] = useState<TrimInfo | null>(null);
+  const [mainExtraMedia, setMainExtraMedia] = useState<LandmarkMediaItem[]>([]);
+  const [mediaViewerUrl, setMediaViewerUrl] = useState<string | null>(null);
   const reportPhotoInputRef = useRef<HTMLInputElement>(null);
   const [prevPhotoName, setPrevPhotoName] = useState<string>("");
   // Landmark photos (multiple)
@@ -118,17 +122,26 @@ function ReportFormPageInner() {
   const landmarkInputMobileRef = useRef<HTMLInputElement | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [trimQueue, setTrimQueue] = useState<
-    { file: File; duration: number; target: "main" | "landmark" }[]
+    {
+      file: File;
+      duration: number;
+      target: "main" | "landmark";
+      slot?: "primary" | "extra";
+    }[]
   >([]);
   const [activeTrim, setActiveTrim] = useState<{
     file: File;
     duration: number;
     target: "main" | "landmark";
+    slot?: "primary" | "extra";
   } | null>(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [trimPreviewUrl, setTrimPreviewUrl] = useState<string | null>(null);
   const trimPreviewUrlRef = useRef<string | null>(null);
+  const latestPrimaryPreviewRef = useRef<string | null>(null);
+  const latestMainExtraMediaRef = useRef<LandmarkMediaItem[]>([]);
+  const latestLandmarkMediaRef = useRef<LandmarkMediaItem[]>([]);
   const [reporterName, setReporterName] = useState("");
   const [friendly, setFriendly] = useState(false);
   const [aggressiveFlag, setAggressiveFlag] = useState(false);
@@ -146,6 +159,14 @@ function ReportFormPageInner() {
     below: boolean;
     arrowLeft: number;
   }>({ top: 0, left: 0, below: true, arrowLeft: 16 });
+  useEffect(() => {
+    if (!mediaViewerUrl) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMediaViewerUrl(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mediaViewerUrl]);
   const tipAnchorRef = useRef<HTMLElement | null>(null);
   // Full-screen safety modal state (parity with iREPORT)
   const [flagKey, setFlagKey] = useState<"aggressive" | "friendly" | null>(
@@ -349,6 +370,14 @@ function ReportFormPageInner() {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setMainExtraMedia((prev) => {
+      prev.forEach((item) => {
+        try {
+          URL.revokeObjectURL(item.url);
+        } catch {}
+      });
+      return [];
+    });
   }, []);
 
   const setMainMedia = useCallback((file: File, kind: "image" | "video", trim?: TrimInfo) => {
@@ -361,6 +390,63 @@ function ReportFormPageInner() {
       return URL.createObjectURL(file);
     });
   }, []);
+
+  const addExtraMainMedia = useCallback((file: File, trim?: TrimInfo) => {
+    const url = URL.createObjectURL(file);
+    setMainExtraMedia((prev) => [
+      ...prev,
+      { file, url, kind: getMediaKindFromFile(file), trim },
+    ]);
+  }, []);
+
+  const removeMainMediaAt = useCallback(
+    (index: number) => {
+      if (index < 0) return;
+      if (index === 0) {
+        if (mainExtraMedia.length > 0) {
+          const [nextPrimary, ...remaining] = mainExtraMedia;
+          setReportPhoto(nextPrimary.file);
+          setReportPhotoName(nextPrimary.file.name);
+          setReportPhotoKind(nextPrimary.kind);
+          setReportPhotoTrim(nextPrimary.trim ?? null);
+          setReportPhotoPreviewUrl((prev) => {
+            if (prev) {
+              try {
+                URL.revokeObjectURL(prev);
+              } catch {}
+            }
+            return nextPrimary.url;
+          });
+          setMainExtraMedia(remaining);
+          return;
+        }
+        clearMainMedia();
+        try {
+          if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
+        } catch {}
+        return;
+      }
+      setMainExtraMedia((prev) => {
+        const target = prev[index - 1];
+        if (!target) return prev;
+        try {
+          URL.revokeObjectURL(target.url);
+        } catch {}
+        return prev.filter((_, i) => i !== index - 1);
+      });
+    },
+    [clearMainMedia, mainExtraMedia]
+  );
+
+  const mainMediaItems = useMemo(
+    () => [
+      ...(reportPhoto && reportPhotoPreviewUrl && reportPhotoKind
+        ? [{ url: reportPhotoPreviewUrl, kind: reportPhotoKind }]
+        : []),
+      ...mainExtraMedia.map((item) => ({ url: item.url, kind: item.kind })),
+    ],
+    [mainExtraMedia, reportPhoto, reportPhotoKind, reportPhotoPreviewUrl]
+  );
 
   const addLandmarkMedia = useCallback((file: File, trim?: TrimInfo) => {
     const url = URL.createObjectURL(file);
@@ -442,6 +528,16 @@ function ReportFormPageInner() {
     [activeTrim, clampTrim, trimStart]
   );
 
+  const onTrimRangeChange = useCallback(
+    (startValue: number, endValue: number) => {
+      if (!activeTrim) return;
+      const next = clampTrim(startValue, endValue, activeTrim.duration);
+      setTrimStart(next.s);
+      setTrimEnd(next.e);
+    },
+    [activeTrim, clampTrim]
+  );
+
   const confirmTrim = useCallback(() => {
     if (!activeTrim) return;
     const info: TrimInfo = {
@@ -450,23 +546,21 @@ function ReportFormPageInner() {
       duration: activeTrim.duration,
     };
     if (activeTrim.target === "main") {
-      setMainMedia(activeTrim.file, "video", info);
+      if (activeTrim.slot === "extra") {
+        addExtraMainMedia(activeTrim.file, info);
+      } else {
+        setMainMedia(activeTrim.file, "video", info);
+      }
     } else {
       addLandmarkMedia(activeTrim.file, info);
     }
     setActiveTrim(null);
-  }, [activeTrim, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
+  }, [activeTrim, addExtraMainMedia, addLandmarkMedia, setMainMedia, trimEnd, trimStart]);
 
   const cancelTrim = useCallback(() => {
     if (!activeTrim) return;
-    if (activeTrim.target === "main") {
-      try {
-        if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
-      } catch {}
-      clearMainMedia();
-    }
     setActiveTrim(null);
-  }, [activeTrim, clearMainMedia]);
+  }, [activeTrim]);
 
   const isAllowedVideo = useCallback((file: File) => {
     const name = file.name.toLowerCase();
@@ -480,48 +574,62 @@ function ReportFormPageInner() {
   }, []);
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    if (!file) {
-      clearMainMedia();
-      return;
-    }
-    clearMainMedia();
-    const isVideo = isVideoFile(file);
-    if (isVideo) {
-      if (!isAllowedVideo(file)) {
-        showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
-        clearMainMedia();
-        return;
-      }
-      if (file.size > MAX_VIDEO_BYTES) {
-        showToast("error", "Each video must be under 100 MB.");
-        clearMainMedia();
-        return;
-      }
-      try {
-        const duration = await getVideoDuration(file);
-        if (duration > MAX_VIDEO_SECONDS) {
-          setTrimQueue((prev) => [
-            ...prev,
-            { file, duration, target: "main" },
-          ]);
-          return;
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const existing = (reportPhoto ? 1 : 0) + mainExtraMedia.length;
+    const available = Math.max(0, 5 - existing);
+    const toAdd = files.slice(0, available);
+    let needsPrimary = existing === 0;
+
+    for (const file of toAdd) {
+      const slot: "primary" | "extra" = needsPrimary ? "primary" : "extra";
+      const isVideo = isVideoFile(file);
+      if (isVideo) {
+        if (!isAllowedVideo(file)) {
+          showToast("error", "Only MP4, MOV, or WEBM videos are allowed.");
+          continue;
         }
-        setMainMedia(file, "video", { start: 0, end: duration, duration });
-        return;
-      } catch {
-        showToast("error", "Unable to read video duration.");
-        clearMainMedia();
-        return;
+        if (file.size > MAX_VIDEO_BYTES) {
+          showToast("error", "Each video must be under 100 MB.");
+          continue;
+        }
+        try {
+          const duration = await getVideoDuration(file);
+          if (duration > MAX_VIDEO_SECONDS) {
+            setTrimQueue((prev) => [
+              ...prev,
+              { file, duration, target: "main", slot },
+            ]);
+          } else if (slot === "primary") {
+            setMainMedia(file, "video", { start: 0, end: duration, duration });
+          } else {
+            addExtraMainMedia(file, { start: 0, end: duration, duration });
+          }
+          needsPrimary = false;
+        } catch {
+          showToast("error", "Unable to read video duration.");
+        }
+        continue;
       }
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        showToast("error", "Each photo must be under 5 MB.");
+        continue;
+      }
+      if (slot === "primary") {
+        setMainMedia(file, "image");
+      } else {
+        addExtraMainMedia(file);
+      }
+      needsPrimary = false;
     }
 
-    if (file.size > MAX_IMAGE_BYTES) {
-      showToast("error", "Each photo must be under 5 MB.");
-      clearMainMedia();
-      return;
+    try {
+      event.target.value = "";
+    } catch {}
+    if (files.length > available) {
+      showToast("error", "You can upload up to 5 main media items.");
     }
-    setMainMedia(file, "image");
   };
 
   // Landmark media handlers (match quick report)
@@ -605,13 +713,32 @@ function ReportFormPageInner() {
   };
 
   useEffect(() => {
+    latestPrimaryPreviewRef.current = reportPhotoPreviewUrl;
+  }, [reportPhotoPreviewUrl]);
+
+  useEffect(() => {
+    latestMainExtraMediaRef.current = mainExtraMedia;
+  }, [mainExtraMedia]);
+
+  useEffect(() => {
+    latestLandmarkMediaRef.current = landmarkMedia;
+  }, [landmarkMedia]);
+
+  useEffect(() => {
     return () => {
-      if (reportPhotoPreviewUrl) URL.revokeObjectURL(reportPhotoPreviewUrl);
+      if (latestPrimaryPreviewRef.current) {
+        URL.revokeObjectURL(latestPrimaryPreviewRef.current);
+      }
       try {
-        landmarkMedia.forEach((item) => URL.revokeObjectURL(item.url));
+        latestMainExtraMediaRef.current.forEach((item) =>
+          URL.revokeObjectURL(item.url)
+        );
+        latestLandmarkMediaRef.current.forEach((item) =>
+          URL.revokeObjectURL(item.url)
+        );
       } catch {}
     };
-  }, [reportPhotoPreviewUrl, landmarkMedia]);
+  }, []);
 
   // Keep the helper checkboxes in sync with the selected condition
   useEffect(() => {
@@ -789,10 +916,11 @@ function ReportFormPageInner() {
       }
     }
 
-    // Upload landmark media (max 5)
-    if (landmarkMedia.length > 0) {
+    const attachedMedia = [...mainExtraMedia, ...landmarkMedia];
+    // Upload attached media (main extras + landmarks, max 5)
+    if (attachedMedia.length > 0) {
       const paths: string[] = [];
-      for (const item of landmarkMedia.slice(0, 5)) {
+      for (const item of attachedMedia.slice(0, 5)) {
         if (item.kind === "video") {
           try {
             const path = await uploadProcessedVideo(
@@ -882,6 +1010,14 @@ function ReportFormPageInner() {
       setReportPhotoName("");
       setReportPhotoKind(null);
       setReportPhotoTrim(null);
+      setMainExtraMedia((prev) => {
+        prev.forEach((item) => {
+          try {
+            URL.revokeObjectURL(item.url);
+          } catch {}
+        });
+        return [];
+      });
       if (reportPhotoInputRef.current) reportPhotoInputRef.current.value = "";
       if (reportPhotoPreviewUrl) {
         URL.revokeObjectURL(reportPhotoPreviewUrl);
@@ -924,6 +1060,7 @@ function ReportFormPageInner() {
     reportPhotoTrim,
     reportPhotoPreviewUrl,
     reportType,
+    mainExtraMedia,
     landmarkMedia,
     reportLat,
     reportLng,
@@ -1005,15 +1142,16 @@ function ReportFormPageInner() {
                 htmlFor="report-photo-mobile"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                  <input
+                <input
                     type="file"
                     accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                     className="hidden"
                     id="report-photo-mobile"
                   onChange={handlePhotoChange}
                   ref={reportPhotoInputRef}
                 />
-                {!reportPhotoPreviewUrl ? (
+                {mainMediaItems.length === 0 ? (
                   <>
                     <PawPrint
                       size={30}
@@ -1026,7 +1164,7 @@ function ReportFormPageInner() {
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
-                        : "Upload photo or video"}
+                        : "Upload pet media"}
                     </span>
                     <div className="mt-2">
                       <div
@@ -1042,41 +1180,14 @@ function ReportFormPageInner() {
                   </>
                   ) : (
                     <div className="relative h-full w-full">
-                      {reportPhotoKind === "video" ? (
-                        <video
-                          src={reportPhotoPreviewUrl}
-                          className="h-full w-full object-cover rounded-xl"
-                          controls
-                          playsInline
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={reportPhotoPreviewUrl}
-                          alt="Selected photo preview"
-                          className="h-full w-full object-cover rounded-xl"
-                        />
-                      )}
-                    <button
-                      type="button"
-                      aria-label="Remove photo"
-                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (reportPhotoInputRef.current)
-                          reportPhotoInputRef.current.value = "";
-                        clearMainMedia();
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
+                      <MainMediaCarousel
+                        items={mainMediaItems}
+                        onRemove={removeMainMediaAt}
+                        onAdd={() => reportPhotoInputRef.current?.click()}
+                        onFullscreen={(url) => setMediaViewerUrl(url)}
+                      />
+                    </div>
+                  )}
               </label>
 
               {/* Landmark Photos (mobile) */}
@@ -1105,7 +1216,7 @@ function ReportFormPageInner() {
                       }}
                     />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      Upload landmark media (up to 5)
+                      Upload landmark / location media (up to 5)
                     </span>
                     <div className="mt-2">
                       <div
@@ -1136,21 +1247,23 @@ function ReportFormPageInner() {
             </div>
 
             {/* Desktop upload tiles (updated to match iREPORT style) */}
-            <div className="hidden md:flex justify-center gap-6 mb-4">
+            <div className="hidden md:block mb-4">
+              <div className="flex justify-center gap-6">
               <label
                 className="mt-2 relative group flex aspect-[4/3] w-full max-w-[360px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl p-3 text-center"
                 htmlFor="report-photo"
                 style={{ border: "2px dashed var(--border-color)" }}
               >
-                  <input
+                <input
                     type="file"
                     accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                     className="hidden"
                     id="report-photo"
                   onChange={handlePhotoChange}
                   ref={reportPhotoInputRef}
                 />
-                {!reportPhotoPreviewUrl ? (
+                {mainMediaItems.length === 0 ? (
                   <>
                     <PawPrint
                       size={36}
@@ -1163,7 +1276,7 @@ function ReportFormPageInner() {
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
-                        : "Upload photo or video of the pet"}
+                        : "Upload pet media"}
                     </span>
                     {!reportPhotoName && prevPhotoName && (
                       <span className="mt-1 block text-xs ink-subtle">
@@ -1184,41 +1297,14 @@ function ReportFormPageInner() {
                   </>
                   ) : (
                     <div className="relative h-full w-full">
-                      {reportPhotoKind === "video" ? (
-                        <video
-                          src={reportPhotoPreviewUrl!}
-                          className="h-full w-full object-cover rounded-xl"
-                          controls
-                          playsInline
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={reportPhotoPreviewUrl!}
-                          alt="Selected photo preview"
-                          className="h-full w-full object-cover rounded-xl"
-                        />
-                      )}
-                    <button
-                      type="button"
-                      aria-label="Remove photo"
-                      className="absolute top-2 right-2 pill px-2 py-1 text-xs"
-                      style={{
-                        background: "var(--white)",
-                        border: "1px solid var(--border-color)",
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (reportPhotoInputRef.current)
-                          reportPhotoInputRef.current.value = "";
-                        clearMainMedia();
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
+                      <MainMediaCarousel
+                        items={mainMediaItems}
+                        onRemove={removeMainMediaAt}
+                        onAdd={() => reportPhotoInputRef.current?.click()}
+                        onFullscreen={(url) => setMediaViewerUrl(url)}
+                      />
+                    </div>
+                  )}
               </label>
 
               <label
@@ -1246,7 +1332,7 @@ function ReportFormPageInner() {
                       }}
                     />
                     <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                      Upload landmark media (up to 5)
+                      Upload landmark / location media (up to 5)
                     </span>
                     <div className="mt-2">
                       <div
@@ -1274,6 +1360,7 @@ function ReportFormPageInner() {
                   </div>
                 )}
               </label>
+              </div>
             </div>
 
             {/* Identity */}
@@ -1841,17 +1928,50 @@ function ReportFormPageInner() {
               document.body
             )
           : null}
+        {mediaViewerUrl && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className="fixed inset-0 z-[90] grid place-items-center p-4"
+                role="dialog"
+                aria-modal="true"
+                onClick={() => setMediaViewerUrl(null)}
+              >
+                <div className="absolute inset-0 bg-black/88" />
+                <button
+                  type="button"
+                  aria-label="Close fullscreen video"
+                  className="absolute right-4 top-4 z-[92] grid h-11 w-11 place-items-center rounded-full text-white"
+                  style={{ background: "rgba(255,255,255,0.14)" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMediaViewerUrl(null);
+                  }}
+                >
+                  <X size={20} />
+                </button>
+                <div className="relative z-[91] flex h-full w-full items-center justify-center">
+                  <video
+                    src={mediaViewerUrl}
+                    className="h-auto max-h-[92vh] w-auto max-w-[96vw] bg-black object-contain shadow-2xl"
+                    controls
+                    playsInline
+                    autoPlay
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
       <VideoTrimModal
         open={!!activeTrim}
-        fileName={activeTrim?.file?.name ?? null}
         fileUrl={trimPreviewUrl}
         duration={activeTrim?.duration ?? 0}
         start={trimStart}
         end={trimEnd}
         maxDuration={MAX_VIDEO_SECONDS}
-        onChangeStart={onTrimStartChange}
-        onChangeEnd={onTrimEndChange}
+        onChangeRange={onTrimRangeChange}
         onConfirm={confirmTrim}
         onCancel={cancelTrim}
       />
@@ -2011,6 +2131,157 @@ function LandmarkCarousel({
         }}
       >
         Clear
+      </button>
+    </div>
+  );
+}
+
+function MainMediaCarousel({
+  items,
+  onRemove,
+  onAdd,
+  onFullscreen,
+}: {
+  items: { url: string; kind: "image" | "video" }[];
+  onRemove: (index: number) => void;
+  onAdd?: () => void;
+  onFullscreen: (url: string) => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const count = items.length;
+  const current = useMemo(
+    () => (count ? items[Math.min(index, count - 1)] : null),
+    [items, index, count]
+  );
+  const prevCountRef = useRef(count);
+
+  useEffect(() => {
+    if (index > count - 1) setIndex(Math.max(0, count - 1));
+  }, [count, index]);
+
+  useEffect(() => {
+    if (count > prevCountRef.current) {
+      setIndex(Math.max(0, count - 1));
+    }
+    prevCountRef.current = count;
+  }, [count]);
+
+  if (!current) return null;
+
+  return (
+    <div className="relative h-full w-full">
+      {current.kind === "video" ? (
+        <>
+          <video
+            src={current.url}
+            className="h-full w-full object-cover rounded-xl"
+            controls
+            playsInline
+          />
+          <button
+            type="button"
+            aria-label="Open video fullscreen"
+            className="absolute left-2 top-2 grid h-10 w-10 place-items-center rounded-full"
+            style={{
+              background: "rgba(255,255,255,0.92)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onFullscreen(current.url);
+            }}
+          >
+            <Maximize2 size={16} />
+          </button>
+        </>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={current.url}
+          alt={`selected media ${Math.min(index + 1, count)} of ${count}`}
+          className="h-full w-full object-cover rounded-xl"
+        />
+      )}
+
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous media"
+            className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i - 1 + count) % count);
+            }}
+          >
+            ◀
+          </button>
+          <button
+            type="button"
+            aria-label="Next media"
+            className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-1 text-sm shadow-soft"
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i + 1) % count);
+            }}
+          >
+            ▶
+          </button>
+        </>
+      )}
+
+      <div
+        className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+        style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+      >
+        {Math.min(index + 1, count)}/{count}
+      </div>
+
+      {count < 5 && onAdd && (
+        <button
+          type="button"
+          aria-label="Add more media"
+          className="absolute bottom-2 right-2 pill px-2 py-1 text-xs"
+          style={{
+            background: "var(--white)",
+            border: "1px solid var(--border-color)",
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onAdd();
+          }}
+        >
+          +
+        </button>
+      )}
+
+      <button
+        type="button"
+        className="absolute top-2 right-2 pill px-2 py-1 text-xs"
+        style={{
+          background: "var(--white)",
+          border: "1px solid var(--border-color)",
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRemove(Math.min(index, count - 1));
+          setIndex((i) => Math.max(0, Math.min(i, count - 2)));
+        }}
+      >
+        Remove
       </button>
     </div>
   );

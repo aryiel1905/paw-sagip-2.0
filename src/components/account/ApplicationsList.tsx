@@ -14,6 +14,7 @@ export type SimpleApplication = {
   petName: string;
   species?: string;
   petPhotoUrl?: string | null;
+  petPreviewUrl?: string | null;
   shelterContactName?: string;
   shelterEmail?: string;
   shelterPhone?: string;
@@ -103,6 +104,7 @@ function resolvePetPhotoUrl(
 ): string | null {
   const raw = app as Record<string, unknown>;
   const candidates = [
+    app.petPreviewUrl,
     app.petPhotoUrl,
     raw.pet_photo_url,
     raw.petPhotoURL,

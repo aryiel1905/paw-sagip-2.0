@@ -62,6 +62,7 @@ export default function AdoptionApplicationPage() {
   const [showQuestionnaireErrors, setShowQuestionnaireErrors] = useState(false);
 
   // Form state (collected in Step 1)
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -305,6 +306,23 @@ export default function AdoptionApplicationPage() {
       mounted = false;
     };
   }, [petId]);
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = getSupabaseClient();
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        const nextEmail = data.user?.email?.trim() || null;
+        if (!mounted || !nextEmail) return;
+        setAccountEmail(nextEmail);
+        setEmail(nextEmail);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Preselect adoptWhat based on the selected pet's species (lock in Step 2)
   useEffect(() => {
@@ -643,6 +661,7 @@ export default function AdoptionApplicationPage() {
                   setPhone={setPhone}
                   email={email}
                   setEmail={setEmail}
+                  emailLocked={!!accountEmail}
                   birthDate={birthDate}
                   setBirthDate={setBirthDate}
                   occupation={occupation}

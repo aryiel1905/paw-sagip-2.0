@@ -12,6 +12,11 @@ function toKind(species?: string | null): "dog" | "cat" | "other" {
   return "other";
 }
 
+function isVideoLike(path?: string | null): boolean {
+  if (!path) return false;
+  return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
+}
+
 export async function GET(request: Request) {
   const supabase = createServerSupabaseClient();
   const url = new URL(request.url);
@@ -64,6 +69,12 @@ export async function GET(request: Request) {
       ? supabase.storage.from("pet-media").getPublicUrl(row.photo_path).data
           .publicUrl
       : null;
+    const videoThumbnailUrl = row.video_thumbnail_path
+      ? supabase.storage.from("pet-media").getPublicUrl(row.video_thumbnail_path).data
+          .publicUrl
+      : null;
+    const previewImageUrl =
+      imageUrl && !isVideoLike(row.photo_path) ? imageUrl : (videoThumbnailUrl ?? imageUrl);
     const displaySpecies = (sMeta?.canonical_name as string | undefined) ?? ((row.species as string | null) ?? null);
     const kind = toKind(displaySpecies);
     const emoji =
@@ -88,6 +99,8 @@ export async function GET(request: Request) {
       location: (row.location as string | null) ?? "",
       emoji,
       imageUrl,
+      previewImageUrl,
+      _photoPath: (row.photo_path as string | null) ?? null,
       createdAt: (row.created_at as string | null) ?? null,
       latitude: (row.latitude as number | null) ?? null,
       longitude: (row.longitude as number | null) ?? null,
@@ -107,9 +120,9 @@ export async function GET(request: Request) {
     // Fetch breed/sex/age from reports via promoted_to_pet_id
     const { data: rep } = await supabase
       .from("reports")
-      .select("promoted_to_pet_id, breed, gender, age_size")
+      .select("promoted_to_pet_id, breed, gender, age_size, video_thumbnail_path")
       .in("promoted_to_pet_id", ids);
-    const byPet = new Map<string, { breed?: string | null; gender?: string | null; age_size?: string | null }>();
+    const byPet = new Map<string, { breed?: string | null; gender?: string | null; age_size?: string | null; video_thumbnail_path?: string | null }>();
     if (Array.isArray(rep)) {
       for (const r of rep as any[]) {
         const k = String((r as any).promoted_to_pet_id);
@@ -117,17 +130,34 @@ export async function GET(request: Request) {
           breed: (r as any).breed ?? null,
           gender: (r as any).gender ?? null,
           age_size: (r as any).age_size ?? null,
+          video_thumbnail_path: (r as any).video_thumbnail_path ?? null,
         });
       }
     }
     return items.map((it) => {
       const extra = byPet.get(it.id);
-      if (!extra) return it;
+      const thumbnailUrl = extra?.video_thumbnail_path
+        ? supabase.storage
+            .from("pet-media")
+            .getPublicUrl(extra.video_thumbnail_path).data.publicUrl
+        : null;
+      const previewImageUrl =
+        (it as any)._photoPath && isVideoLike((it as any)._photoPath)
+          ? thumbnailUrl ?? it.previewImageUrl ?? it.imageUrl ?? null
+          : it.previewImageUrl ?? it.imageUrl ?? thumbnailUrl ?? null;
+      const { _photoPath, ...cleanItem } = it as any;
+      if (!extra) {
+        return {
+          ...cleanItem,
+          previewImageUrl,
+        };
+      }
       return {
-        ...it,
+        ...cleanItem,
         breed: extra.breed ?? null,
         sex: extra.gender ?? null,
         age: (it.age as string) || (extra.age_size ?? ""),
+        previewImageUrl,
       };
     });
   };

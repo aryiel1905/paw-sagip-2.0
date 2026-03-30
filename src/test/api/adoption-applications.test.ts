@@ -23,6 +23,14 @@ function makeRequest(body: unknown) {
   });
 }
 
+function makeRequestWithHeaders(body: unknown, headers: Record<string, string>) {
+  return new Request("http://localhost/api/adoption-applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+}
+
 const validPayload = {
   petId: "pet-uuid-123",
   termsAccepted: true,
@@ -100,6 +108,16 @@ describe("POST /api/adoption-applications", () => {
     await POST(makeRequest(validPayload));
     const insertedRow = mockInsert.mock.calls[0][0][0];
     expect(insertedRow.applicant_id).toBeNull();
+  });
+
+  it("falls back to x-profile-id header when auth user is unavailable", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const { POST } = await import("@/app/api/adoption-applications/route");
+    await POST(
+      makeRequestWithHeaders(validPayload, { "x-profile-id": "user-header-456" })
+    );
+    const insertedRow = mockInsert.mock.calls[0][0][0];
+    expect(insertedRow.applicant_id).toBe("user-header-456");
   });
 
   it("combines firstName and lastName into applicant_name", async () => {

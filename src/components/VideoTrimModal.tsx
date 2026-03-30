@@ -6,49 +6,49 @@ import { formatSeconds } from "@/lib/media";
 
 type VideoTrimModalProps = {
   open: boolean;
-  fileName?: string | null;
   fileUrl?: string | null;
   duration: number;
   start: number;
   end: number;
   maxDuration: number;
-  onChangeStart: (value: number) => void;
-  onChangeEnd: (value: number) => void;
+  onChangeRange: (start: number, end: number) => void;
   onConfirm: () => void;
   onCancel: () => void;
 };
 
 export function VideoTrimModal({
   open,
-  fileName,
   fileUrl,
   duration,
   start,
   end,
   maxDuration,
-  onChangeStart,
-  onChangeEnd,
+  onChangeRange,
   onConfirm,
   onCancel,
 }: VideoTrimModalProps) {
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [thumbLoading, setThumbLoading] = useState(false);
   const [draftStart, setDraftStart] = useState<number | null>(null);
-  const [dragMode, setDragMode] = useState<"move" | null>(null);
+  const [draftEnd, setDraftEnd] = useState<number | null>(null);
+  const [dragMode, setDragMode] = useState<"move" | "resize-start" | "resize-end" | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingStartRef = useRef<number | null>(null);
+  const pendingEndRef = useRef<number | null>(null);
   const dragRef = useRef<{
     startX: number;
     start: number;
+    end: number;
   } | null>(null);
 
   const safeDuration = Math.max(0, duration || 0);
-  const selectionDuration = Math.max(0, Math.min(maxDuration, safeDuration));
-  const canSlideSelection = selectionDuration > 0 && selectionDuration < safeDuration;
   const effectiveStart = draftStart ?? start;
-  const effectiveEnd = Math.min(safeDuration, effectiveStart + selectionDuration);
+  const effectiveEnd = draftEnd ?? end;
+  const minClipSeconds = Math.min(1, safeDuration || 1);
+  const selectionDuration = Math.max(0, effectiveEnd - effectiveStart);
+  const canSlideSelection = selectionDuration > 0 && selectionDuration < safeDuration;
   const clipLength = Math.max(0, effectiveEnd - effectiveStart);
   const startPct = safeDuration
     ? Math.min(100, Math.max(0, (effectiveStart / safeDuration) * 100))
@@ -128,19 +128,82 @@ export function VideoTrimModal({
   }, [fileUrl, open, safeDuration]);
 
   useEffect(() => {
-    if (!open || selectionDuration <= 0 || safeDuration <= 0) return;
-    const maxStart = Math.max(0, safeDuration - selectionDuration);
-    const nextStart = Math.min(Math.max(0, start), maxStart);
-    const nextEnd = nextStart + selectionDuration;
-    if (Math.abs(nextStart - start) > 0.001) {
-      onChangeStart(nextStart);
-      return;
+    const video = videoRef.current;
+    if (!open || !video || !fileUrl || safeDuration <= 0) return;
+
+    const clampToSelection = () => {
+      const startTime = Math.max(0, Math.min(effectiveStart, safeDuration));
+      const endTime = Math.max(startTime, Math.min(effectiveEnd, safeDuration));
+      const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+
+      if (current < startTime || current > endTime || Math.abs(current - startTime) > 0.25) {
+        try {
+          video.currentTime = startTime;
+        } catch {}
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      clampToSelection();
+    };
+
+    const onTimeUpdate = () => {
+      const startTime = Math.max(0, Math.min(effectiveStart, safeDuration));
+      const endTime = Math.max(startTime, Math.min(effectiveEnd, safeDuration));
+      if (video.currentTime >= Math.max(startTime, endTime - 0.05)) {
+        try {
+          video.currentTime = startTime;
+          if (video.paused) return;
+          const playPromise = video.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        } catch {}
+      }
+    };
+
+    const onPlay = () => {
+      const startTime = Math.max(0, Math.min(effectiveStart, safeDuration));
+      const endTime = Math.max(startTime, Math.min(effectiveEnd, safeDuration));
+      if (video.currentTime < startTime || video.currentTime > endTime) {
+        try {
+          video.currentTime = startTime;
+        } catch {}
+      }
+    };
+
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("play", onPlay);
+    clampToSelection();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("play", onPlay);
+    };
+  }, [effectiveEnd, effectiveStart, fileUrl, open, safeDuration]);
+
+  useEffect(() => {
+    if (!open || safeDuration <= 0) return;
+    const safeStart = Math.max(0, Math.min(start, safeDuration));
+    let safeEnd = Math.max(safeStart, Math.min(end, safeDuration));
+    if (safeEnd - safeStart > maxDuration) {
+      safeEnd = Math.min(safeDuration, safeStart + maxDuration);
     }
-    if (Math.abs(nextEnd - end) > 0.001) onChangeEnd(nextEnd);
+    if (safeEnd - safeStart < minClipSeconds) {
+      safeEnd = Math.min(safeDuration, safeStart + minClipSeconds);
+    }
+    const nextStart = safeStart;
+    const nextEnd = safeEnd;
+    if (Math.abs(nextStart - start) > 0.001 || Math.abs(nextEnd - end) > 0.001) {
+      onChangeRange(nextStart, nextEnd);
+    }
   }, [
     end,
-    onChangeEnd,
-    onChangeStart,
+    maxDuration,
+    minClipSeconds,
+    onChangeRange,
     open,
     safeDuration,
     selectionDuration,
@@ -150,7 +213,9 @@ export function VideoTrimModal({
   useEffect(() => {
     if (open) return;
     setDraftStart(null);
+    setDraftEnd(null);
     pendingStartRef.current = null;
+    pendingEndRef.current = null;
     if (rafRef.current != null) {
       window.cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -174,20 +239,44 @@ export function VideoTrimModal({
       if (rect.width <= 0 || safeDuration <= 0) return;
       const deltaPx = event.clientX - dragRef.current.startX;
       const deltaTime = (deltaPx / rect.width) * safeDuration;
-      const maxStart = Math.max(0, safeDuration - selectionDuration);
-      const nextStart = Math.min(
-        Math.max(0, dragRef.current.start + deltaTime),
-        maxStart
-      );
+      let nextStart = dragRef.current.start;
+      let nextEnd = dragRef.current.end;
+
+      if (dragMode === "move") {
+        const currentLength = dragRef.current.end - dragRef.current.start;
+        const maxStart = Math.max(0, safeDuration - currentLength);
+        nextStart = Math.min(
+          Math.max(0, dragRef.current.start + deltaTime),
+          maxStart
+        );
+        nextEnd = Math.min(safeDuration, nextStart + currentLength);
+      } else if (dragMode === "resize-start") {
+        const maxStart = Math.max(0, dragRef.current.end - minClipSeconds);
+        nextStart = Math.min(Math.max(0, dragRef.current.start + deltaTime), maxStart);
+        if (dragRef.current.end - nextStart > maxDuration) {
+          nextStart = dragRef.current.end - maxDuration;
+        }
+        nextEnd = dragRef.current.end;
+      } else if (dragMode === "resize-end") {
+        const minEnd = Math.min(safeDuration, dragRef.current.start + minClipSeconds);
+        nextEnd = Math.max(minEnd, Math.min(safeDuration, dragRef.current.end + deltaTime));
+        if (nextEnd - dragRef.current.start > maxDuration) {
+          nextEnd = dragRef.current.start + maxDuration;
+        }
+        nextStart = dragRef.current.start;
+      }
+
       pendingStartRef.current = nextStart;
+      pendingEndRef.current = nextEnd;
       if (rafRef.current == null) {
         rafRef.current = window.requestAnimationFrame(() => {
           rafRef.current = null;
-          if (pendingStartRef.current == null) return;
+          if (pendingStartRef.current == null || pendingEndRef.current == null) return;
           setDraftStart(pendingStartRef.current);
+          setDraftEnd(pendingEndRef.current);
         });
       }
-      const previewTime = nextStart;
+      const previewTime = dragMode === "resize-end" ? nextEnd : nextStart;
       if (videoRef.current) {
         try {
           videoRef.current.currentTime = Math.min(
@@ -199,20 +288,20 @@ export function VideoTrimModal({
     };
     const onUp = () => {
       const finalStart = pendingStartRef.current ?? effectiveStart;
-      const finalEnd = Math.min(safeDuration, finalStart + selectionDuration);
+      const finalEnd = pendingEndRef.current ?? effectiveEnd;
       pendingStartRef.current = null;
+      pendingEndRef.current = null;
       if (rafRef.current != null) {
         window.cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
       setDragMode(null);
       setDraftStart(null);
+      setDraftEnd(null);
       dragRef.current = null;
-      if (Math.abs(finalStart - start) > 0.001) {
-        onChangeStart(finalStart);
-        return;
+      if (Math.abs(finalStart - start) > 0.001 || Math.abs(finalEnd - end) > 0.001) {
+        onChangeRange(finalStart, finalEnd);
       }
-      if (Math.abs(finalEnd - end) > 0.001) onChangeEnd(finalEnd);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -224,17 +313,25 @@ export function VideoTrimModal({
     dragMode,
     end,
     effectiveStart,
-    onChangeEnd,
-    onChangeStart,
+    effectiveEnd,
+    maxDuration,
+    minClipSeconds,
+    onChangeRange,
     safeDuration,
-    selectionDuration,
     start,
   ]);
 
-  const beginDrag = (clientX: number, startValue: number) => {
-    if (!canSlideSelection) return;
-    dragRef.current = { startX: clientX, start: startValue };
-    setDragMode("move");
+  const beginDrag = (
+    clientX: number,
+    mode: "move" | "resize-start" | "resize-end"
+  ) => {
+    if (!canSlideSelection && mode === "move") return;
+    dragRef.current = {
+      startX: clientX,
+      start: effectiveStart,
+      end: effectiveEnd,
+    };
+    setDragMode(mode);
   };
 
   const onSelectionPointerDown = (
@@ -242,7 +339,23 @@ export function VideoTrimModal({
   ) => {
     event.stopPropagation();
     event.preventDefault();
-    beginDrag(event.clientX, effectiveStart);
+    beginDrag(event.clientX, "move");
+  };
+
+  const onStartHandlePointerDown = (
+    event: React.PointerEvent<HTMLSpanElement>
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    beginDrag(event.clientX, "resize-start");
+  };
+
+  const onEndHandlePointerDown = (
+    event: React.PointerEvent<HTMLSpanElement>
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    beginDrag(event.clientX, "resize-end");
   };
 
   const onStripPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -252,13 +365,17 @@ export function VideoTrimModal({
     if (rect.width <= 0) return;
     const clickPct = (event.clientX - rect.left) / rect.width;
     const clickTime = Math.min(safeDuration, Math.max(0, clickPct * safeDuration));
-    let nextStart = clickTime - selectionDuration / 2;
+    const currentLength = Math.min(selectionDuration || maxDuration, maxDuration);
+    let nextStart = clickTime - currentLength / 2;
     nextStart = Math.min(
       Math.max(0, nextStart),
-      Math.max(0, safeDuration - selectionDuration)
+      Math.max(0, safeDuration - currentLength)
     );
+    const nextEnd = Math.min(safeDuration, nextStart + currentLength);
     pendingStartRef.current = nextStart;
+    pendingEndRef.current = nextEnd;
     setDraftStart(nextStart);
+    setDraftEnd(nextEnd);
     if (videoRef.current) {
       try {
         videoRef.current.currentTime = Math.min(
@@ -267,7 +384,7 @@ export function VideoTrimModal({
         );
       } catch {}
     }
-    beginDrag(event.clientX, nextStart);
+    beginDrag(event.clientX, "move");
   };
 
   const sliderBackground = useMemo(
@@ -279,10 +396,11 @@ export function VideoTrimModal({
   const content = (
     <div className="fixed inset-0 z-[80] grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full max-w-lg rounded-2xl surface shadow-soft p-5">
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl surface shadow-soft">
+        <div className="overflow-y-auto p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold ink-heading">
-            Select story clip ({formatSeconds(maxDuration)} max)
+            Select clip ({formatSeconds(maxDuration)} max)
           </h3>
           <button
             type="button"
@@ -294,20 +412,26 @@ export function VideoTrimModal({
           </button>
         </div>
         <p className="mt-2 text-sm ink-muted">
-          {fileName
-            ? `Selected: ${fileName}`
-            : "Drag the highlighted window to choose which part of the video to keep."}
+          Drag the highlighted window to choose which part of the video to keep.
         </p>
         <div className="mt-4">
           {fileUrl ? (
-            <video
-              src={fileUrl}
-              className="w-full rounded-xl"
-              controls
-              preload="metadata"
-              playsInline
-              ref={videoRef}
-            />
+            <div
+              className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-black"
+              style={{
+                aspectRatio: "16 / 9",
+                maxHeight: "min(34vh, 18rem)",
+              }}
+            >
+              <video
+                src={fileUrl}
+                className="block max-h-full max-w-full h-auto w-auto bg-black"
+                controls
+                preload="metadata"
+                playsInline
+                ref={videoRef}
+              />
+            </div>
           ) : null}
         </div>
         <div className="mt-4 space-y-3">
@@ -361,10 +485,12 @@ export function VideoTrimModal({
                 onPointerDown={canSlideSelection ? onSelectionPointerDown : undefined}
               >
                 <span
-                  className="pointer-events-none absolute inset-y-2 left-1 rounded-full w-1 bg-white/90"
+                  className="absolute inset-y-2 left-1 rounded-full w-1 bg-white/90 cursor-ew-resize"
+                  onPointerDown={onStartHandlePointerDown}
                 />
                 <span
-                  className="pointer-events-none absolute inset-y-2 right-1 rounded-full w-1 bg-white/90"
+                  className="absolute inset-y-2 right-1 rounded-full w-1 bg-white/90 cursor-ew-resize"
+                  onPointerDown={onEndHandlePointerDown}
                 />
                 <span
                   className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white"
@@ -379,7 +505,8 @@ export function VideoTrimModal({
             {formatSeconds(maxDuration)})
           </p>
         </div>
-        <div className="mt-4 flex items-center justify-end gap-2">
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-black/10 px-5 py-4">
           <button
             type="button"
             className="btn px-3 py-2"

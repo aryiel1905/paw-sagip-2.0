@@ -38,6 +38,7 @@ export type AdoptionPet = {
   location: string;
   emoji: string;
   imageUrl?: string | null;
+  previewImageUrl?: string | null;
   createdAt?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -81,6 +82,7 @@ export type AdoptionRow = {
   status?: string | null;
   created_at?: string | null;
   photo_path?: string | null;
+  video_thumbnail_path?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   energy_level?: EnergyLevel | null;

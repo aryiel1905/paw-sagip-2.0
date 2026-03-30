@@ -31,6 +31,34 @@ const LIVE_WITH_OPTIONS = [
   { value: "roommates", label: "Roommates" },
 ];
 
+type MediaItem = {
+  url: string;
+  kind: "image" | "video";
+};
+
+type ReportMediaRow = {
+  photo_path?: string | null;
+  video_thumbnail_path?: string | null;
+  landmark_media_paths?: string[] | null;
+  breed?: string | null;
+  gender?: string | null;
+  age_size?: string | null;
+};
+
+function isVideoLike(path?: string | null) {
+  if (!path) return false;
+  return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
+}
+
+function toPublicUrl(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  path?: string | null
+) {
+  if (!path) return null;
+  return supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(path).data
+    .publicUrl;
+}
+
 export type AdoptionApplicationViewData = {
   id: string;
   status: string | null;
@@ -264,6 +292,8 @@ export default function AdoptionViewModal({
   const [petDetails, setPetDetails] = useState<
     AdoptionApplicationViewData["adoption_pets"] | null
   >(null);
+  const [reportMedia, setReportMedia] = useState<ReportMediaRow | null>(null);
+  const [activePetMediaIndex, setActivePetMediaIndex] = useState(0);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditFormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -271,7 +301,7 @@ export default function AdoptionViewModal({
   const [printing, setPrinting] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [viewer, setViewer] = useState<{
-    urls: string[];
+    items: MediaItem[];
     index: number;
   } | null>(null);
   const [poster, setPoster] = useState<{
@@ -288,6 +318,8 @@ export default function AdoptionViewModal({
     setSaving(false);
     setActionError(null);
     setViewer(null);
+    setReportMedia(null);
+    setActivePetMediaIndex(0);
   }, [open]);
 
   useEffect(() => {
@@ -327,6 +359,45 @@ export default function AdoptionViewModal({
   const effectiveLoading = loading ?? localLoading;
   const effectiveError = error ?? localError;
   const editingReady = editing && form !== null;
+
+  useEffect(() => {
+    const petId =
+      (effectiveData?.pet_id as string | null) ||
+      ((effectiveData?.adoption_pets as any)?.id as string | null) ||
+      null;
+    if (!open || !petId) {
+      setReportMedia(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("reports")
+      .select(
+        "photo_path, video_thumbnail_path, landmark_media_paths, breed, gender, age_size"
+      )
+      .eq("promoted_to_pet_id", petId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error(error);
+          setReportMedia(null);
+          return;
+        }
+        setReportMedia((data as ReportMediaRow | null) ?? null);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error(err);
+          setReportMedia(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveData?.pet_id, effectiveData?.adoption_pets, open, supabase]);
 
   useEffect(() => {
     if (!editing || !firstInputRef.current) return;
@@ -376,6 +447,26 @@ export default function AdoptionViewModal({
       .filter((url): url is string => Boolean(url));
   }, [effectiveData?.home_photo_paths, supabase]);
 
+  const petMediaItems = useMemo<MediaItem[]>(() => {
+    const paths = [
+      reportMedia?.photo_path ?? null,
+      ...(Array.isArray(reportMedia?.landmark_media_paths)
+        ? reportMedia?.landmark_media_paths ?? []
+        : []),
+    ].filter(Boolean) as string[];
+    const items = paths
+      .map((path) => {
+        const url = toPublicUrl(supabase, path);
+        if (!url) return null;
+        return {
+          url,
+          kind: isVideoLike(path) ? "video" : "image",
+        } as MediaItem;
+      })
+      .filter((item): item is MediaItem => Boolean(item));
+    return items;
+  }, [reportMedia, supabase]);
+
   const idDocumentUrl = useMemo(() => {
     if (!effectiveData?.id_document_path) return null;
     const { data } = supabase.storage
@@ -400,9 +491,14 @@ export default function AdoptionViewModal({
     const species =
       pet.species?.trim() || effectiveData?.adopt_what?.trim() || "--";
     const location = pet.location?.trim() || "--";
-    const breed = (pet.breed ?? pet.breeds)?.toString().trim() || "--";
-    const sex = (pet.sex ?? pet.gender)?.toString().trim() || "--";
-    const age = (pet.age_size ?? pet.age)?.toString().trim() || "--";
+    const breed =
+      (pet.breed ?? pet.breeds ?? reportMedia?.breed)?.toString().trim() ||
+      "--";
+    const sex =
+      (pet.sex ?? pet.gender ?? reportMedia?.gender)?.toString().trim() || "--";
+    const age =
+      (pet.age_size ?? pet.age ?? reportMedia?.age_size)?.toString().trim() ||
+      "--";
 
     const pathCandidates = [
       pet.photo_path,
@@ -425,8 +521,13 @@ export default function AdoptionViewModal({
       pet.images?.[0],
     ].filter(Boolean) as string[];
 
-    let photo: string | null = null;
+    let photo: string | null =
+      reportMedia?.photo_path && !isVideoLike(reportMedia.photo_path)
+        ? toPublicUrl(supabase, reportMedia.photo_path)
+        : toPublicUrl(supabase, reportMedia?.video_thumbnail_path) ??
+          null;
     for (const p of pathCandidates) {
+      if (photo) break;
       const { data } = supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p);
       if (data.publicUrl) {
         photo = data.publicUrl;
@@ -444,9 +545,16 @@ export default function AdoptionViewModal({
   }, [
     effectiveData?.adoption_pets,
     effectiveData?.adopt_what,
+    reportMedia,
     supabase,
     petDetails,
   ]);
+
+  useEffect(() => {
+    if (activePetMediaIndex >= petMediaItems.length) {
+      setActivePetMediaIndex(0);
+    }
+  }, [activePetMediaIndex, petMediaItems.length]);
 
   const canEditStatus = effectiveData?.status
     ? EDITABLE_STATUSES.has(effectiveData.status.toLowerCase())
@@ -841,7 +949,85 @@ export default function AdoptionViewModal({
                   >
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-[250px_minmax(0,1fr)] md:items-start">
                       <div className="relative overflow-hidden rounded-[18px] bg-[var(--soft-bg)] min-h-[200px] md:min-h-[250px]">
-                        {petProfile.photo ? (
+                        {petMediaItems.length > 0 ? (
+                          <>
+                            {petMediaItems[
+                              Math.min(activePetMediaIndex, petMediaItems.length - 1)
+                            ]?.kind === "video" ? (
+                              <video
+                                src={
+                                  petMediaItems[
+                                    Math.min(
+                                      activePetMediaIndex,
+                                      petMediaItems.length - 1
+                                    )
+                                  ]?.url
+                                }
+                                className="absolute inset-0 h-full w-full object-cover"
+                                controls
+                                preload="metadata"
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={
+                                  petMediaItems[
+                                    Math.min(
+                                      activePetMediaIndex,
+                                      petMediaItems.length - 1
+                                    )
+                                  ]?.url
+                                }
+                                alt={petProfile.name}
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                            )}
+                            {petMediaItems.length > 1 ? (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label="Previous pet media"
+                                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setActivePetMediaIndex((prev) =>
+                                      (prev - 1 + petMediaItems.length) %
+                                      petMediaItems.length
+                                    );
+                                  }}
+                                >
+                                  <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Next pet media"
+                                  className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setActivePetMediaIndex((prev) =>
+                                      (prev + 1) % petMediaItems.length
+                                    );
+                                  }}
+                                >
+                                  <ChevronRight className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="absolute bottom-3 right-3 z-10 rounded-full bg-black/65 px-2 py-1 text-xs text-white"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setViewer({
+                                      items: petMediaItems,
+                                      index: activePetMediaIndex,
+                                    });
+                                  }}
+                                >
+                                  {activePetMediaIndex + 1}/{petMediaItems.length}
+                                </button>
+                              </>
+                            ) : null}
+                          </>
+                        ) : petProfile.photo ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={petProfile.photo}
@@ -1589,7 +1775,15 @@ export default function AdoptionViewModal({
                           src={url}
                           alt="Home"
                           className="h-32 w-full object-cover rounded-xl cursor-pointer"
-                          onClick={() => setViewer({ urls: imageUrls, index })}
+                          onClick={() =>
+                            setViewer({
+                              items: imageUrls.map((url) => ({
+                                url,
+                                kind: "image" as const,
+                              })),
+                              index,
+                            })
+                          }
                         />
                       ))}
                     </div>
@@ -1615,7 +1809,7 @@ export default function AdoptionViewModal({
           >
             <CircleX className="h-6 w-6" />
           </button>
-          {viewer.urls.length > 1 ? (
+          {viewer.items.length > 1 ? (
             <>
               <button
                 type="button"
@@ -1628,8 +1822,8 @@ export default function AdoptionViewModal({
                       ? {
                           ...prev,
                           index:
-                            (prev.index - 1 + prev.urls.length) %
-                            prev.urls.length,
+                            (prev.index - 1 + prev.items.length) %
+                            prev.items.length,
                         }
                       : prev
                   );
@@ -1645,7 +1839,7 @@ export default function AdoptionViewModal({
                   event.stopPropagation();
                   setViewer((prev) =>
                     prev
-                      ? { ...prev, index: (prev.index + 1) % prev.urls.length }
+                      ? { ...prev, index: (prev.index + 1) % prev.items.length }
                       : prev
                   );
                 }}
@@ -1655,13 +1849,24 @@ export default function AdoptionViewModal({
             </>
           ) : null}
           <div className="relative z-[81] grid place-items-center w-full h-full p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={viewer.urls[Math.min(viewer.index, viewer.urls.length - 1)]}
-              alt="Home preview"
-              className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl"
-              onClick={(event) => event.stopPropagation()}
-            />
+            {viewer.items[Math.min(viewer.index, viewer.items.length - 1)]
+              ?.kind === "video" ? (
+              <video
+                src={viewer.items[Math.min(viewer.index, viewer.items.length - 1)]?.url}
+                className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl"
+                controls
+                preload="metadata"
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewer.items[Math.min(viewer.index, viewer.items.length - 1)]?.url}
+                alt="Home preview"
+                className="max-h-[85vh] max-w-[95vw] object-contain rounded-xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            )}
           </div>
         </div>
       ) : null}

@@ -73,6 +73,7 @@ export async function POST(request: Request) {
 
   const supabase = createServerSupabaseClient();
   let userId: string | null = null;
+  const headerProfileId = request.headers.get("x-profile-id");
   try {
     const {
       data: { user },
@@ -80,6 +81,9 @@ export async function POST(request: Request) {
     userId = user?.id ?? null;
   } catch (err) {
     console.error("[adoption-applications] Failed to resolve user:", err);
+  }
+  if (!userId && headerProfileId && headerProfileId.trim()) {
+    userId = headerProfileId.trim();
   }
 
   // Attempt to persist; if the table doesn't exist yet, return a graceful response.

@@ -119,6 +119,9 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
             <div className="px-6 pt-2 pb-10 flex-1 flex flex-col">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
                 {adoptionResults.slice(0, 9).map((pet) => (
+                  (() => {
+                    const previewUrl = pet.previewImageUrl ?? pet.imageUrl;
+                    return (
                   <Link
                     key={pet.id}
                     href={`/adopt/${pet.id}`}
@@ -134,10 +137,10 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                   >
                     <div className="p-3">
                       <div className="rounded-xl overflow-hidden mb-2">
-                        {pet.imageUrl ? (
+                        {previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={pet.imageUrl}
+                            src={previewUrl}
                             alt={`${pet.name} photo`}
                             className="w-full h-28 sm:h-32 object-cover"
                             loading="lazy"
@@ -171,6 +174,8 @@ export function AdoptionSection({ adoptionResults }: AdoptionSectionProps) {
                       </div>
                     </div>
                   </Link>
+                    );
+                  })()
                 ))}
                 {/* Fillers if fewer than 9 */}
                 {Array.from({

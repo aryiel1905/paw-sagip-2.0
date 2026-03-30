@@ -88,6 +88,19 @@ function speciesToEmoji(species?: string | null) {
   return "\u{1F43E}";
 }
 
+function formatSpeciesLabel(species?: string | null): string | null {
+  const raw = (species ?? "").trim();
+  if (!raw) return null;
+  const clean = raw.replace(/^others?;/i, "").trim();
+  if (!clean) return "Other";
+  return clean
+    .split(/\s+/)
+    .map((part) =>
+      part.length ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part
+    )
+    .join(" ");
+}
+
 function computeMinutes(row: Pick<AlertRow, "minutes" | "created_at">): number {
   if (row.minutes !== undefined && row.minutes !== null) {
     const parsed = Number(row.minutes);
@@ -122,10 +135,11 @@ function toAlert(row: AlertRow): Alert {
         .filter((url): url is string => !!url)
     : [];
 
+  const formattedSpecies = formatSpeciesLabel(row.species);
   const title =
     row.pet_name?.trim() ||
-    (row.species
-      ? `${row.report_type.toUpperCase()} ${row.species}`
+    (formattedSpecies
+      ? `${row.report_type.toUpperCase()} ${formattedSpecies}`
       : row.report_type.toUpperCase());
 
   const emojiSource =
@@ -680,7 +694,7 @@ export async function fetchReportDetailsForAlert(alertId: string): Promise<Repor
     );
     return {
       custom_id: row?.custom_id ?? null,
-      species: row?.species ?? null,
+      species: formatSpeciesLabel(row?.species ?? null),
       breed: row?.breed ?? null,
       gender: row?.gender ?? null,
       age_size: row?.age_size ?? null,

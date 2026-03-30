@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchAdoptionPetsPaged } from "@/data/supabaseApi";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
 import type { AdoptionPet, EnergyLevel } from "@/types/app";
-import { SPECIES_SUGGESTIONS, normalizeSpecies } from "@/constants/species";
+import { normalizeSpecies } from "@/constants/species";
 
 type Props = {
   open: boolean;
@@ -24,6 +25,12 @@ type MatchRow = {
   reasons: string[];
 };
 
+type SpeciesOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
 function petSpeciesKey(pet: AdoptionPet) {
   const raw = normalizeSpecies(pet.species);
   if (raw) {
@@ -34,6 +41,25 @@ function petSpeciesKey(pet: AdoptionPet) {
   }
   if (pet.kind === "dog" || pet.kind === "cat") return pet.kind;
   return "other";
+}
+
+function petSpeciesLabel(pet: AdoptionPet, key: string) {
+  const raw = (pet.species ?? "").trim();
+  if (raw && !normalizeSpecies(raw).startsWith("others;")) {
+    return raw
+      .split(/\s+/)
+      .map((part) =>
+        part.length ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part
+      )
+      .join(" ");
+  }
+  if (key === "other") return "Other";
+  return key
+    .split(/\s+/)
+    .map((part) =>
+      part.length ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part
+    )
+    .join(" ");
 }
 
 function userEnergyToLevel(
@@ -104,6 +130,27 @@ export default function FindMyMatchModal({
     energy: "",
   });
 
+  const speciesOptions = useMemo<SpeciesOption[]>(() => {
+    const byKey = new Map<string, SpeciesOption>();
+    for (const pet of candidates) {
+      const key = petSpeciesKey(pet);
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      byKey.set(key, {
+        value: key,
+        label: petSpeciesLabel(pet, key),
+        count: 1,
+      });
+    }
+    return Array.from(byKey.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label);
+    });
+  }, [candidates]);
+
   const canRunMatch = !!answers.petType && !!answers.energy;
 
   const loadMatchingPool = useCallback(async () => {
@@ -147,10 +194,52 @@ export default function FindMyMatchModal({
     }
   }, [answers, canRunMatch, candidates]);
 
+  const goOrPrompt = useCallback(
+    async (to: string) => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user ?? null;
+        if (!user) {
+          try {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("auth:postLoginRedirect", to);
+            }
+          } catch {}
+          onClose();
+          showToast("success", "Please sign in to view pet details.");
+          try {
+            window.dispatchEvent(
+              new CustomEvent("app:signin", { detail: { mode: "login" } })
+            );
+          } catch {}
+          return;
+        }
+        onClose();
+        router.push(to);
+      } catch {
+        onClose();
+        router.push(to);
+      }
+    },
+    [onClose, router]
+  );
+
   useEffect(() => {
     if (!open || candidates.length > 0 || loadingPool) return;
     loadMatchingPool();
   }, [open, candidates.length, loadingPool, loadMatchingPool]);
+
+  useEffect(() => {
+    if (!answers.petType) return;
+    const stillExists = speciesOptions.some(
+      (option) => option.value === answers.petType
+    );
+    if (!stillExists) {
+      setAnswers((prev) => ({ ...prev, petType: "" }));
+      setResults([]);
+    }
+  }, [answers.petType, speciesOptions]);
 
   useEffect(() => {
     if (!open) return;
@@ -204,6 +293,7 @@ export default function FindMyMatchModal({
               className="mt-1 w-full rounded-xl border px-3 py-2"
               style={{ borderColor: "var(--border-color)" }}
               value={answers.petType}
+              disabled={loadingPool || speciesOptions.length === 0}
               onChange={(e) =>
                 setAnswers((prev) => ({
                   ...prev,
@@ -211,10 +301,16 @@ export default function FindMyMatchModal({
                 }))
               }
             >
-              <option value="">Select one</option>
-              {SPECIES_SUGGESTIONS.map((species) => (
-                <option key={species} value={species}>
-                  {species}
+              <option value="">
+                {loadingPool
+                  ? "Loading available animals..."
+                  : speciesOptions.length === 0
+                  ? "No available animals"
+                  : "Select one"}
+              </option>
+              {speciesOptions.map((species) => (
+                <option key={species.value} value={species.value}>
+                  {species.label} ({species.count})
                 </option>
               ))}
             </select>
@@ -322,10 +418,7 @@ export default function FindMyMatchModal({
                     type="button"
                     className="pill px-2 py-1 text-xs"
                     style={{ border: "1px solid var(--border-color)" }}
-                    onClick={() => {
-                      onClose();
-                      router.push(`/adopt/${entry.pet.id}`);
-                    }}
+                    onClick={() => goOrPrompt(`/adopt/${entry.pet.id}`)}
                   >
                     View details
                   </button>

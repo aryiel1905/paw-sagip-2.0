@@ -55,6 +55,19 @@ function DetailsModalInner({
     urls: string[];
     index: number;
   } | null>(null);
+  const mediaUrls = useMemo(() => {
+    const urls = isAlert
+      ? [item?.alert.imageUrl, ...lmUrls].filter(Boolean)
+      : item?.adoption.imageUrl
+        ? [item.adoption.imageUrl]
+        : [];
+    return Array.from(new Set(urls as string[]));
+  }, [isAlert, item, lmUrls]);
+  const mediaCount = mediaUrls.length;
+  const currentMedia = useMemo(
+    () => (mediaCount ? mediaUrls[Math.min(lmIndex, mediaCount - 1)] : null),
+    [lmIndex, mediaCount, mediaUrls]
+  );
 
   // Keep local urls in sync if modal item changes
   useEffect(() => {
@@ -191,58 +204,98 @@ function DetailsModalInner({
           <div className="grid gap-5 md:grid-cols-3">
             <div className="md:col-span-1">
               {isAlert ? (
-                item.alert.imageUrl ? (
-                  isVideoUrl(item.alert.imageUrl) ? (
-                    <div className="relative h-40 w-full sm:max-w-[200px]">
+                <div className="relative h-40 w-full sm:max-w-[200px]">
+                  {currentMedia ? (
+                    isVideoUrl(currentMedia) ? (
                       <video
-                        src={item.alert.imageUrl}
+                        src={currentMedia}
                         className="h-40 w-full rounded-xl object-cover"
                         controls
                         playsInline
                       />
-                      <button
-                        type="button"
-                        aria-label="Open video fullscreen"
-                        className="absolute right-2 top-2 rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentMedia}
+                        alt="alert"
+                        className="h-40 w-full rounded-xl object-cover cursor-zoom-in"
                         onClick={(e) => {
                           e.stopPropagation();
                           setViewer({
-                            urls: [item.alert.imageUrl as string],
-                            index: 0,
+                            urls: mediaUrls,
+                            index: Math.min(lmIndex, mediaCount - 1),
                           });
                         }}
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    )
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.alert.imageUrl}
-                      alt="alert"
-                      className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover cursor-zoom-in"
+                    <div
+                      className="grid h-40 w-full place-content-center rounded-xl text-5xl"
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--primary-green) 12%, #fff)",
+                      }}
+                    >
+                      {item.alert.emoji}
+                    </div>
+                  )}
+                  {currentMedia ? (
+                    <button
+                      type="button"
+                      aria-label="Open video fullscreen"
+                      className="absolute right-2 top-2 rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         setViewer({
-                          urls: [item.alert.imageUrl as string],
-                          index: 0,
+                          urls: mediaUrls,
+                          index: Math.min(lmIndex, mediaCount - 1),
                         });
                       }}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  )
-                ) : (
-                  <div
-                    className="grid h-40 w-full sm:max-w-[200px] place-content-center rounded-xl text-5xl"
-                    style={{
-                      background:
-                        "color-mix(in srgb, var(--primary-green) 12%, #fff)",
-                    }}
-                  >
-                    {item.alert.emoji}
-                  </div>
-                )
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                  {mediaCount > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous media"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                        onClick={() =>
+                          setLmIndex((i) => (i - 1 + mediaCount) % mediaCount)
+                        }
+                      >
+                        <ChevronLeft />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next media"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
+                        style={{
+                          background: "var(--white)",
+                          border: "1px solid var(--border-color)",
+                        }}
+                        onClick={() =>
+                          setLmIndex((i) => (i + 1) % mediaCount)
+                        }
+                      >
+                        <ChevronRight />
+                      </button>
+                      <div
+                        className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+                        style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                      >
+                        {Math.min(lmIndex + 1, mediaCount)}/{mediaCount}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               ) : item.adoption.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -290,91 +343,6 @@ function DetailsModalInner({
                 </div>
               )}
 
-              {/* Landmark carousel (same size) */}
-              {isAlert && lmCount > 0 && (
-                <div className="relative mt-3 h-40 w-full sm:max-w-[200px]">
-                  {currentLm &&
-                    (isVideoUrl(currentLm) ? (
-                      <div className="relative h-full w-full">
-                        <video
-                          src={currentLm}
-                          className="h-full w-full object-cover rounded-xl"
-                          controls
-                          playsInline
-                        />
-                        <button
-                          type="button"
-                          aria-label="Open landmark video fullscreen"
-                          className="absolute right-2 top-2 rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setViewer({
-                              urls: [currentLm],
-                              index: 0,
-                            });
-                          }}
-                        >
-                          <Maximize2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentLm}
-                        alt={`landmark ${Math.min(
-                          lmIndex + 1,
-                          lmCount
-                        )} of ${lmCount}`}
-                        className="h-full w-full object-cover rounded-xl cursor-zoom-in"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setViewer({
-                            urls: lmUrls,
-                            index: Math.min(lmIndex, lmCount - 1),
-                          });
-                        }}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ))}
-                  {lmCount > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        aria-label="Previous landmark"
-                        className="absolute left-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
-                        style={{
-                          background: "var(--white)",
-                          border: "1px solid var(--border-color)",
-                        }}
-                        onClick={() =>
-                          setLmIndex((i) => (i - 1 + lmCount) % lmCount)
-                        }
-                      >
-                        <ChevronLeft />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Next landmark"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 pill px-1 py-1 text-xs shadow-soft"
-                        style={{
-                          background: "var(--white)",
-                          border: "1px solid var(--border-color)",
-                        }}
-                        onClick={() => setLmIndex((i) => (i + 1) % lmCount)}
-                      >
-                        <ChevronRight />
-                      </button>
-                    </>
-                  )}
-                  <div
-                    className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
-                    style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
-                  >
-                    {Math.min(lmIndex + 1, lmCount)}/{lmCount}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">

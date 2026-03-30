@@ -13,6 +13,7 @@ type Props = {
   setPhone: (value: string) => void;
   email: string;
   setEmail: (value: string) => void;
+  emailLocked?: boolean;
   birthDate: string;
   setBirthDate: (value: string) => void;
   occupation: string;
@@ -47,6 +48,7 @@ export default function StepApplicant({
   setPhone,
   email,
   setEmail,
+  emailLocked = false,
   birthDate,
   setBirthDate,
   occupation,
@@ -226,10 +228,19 @@ export default function StepApplicant({
             type="email"
             className={inputClass(emailError)}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              if (!emailLocked) setEmail(e.target.value);
+            }}
+            readOnly={emailLocked}
             aria-invalid={emailError}
             aria-describedby={emailError ? "email-error" : undefined}
+            title={emailLocked ? "Email is locked to your account." : undefined}
           />
+          {emailLocked ? (
+            <p className="mt-1 text-xs ink-muted">
+              This email is locked to your signed-in account.
+            </p>
+          ) : null}
           {emailError ? (
             <p id="email-error" className="mt-1 text-xs text-red-500">
               Email is required.

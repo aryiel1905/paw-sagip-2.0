@@ -17,6 +17,8 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
+  X,
 } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { AlertType, ReportStatus, PetStatus } from "@/types/app";
@@ -51,8 +53,8 @@ type ReportSectionProps = {
     }
   ) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
-  reportPhotoPreviewUrl: string | null;
-  reportPhotoKind?: "image" | "video" | null;
+  mainMediaItems: { url: string; kind: "image" | "video" }[];
+  removeMainMediaAt: (index: number) => void;
   // Landmark photos (multiple)
   landmarkMedia: { url: string; kind: "image" | "video" }[];
   handleLandmarkPhotosChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -79,8 +81,8 @@ export function ReportSection({
   handlePhotoChange,
   handleSubmitReport,
   reportPhotoInputRef,
-  reportPhotoPreviewUrl,
-  reportPhotoKind,
+  mainMediaItems,
+  removeMainMediaAt,
   landmarkMedia,
   handleLandmarkPhotosChange,
   removeLandmarkAt,
@@ -99,6 +101,7 @@ export function ReportSection({
   const [qPetStatus, setQPetStatus] = useState("");
   const [showQuickValidation, setShowQuickValidation] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mediaViewerUrl, setMediaViewerUrl] = useState<string | null>(null);
   // Auth-derived identity for autofill
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
@@ -120,6 +123,14 @@ export function ReportSection({
   const [flagKey, setFlagKey] = useState<"aggressive" | "friendly" | null>(
     null
   );
+  useEffect(() => {
+    if (!mediaViewerUrl) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMediaViewerUrl(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mediaViewerUrl]);
   const openFlagModal = (k: "aggressive" | "friendly") => setFlagKey(k);
   const closeFlagModal = () => setFlagKey(null);
 
@@ -438,18 +449,6 @@ export function ReportSection({
     qFriendly,
   ]);
 
-  const clearMainPhoto = useCallback(() => {
-    try {
-      const input = reportPhotoInputRef.current;
-      if (!input) return;
-      input.value = "";
-      const ev = new Event("change", { bubbles: true });
-      input.dispatchEvent(ev);
-    } catch {
-      // ignore
-    }
-  }, [reportPhotoInputRef]);
-
   // Show toast messages for submit status and reset fields on success
   const didHandleSuccessRef = useRef(false);
   useEffect(() => {
@@ -606,12 +605,13 @@ export function ReportSection({
                   <input
                     type="file"
                     accept="image/*,video/mp4,video/quicktime,video/webm"
+                    multiple
                     className="hidden"
                     id="report-photo-mobile"
                     onChange={handlePhotoChange}
                     ref={reportPhotoInputRef}
                   />
-                  {!reportPhotoPreviewUrl ? (
+                  {mainMediaItems.length === 0 ? (
                     <>
                       <PawPrint
                         size={30}
@@ -624,7 +624,7 @@ export function ReportSection({
                       <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                         {reportPhotoName
                           ? `Selected: ${reportPhotoName}`
-                          : "Upload photo or video"}
+                          : "Upload pet media"}
                       </span>
                       <div className="mt-2">
                         <div
@@ -640,40 +640,14 @@ export function ReportSection({
                     </>
                     ) : (
                       <div className="relative h-full w-full">
-                        {reportPhotoKind === "video" ? (
-                          <video
-                            src={reportPhotoPreviewUrl}
-                            className="h-full w-full object-cover rounded-xl"
-                            controls
-                            playsInline
-                          />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={reportPhotoPreviewUrl}
-                            alt="Selected photo preview"
-                            className="h-full w-full object-cover rounded-xl"
-                          />
-                        )}
-
-                      <button
-                        type="button"
-                        aria-label="Remove photo"
-                        className="absolute top-2 right-2 pill px-3 py-2 text-xs"
-                        style={{
-                          background: "var(--white)",
-                          border: "1px solid var(--border-color)",
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          clearMainPhoto();
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
+                        <MainMediaCarousel
+                          items={mainMediaItems}
+                          onRemove={removeMainMediaAt}
+                          onAdd={() => reportPhotoInputRef.current?.click()}
+                          onFullscreen={(url) => setMediaViewerUrl(url)}
+                        />
+                      </div>
+                    )}
                 </label>
               </div>
 
@@ -705,7 +679,7 @@ export function ReportSection({
                         }}
                       />
                       <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                        Upload landmark media (up to 5)
+                        Upload landmark / location media (up to 5)
                       </span>
                       <div className="mt-2">
                         <div
@@ -1112,15 +1086,16 @@ export function ReportSection({
                       htmlFor="report-photo"
                       style={{ border: "2px dashed var(--border-color)" }}
                     >
-                    <input
-                      type="file"
-                      accept="image/*,video/mp4,video/quicktime,video/webm"
-                      className="hidden"
-                      id="report-photo"
+                      <input
+                        type="file"
+                        accept="image/*,video/mp4,video/quicktime,video/webm"
+                        multiple
+                        className="hidden"
+                        id="report-photo"
                         onChange={handlePhotoChange}
                         ref={reportPhotoInputRef}
                       />
-                      {!reportPhotoPreviewUrl ? (
+                      {mainMediaItems.length === 0 ? (
                         <>
                           <PawPrint
                             size={36}
@@ -1133,7 +1108,7 @@ export function ReportSection({
                           <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
                             {reportPhotoName
                               ? `Selected: ${reportPhotoName}`
-                              : "Upload photo or video of the pet"}
+                              : "Upload pet media"}
                           </span>
                           <div className="mt-2">
                             <div
@@ -1147,39 +1122,14 @@ export function ReportSection({
                             </div>
                           </div>
                         </>
-                        ) : (
-                          <div className="relative h-full w-full">
-                            {reportPhotoKind === "video" ? (
-                              <video
-                                src={reportPhotoPreviewUrl!}
-                                className="h-full w-full object-cover rounded-xl"
-                                controls
-                                playsInline
-                              />
-                            ) : (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={reportPhotoPreviewUrl!}
-                                alt="Selected photo preview"
-                                className="h-full w-full object-cover rounded-xl"
-                              />
-                            )}
-                          <button
-                            type="button"
-                            aria-label="Remove photo"
-                            className="absolute top-2 right-2 pill px-3 py-2 text-xs"
-                            style={{
-                              background: "var(--white)",
-                              border: "1px solid var(--border-color)",
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              clearMainPhoto();
-                            }}
-                          >
-                            Remove
-                          </button>
+                      ) : (
+                        <div className="relative h-full w-full">
+                          <MainMediaCarousel
+                            items={mainMediaItems}
+                            onRemove={removeMainMediaAt}
+                            onAdd={() => reportPhotoInputRef.current?.click()}
+                            onFullscreen={(url) => setMediaViewerUrl(url)}
+                          />
                         </div>
                       )}
                     </label>
@@ -1210,7 +1160,7 @@ export function ReportSection({
                             }}
                           />
                           <span className="text-sm ink-muted opacity-80 group-hover:opacity-100 transition">
-                            Upload landmark media (up to 5)
+                            Upload landmark / location media (up to 5)
                           </span>
                           <div className="mt-2">
                             <div
@@ -2000,6 +1950,41 @@ export function ReportSection({
             document.body
           )
         : null}
+      {mediaViewerUrl && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[90] grid place-items-center p-4"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => setMediaViewerUrl(null)}
+            >
+              <div className="absolute inset-0 bg-black/88" />
+              <button
+                type="button"
+                aria-label="Close fullscreen video"
+                className="absolute right-4 top-4 z-[92] grid h-11 w-11 place-items-center rounded-full text-white"
+                style={{ background: "rgba(255,255,255,0.14)" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMediaViewerUrl(null);
+                }}
+              >
+                <X size={20} />
+              </button>
+              <div className="relative z-[91] flex h-full w-full items-center justify-center">
+                <video
+                  src={mediaViewerUrl}
+                  className="h-auto max-h-[92vh] w-auto max-w-[96vw] bg-black object-contain shadow-2xl"
+                  controls
+                  playsInline
+                  autoPlay
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </section>
   );
 }
@@ -2149,6 +2134,158 @@ function LandmarkCarousel({
         }}
       >
         Clear
+      </button>
+    </div>
+  );
+}
+
+function MainMediaCarousel({
+  items,
+  onRemove,
+  onAdd,
+  onFullscreen,
+}: {
+  items: { url: string; kind: "image" | "video" }[];
+  onRemove: (index: number) => void;
+  onAdd?: () => void;
+  onFullscreen: (url: string) => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const count = items.length;
+  const current = useMemo(
+    () => (count ? items[Math.min(index, count - 1)] : null),
+    [items, index, count]
+  );
+  const prevCountRef = useRef(count);
+
+  useEffect(() => {
+    if (index > count - 1) setIndex(Math.max(0, count - 1));
+  }, [count, index]);
+
+  useEffect(() => {
+    if (count > prevCountRef.current) {
+      setIndex(Math.max(0, count - 1));
+    }
+    prevCountRef.current = count;
+  }, [count]);
+
+  if (!current) return null;
+
+  return (
+    <div className="relative h-full w-full">
+      {current.kind === "video" ? (
+        <>
+          <video
+            src={current.url}
+            className="h-full w-full object-cover rounded-xl"
+            controls
+            playsInline
+          />
+          <button
+            type="button"
+            aria-label="Open video fullscreen"
+            className="absolute left-2 top-2 grid h-10 w-10 place-items-center rounded-full"
+            style={{
+              background: "rgba(255,255,255,0.92)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onFullscreen(current.url);
+            }}
+          >
+            <Maximize2 size={16} />
+          </button>
+        </>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={current.url}
+          alt={`selected media ${Math.min(index + 1, count)} of ${count}`}
+          className="h-full w-full object-cover rounded-xl"
+        />
+      )}
+
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous media"
+            className="absolute left-2 top-1/2 -translate-y-1/2 pill px-3 py-2 text-sm shadow-soft"
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i - 1 + count) % count);
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            aria-label="Next media"
+            className="absolute right-2 top-1/2 -translate-y-1/2 pill px-3 py-2 text-sm shadow-soft"
+            style={{
+              background: "var(--white)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i + 1) % count);
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </>
+      )}
+
+      <div
+        className="absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-xs"
+        style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+      >
+        {Math.min(index + 1, count)}/{count}
+      </div>
+
+      {count < 5 && onAdd && (
+        <button
+          type="button"
+          aria-label="Add more media"
+          className="absolute bottom-2 right-2 pill px-3 py-2 text-xs"
+          style={{
+            background: "var(--white)",
+            border: "1px solid var(--border-color)",
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onAdd();
+          }}
+        >
+          +
+        </button>
+      )}
+
+      <button
+        type="button"
+        aria-label="Remove current media"
+        className="absolute top-2 right-2 pill px-3 py-2 text-xs"
+        style={{
+          background: "var(--white)",
+          border: "1px solid var(--border-color)",
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRemove(Math.min(index, count - 1));
+          setIndex((i) => Math.max(0, Math.min(i, count - 2)));
+        }}
+      >
+        Remove
       </button>
     </div>
   );

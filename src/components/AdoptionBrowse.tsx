@@ -189,6 +189,9 @@ export default function AdoptionBrowse() {
                 </div>
               ))
             : items.map((pet) => (
+                (() => {
+                  const previewUrl = pet.previewImageUrl ?? pet.imageUrl;
+                  return (
                 <Link
                   key={pet.id}
                   href={`/adopt/${pet.id}`}
@@ -232,10 +235,10 @@ export default function AdoptionBrowse() {
                 >
                   <div className="p-3">
                     <div className="rounded-xl overflow-hidden mb-2">
-                      {pet.imageUrl ? (
+                      {previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={pet.imageUrl}
+                          src={previewUrl}
                           alt={`${pet.name} photo`}
                           className="w-full h-28 sm:h-32 object-cover"
                           loading="lazy"
@@ -269,6 +272,8 @@ export default function AdoptionBrowse() {
                     </div>
                   </div>
                 </Link>
+                  );
+                })()
               ))}
         </div>
 
