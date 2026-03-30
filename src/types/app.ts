@@ -2,6 +2,7 @@
 
 // Pet status tied to iREPORT field
 export type PetStatus = "roaming" | "in_custody";
+export type EnergyLevel = 1 | 2 | 3;
 
 export type Alert = {
   id: string;
@@ -15,6 +16,7 @@ export type Alert = {
   minutes: number;
   emoji: string;
   imageUrl?: string | null;
+  previewImageUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   landmarkImageUrls?: string[];
@@ -39,6 +41,7 @@ export type AdoptionPet = {
   createdAt?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  energyLevel?: EnergyLevel | null;
   // iREPORT Pet Status mapped for adoptions (generally in_custody)
   petStatus?: PetStatus;
 };
@@ -52,6 +55,7 @@ export type AlertRow = {
   created_at?: string | null;
   minutes?: number | string | null;
   photo_path?: string | null;
+  video_thumbnail_path?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   landmark_media_paths?: string[] | null;
@@ -79,6 +83,7 @@ export type AdoptionRow = {
   photo_path?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  energy_level?: EnergyLevel | null;
   landmark_media_paths?: string[] | null;
   pet_status?: PetStatus | null;
 };

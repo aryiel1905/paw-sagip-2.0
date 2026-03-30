@@ -138,7 +138,9 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {col.items.slice(0, 6).map((alert) => (
+                  {col.items.slice(0, 6).map((alert) => {
+                    const previewUrl = alert.previewImageUrl ?? alert.imageUrl;
+                    return (
                     <button
                       key={alert.id}
                       type="button"
@@ -163,8 +165,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                     >
                       <div className="p-3">
                         <div className="rounded-xl overflow-hidden mb-2">
-                          {alert.imageUrl ? (
-                            isVideoUrl(alert.imageUrl) ? (
+                          {previewUrl ? (
+                            isVideoUrl(previewUrl) ? (
                               <div
                                 className="grid place-content-center h-24 sm:h-28 text-3xl sm:text-4xl"
                                 style={{
@@ -176,7 +178,7 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={alert.imageUrl}
+                                src={previewUrl}
                                 alt="alert"
                                 className="w-full h-24 sm:h-28 object-cover"
                                 loading="lazy"
@@ -200,7 +202,8 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
                         </div>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                   {Array.from({
                     length: Math.max(0, 6 - Math.min(6, col.items.length)),
                   }).map((_, idx) => (

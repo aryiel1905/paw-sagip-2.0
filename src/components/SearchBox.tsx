@@ -79,14 +79,15 @@ export function SearchBox({
                       Alerts
                     </div>
                     <ul>
-                      {alerts.map((a) => (
-                        <li
+                      {alerts.map((a) => {
+                        const previewUrl = a.previewImageUrl ?? a.imageUrl;
+                        return <li
                           key={`s-a-${a.id}`}
                           className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
                           onClick={() => openItem({ kind: "alert", alert: a })}
                         >
-                          {a.imageUrl ? (
-                            isVideoUrl(a.imageUrl) ? (
+                          {previewUrl ? (
+                            isVideoUrl(previewUrl) ? (
                               <div
                                 className="grid h-8 w-8 place-content-center rounded-md text-base"
                                 style={{
@@ -99,7 +100,7 @@ export function SearchBox({
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={a.imageUrl}
+                                src={previewUrl}
                                 alt="alert"
                                 className="h-8 w-8 rounded-md object-cover"
                               />
@@ -126,8 +127,8 @@ export function SearchBox({
                           <button className="btn btn-accent px-2 py-1 text-[12px]">
                             View
                           </button>
-                        </li>
-                      ))}
+                        </li>;
+                      })}
                     </ul>
                   </div>
                 )}

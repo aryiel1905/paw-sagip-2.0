@@ -10,7 +10,7 @@ import {
   type ReportDetails,
 } from "@/data/supabaseApi";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 
 type DetailsModalProps = {
   item: ModalItem;
@@ -193,12 +193,28 @@ function DetailsModalInner({
               {isAlert ? (
                 item.alert.imageUrl ? (
                   isVideoUrl(item.alert.imageUrl) ? (
-                    <video
-                      src={item.alert.imageUrl}
-                      className="h-40 w-full sm:max-w-[200px] rounded-xl object-cover"
-                      controls
-                      playsInline
-                    />
+                    <div className="relative h-40 w-full sm:max-w-[200px]">
+                      <video
+                        src={item.alert.imageUrl}
+                        className="h-40 w-full rounded-xl object-cover"
+                        controls
+                        playsInline
+                      />
+                      <button
+                        type="button"
+                        aria-label="Open video fullscreen"
+                        className="absolute right-2 top-2 rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewer({
+                            urls: [item.alert.imageUrl as string],
+                            index: 0,
+                          });
+                        }}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -279,12 +295,28 @@ function DetailsModalInner({
                 <div className="relative mt-3 h-40 w-full sm:max-w-[200px]">
                   {currentLm &&
                     (isVideoUrl(currentLm) ? (
-                      <video
-                        src={currentLm}
-                        className="h-full w-full object-cover rounded-xl"
-                        controls
-                        playsInline
-                      />
+                      <div className="relative h-full w-full">
+                        <video
+                          src={currentLm}
+                          className="h-full w-full object-cover rounded-xl"
+                          controls
+                          playsInline
+                        />
+                        <button
+                          type="button"
+                          aria-label="Open landmark video fullscreen"
+                          className="absolute right-2 top-2 rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewer({
+                              urls: [currentLm],
+                              index: 0,
+                            });
+                          }}
+                        >
+                          <Maximize2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

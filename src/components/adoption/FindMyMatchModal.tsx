@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchAdoptionPetsPaged } from "@/data/supabaseApi";
 import { showToast } from "@/lib/toast";
-import type { AdoptionPet } from "@/types/app";
+import type { AdoptionPet, EnergyLevel } from "@/types/app";
 import { SPECIES_SUGGESTIONS, normalizeSpecies } from "@/constants/species";
 
 type Props = {
@@ -15,32 +15,14 @@ type Props = {
 
 type MatchAnswers = {
   petType: string;
-  energy: "calm" | "playful" | "";
+  energy: "" | "low" | "medium" | "high";
 };
-
-type PetEnergy = "calm" | "playful" | "neutral";
 
 type MatchRow = {
   pet: AdoptionPet;
   score: number;
   reasons: string[];
 };
-
-function inferEnergyFromAge(ageText?: string | null): PetEnergy {
-  const text = normalizeSpecies(ageText);
-  if (!text) return "neutral";
-  if (
-    text.includes("kitten") ||
-    text.includes("puppy") ||
-    text.includes("young")
-  ) {
-    return "playful";
-  }
-  if (text.includes("senior") || text.includes("old")) {
-    return "calm";
-  }
-  return "neutral";
-}
 
 function petSpeciesKey(pet: AdoptionPet) {
   const raw = normalizeSpecies(pet.species);
@@ -52,6 +34,22 @@ function petSpeciesKey(pet: AdoptionPet) {
   }
   if (pet.kind === "dog" || pet.kind === "cat") return pet.kind;
   return "other";
+}
+
+function userEnergyToLevel(
+  value: MatchAnswers["energy"]
+): EnergyLevel | null {
+  if (value === "low") return 1;
+  if (value === "medium") return 2;
+  if (value === "high") return 3;
+  return null;
+}
+
+function energyLabel(level: EnergyLevel | null | undefined): string {
+  if (level === 1) return "Low";
+  if (level === 2) return "Medium";
+  if (level === 3) return "High";
+  return "Not set";
 }
 
 function rankPet(pet: AdoptionPet, answers: MatchAnswers): MatchRow | null {
@@ -68,21 +66,25 @@ function rankPet(pet: AdoptionPet, answers: MatchAnswers): MatchRow | null {
   }
 
   const reasons: string[] = ["Matches your preferred animal type"];
-  const inferredEnergy = inferEnergyFromAge(pet.age);
+  const userEnergy = userEnergyToLevel(answers.energy);
+  const petEnergy = pet.energyLevel ?? null;
   let score = 60;
 
-  if (inferredEnergy === answers.energy) {
-    score += 30;
-    reasons.push(
-      answers.energy === "calm"
-        ? "Age profile suggests calmer energy"
-        : "Age profile suggests playful energy"
-    );
-  } else if (inferredEnergy === "neutral") {
-    score += 12;
-    reasons.push("Energy is flexible based on available age info");
+  if (userEnergy && petEnergy) {
+    const distance = Math.abs(userEnergy - petEnergy);
+    if (distance === 0) {
+      score += 30;
+      reasons.push(`Energy level matches your lifestyle (${energyLabel(petEnergy)})`);
+    } else if (distance === 1) {
+      score += 14;
+      reasons.push(`Energy level is close to your preference (${energyLabel(petEnergy)})`);
+    } else {
+      score += 2;
+      reasons.push(`Energy level is far from your preference (${energyLabel(petEnergy)})`);
+    }
   } else {
-    score += 2;
+    score += 8;
+    reasons.push("Energy level is not set yet, so this match is based mostly on pet type");
   }
 
   return { pet, score, reasons: reasons.slice(0, 2) };
@@ -182,7 +184,7 @@ export default function FindMyMatchModal({
           <div>
             <h2 className="text-xl font-bold text-black">Find My Match</h2>
             <p className="text-sm text-black/70">
-              Pick your pet type and preferred energy. We&apos;ll show your best fits.
+              Pick your pet type and lifestyle energy. We&apos;ll compare it with the admin-set energy level of each pet.
             </p>
           </div>
           <button
@@ -232,8 +234,9 @@ export default function FindMyMatchModal({
               }
             >
               <option value="">Select one</option>
-              <option value="calm">Calm</option>
-              <option value="playful">Playful</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
             </select>
           </label>
         </div>
@@ -297,6 +300,9 @@ export default function FindMyMatchModal({
                       entry.pet.age ||
                       entry.pet.location ||
                       "Available for adoption"}
+                  </p>
+                  <p className="mb-2 text-xs text-black/60">
+                    Energy: {energyLabel(entry.pet.energyLevel ?? null)}
                   </p>
                   <div className="mb-3 flex flex-wrap gap-1">
                     {entry.reasons.map((reason) => (

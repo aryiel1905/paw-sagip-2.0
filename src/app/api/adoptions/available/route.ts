@@ -91,6 +91,10 @@ export async function GET(request: Request) {
       createdAt: (row.created_at as string | null) ?? null,
       latitude: (row.latitude as number | null) ?? null,
       longitude: (row.longitude as number | null) ?? null,
+      energyLevel:
+        typeof row.energy_level === "number"
+          ? ((row.energy_level as number) as 1 | 2 | 3)
+          : null,
       petStatus: (row.pet_status as any) ?? "in_custody",
     };
   };
@@ -134,7 +138,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase
       .from("adoption_pets")
       .select(
-        "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
+        "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,energy_level,pet_status"
       )
       .eq("status", "available")
       .order("created_at", { ascending: false })
@@ -155,7 +159,7 @@ export async function GET(request: Request) {
   const { data, error, count } = await supabase
     .from("adoption_pets")
     .select(
-      "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status",
+      "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,energy_level,pet_status",
       { count: "exact" }
     )
     .eq("status", "available")

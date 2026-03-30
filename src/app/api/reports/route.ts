@@ -17,6 +17,7 @@ type ReportPayload = {
   condition?: string;
   location?: string;
   photoPath?: string | null;
+  videoThumbnailPath?: string | null;
   lat?: number | null;
   lng?: number | null;
   landmarkMediaPaths?: string[] | null;
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
         condition: payload.condition ?? null,
         location: payload.location ?? null,
         photo_path: payload.photoPath ?? null,
+        video_thumbnail_path: payload.videoThumbnailPath ?? null,
         landmark_media_paths: payload.landmarkMediaPaths ?? [],
         latitude,
         longitude,

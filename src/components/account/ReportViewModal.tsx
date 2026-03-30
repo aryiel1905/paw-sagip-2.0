@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { fetchReportById } from "@/data/supabaseApi";
-import { ChevronLeft, ChevronRight, CircleX } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleX, Maximize2 } from "lucide-react";
 import MapPickerModal from "@/components/MapPickerModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { showToast } from "@/lib/toast";
@@ -1006,12 +1006,28 @@ export default function ReportViewModal({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                           {effectiveData?.mainUrl && !mainBroken ? (
                             isVideoUrl(effectiveData.mainUrl) ? (
-                              <video
-                                src={effectiveData.mainUrl}
-                                className="absolute inset-0 h-full w-full object-cover"
-                                controls
-                                playsInline
-                              />
+                              <>
+                                <video
+                                  src={effectiveData.mainUrl}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  controls
+                                  playsInline
+                                />
+                                <button
+                                  type="button"
+                                  aria-label="Open video fullscreen"
+                                  className="absolute right-2 top-2 z-[2] rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewer({
+                                      urls: [effectiveData.mainUrl as string],
+                                      index: 0,
+                                    });
+                                  }}
+                                >
+                                  <Maximize2 className="h-4 w-4" />
+                                </button>
+                              </>
                             ) : (
                               <img
                                 src={effectiveData.mainUrl}
@@ -1049,12 +1065,28 @@ export default function ReportViewModal({
                         {/* landmark carousel */}
                           {currentLm && !lmBrokenBySrc[currentLm] ? (
                             isVideoUrl(currentLm) ? (
-                              <video
-                                src={currentLm}
-                                className="absolute inset-0 h-full w-full object-cover"
-                                controls
-                                playsInline
-                              />
+                              <>
+                                <video
+                                  src={currentLm}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  controls
+                                  playsInline
+                                />
+                                <button
+                                  type="button"
+                                  aria-label="Open landmark video fullscreen"
+                                  className="absolute right-2 top-2 z-[2] rounded-full bg-black/65 p-2 text-white hover:bg-black/80 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewer({
+                                      urls: [currentLm],
+                                      index: 0,
+                                    });
+                                  }}
+                                >
+                                  <Maximize2 className="h-4 w-4" />
+                                </button>
+                              </>
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img

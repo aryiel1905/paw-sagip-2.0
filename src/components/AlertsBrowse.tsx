@@ -192,8 +192,9 @@ export default function AlertsBrowse() {
                   </div>
                 </div>
               ))
-            : items.map((alert) => (
-                <button
+            : items.map((alert) => {
+                const previewUrl = alert.previewImageUrl ?? alert.imageUrl;
+                return <button
                   key={alert.id}
                   type="button"
                   onClick={() => {
@@ -210,8 +211,8 @@ export default function AlertsBrowse() {
                 >
                   <div className="p-3">
                     <div className="rounded-xl overflow-hidden mb-2">
-                      {alert.imageUrl ? (
-                        isVideoUrl(alert.imageUrl) ? (
+                      {previewUrl ? (
+                        isVideoUrl(previewUrl) ? (
                           <div
                             className="grid place-content-center h-28 text-4xl"
                             style={{
@@ -223,7 +224,7 @@ export default function AlertsBrowse() {
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={alert.imageUrl}
+                            src={previewUrl}
                             alt="alert"
                             className="w-full h-28 object-cover"
                             loading="lazy"
@@ -249,8 +250,8 @@ export default function AlertsBrowse() {
                       {timeAgoFromMinutes(alert.minutes)}
                     </div>
                   </div>
-                </button>
-              ))}
+                </button>;
+              })}
         </div>
 
         {totalPages > 1 && (

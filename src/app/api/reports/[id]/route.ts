@@ -96,7 +96,7 @@ export async function DELETE(
     .from("reports")
     .delete()
     .eq("id", id)
-    .select("photo_path, landmark_media_paths")
+    .select("photo_path, video_thumbnail_path, landmark_media_paths")
     .maybeSingle();
   if (delErr) {
     if (status === 404) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -109,6 +109,8 @@ export async function DELETE(
   try {
     const toRemove: string[] = [];
     if (deletedRow?.photo_path) toRemove.push(deletedRow.photo_path as string);
+    if (deletedRow?.video_thumbnail_path)
+      toRemove.push(deletedRow.video_thumbnail_path as string);
     if (Array.isArray(deletedRow?.landmark_media_paths)) {
       for (const p of deletedRow.landmark_media_paths) if (p) toRemove.push(p);
     }

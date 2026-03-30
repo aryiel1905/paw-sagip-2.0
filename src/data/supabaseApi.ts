@@ -9,6 +9,7 @@ import {
 } from "@/types/app";
 import type { Contact } from "@/types/app";
 import { DEFAULT_PAGE_SIZE } from "@/constants/app";
+import { resolvePreviewUrl } from "@/lib/media";
 
 export const PET_MEDIA_BUCKET = "pet-media";
 
@@ -103,20 +104,22 @@ function computeMinutes(row: Pick<AlertRow, "minutes" | "created_at">): number {
   return 0;
 }
 
+function toPublicUrl(path?: string | null): string | null {
+  if (!path) return null;
+  return getSupabaseClient()
+    .storage.from(PET_MEDIA_BUCKET)
+    .getPublicUrl(path).data.publicUrl;
+}
+
 function toAlert(row: AlertRow): Alert {
-  const supabase = getSupabaseClient();
-  const imageUrl = row.photo_path
-    ? supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(row.photo_path).data
-        .publicUrl
-    : null;
+  const imageUrl = toPublicUrl(row.photo_path);
+  const videoThumbnailUrl = toPublicUrl(row.video_thumbnail_path);
+  const previewImageUrl = resolvePreviewUrl(imageUrl, videoThumbnailUrl);
   const landmarkImageUrls = Array.isArray(row.landmark_media_paths)
     ? row.landmark_media_paths
         .filter(Boolean)
-        .map(
-          (p) =>
-            supabase.storage.from(PET_MEDIA_BUCKET).getPublicUrl(p).data
-              .publicUrl
-        )
+        .map((p) => toPublicUrl(p))
+        .filter((url): url is string => !!url)
     : [];
 
   const title =
@@ -140,6 +143,7 @@ function toAlert(row: AlertRow): Alert {
     emoji: speciesToEmoji(emojiSource),
     minutes: computeMinutes(row),
     imageUrl,
+    previewImageUrl,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     landmarkImageUrls,
@@ -160,11 +164,11 @@ function toAdoption(row: AdoptionRow): AdoptionPet {
     row.emoji_code ??
     (kind === "dog" ? "\u{1F436}" : kind === "cat" ? "\u{1F431}" : "\u{1F43E}");
 
-  return {
-    id: row.id,
-    kind,
-    species: row.species ?? null,
-    speciesId: (row as any).species_id ?? null,
+    return {
+      id: row.id,
+      kind,
+      species: row.species ?? null,
+      speciesId: (row as any).species_id ?? null,
     isDomesticAdoptable:
       typeof (row as any).is_domestic_adoptable === "boolean"
         ? (row as any).is_domestic_adoptable
@@ -174,13 +178,17 @@ function toAdoption(row: AdoptionRow): AdoptionPet {
     note: row.features ?? "",
     location: row.location ?? "",
     emoji,
-    imageUrl,
-    createdAt: row.created_at ?? null,
-    latitude: row.latitude ?? null,
-    longitude: row.longitude ?? null,
-    petStatus: (row.pet_status as PetStatus | null) ?? "in_custody",
-  };
-}
+      imageUrl,
+      createdAt: row.created_at ?? null,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+      energyLevel:
+        typeof (row as any).energy_level === "number"
+          ? ((row as any).energy_level as 1 | 2 | 3)
+          : null,
+      petStatus: (row.pet_status as PetStatus | null) ?? "in_custody",
+    };
+  }
 
 export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): Promise<Alert[]> {
   const supabase = getSupabaseClient();
@@ -201,11 +209,11 @@ export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): 
   const reportIds = rows
     .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
     .map((r) => String((r as any).source_id));
-  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null; video_thumbnail_path?: string | null }> = {};
   if (reportIds.length > 0) {
     const { data: rep } = await supabase
       .from("reports")
-      .select("id, breed, gender, age_size")
+      .select("id, breed, gender, age_size, video_thumbnail_path")
       .in("id", reportIds);
     if (Array.isArray(rep)) {
       for (const r of rep as any[]) {
@@ -213,14 +221,18 @@ export async function fetchAlerts(limit = 50, opts?: { signal?: AbortSignal }): 
           breed: r.breed ?? null,
           gender: r.gender ?? null,
           age_size: r.age_size ?? null,
+          video_thumbnail_path: r.video_thumbnail_path ?? null,
         };
       }
     }
   }
   return rows.map((row) => {
-    const base = toAlert(row);
     const sid = (row as any).source_id as string | undefined;
     const extra = sid ? byReport[sid] : undefined;
+    const base = toAlert({
+      ...row,
+      video_thumbnail_path: extra?.video_thumbnail_path ?? null,
+    });
     return extra
       ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
       : base;
@@ -255,11 +267,11 @@ export async function fetchAlertsGrouped(
       const reportIds = rows
         .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
         .map((r) => String((r as any).source_id));
-      const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+      const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null; video_thumbnail_path?: string | null }> = {};
       if (reportIds.length > 0) {
         const { data: rep } = await supabase
           .from("reports")
-          .select("id, breed, gender, age_size")
+          .select("id, breed, gender, age_size, video_thumbnail_path")
           .in("id", reportIds);
         if (Array.isArray(rep)) {
           for (const r of rep as any[]) {
@@ -267,14 +279,18 @@ export async function fetchAlertsGrouped(
               breed: r.breed ?? null,
               gender: r.gender ?? null,
               age_size: r.age_size ?? null,
+              video_thumbnail_path: r.video_thumbnail_path ?? null,
             };
           }
         }
       }
       return rows.map((row) => {
-        const base = toAlert(row);
         const sid = (row as any).source_id as string | undefined;
         const extra = sid ? byReport[sid] : undefined;
+        const base = toAlert({
+          ...row,
+          video_thumbnail_path: extra?.video_thumbnail_path ?? null,
+        });
         return extra
           ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
           : base;
@@ -318,11 +334,11 @@ export async function fetchAlertsPaged(
   const reportIds = rows
     .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
     .map((r) => String((r as any).source_id));
-  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null; video_thumbnail_path?: string | null }> = {};
   if (reportIds.length > 0) {
     const { data: rep } = await supabase
       .from("reports")
-      .select("id, breed, gender, age_size")
+      .select("id, breed, gender, age_size, video_thumbnail_path")
       .in("id", reportIds);
     if (Array.isArray(rep)) {
       for (const r of rep as any[]) {
@@ -330,14 +346,18 @@ export async function fetchAlertsPaged(
           breed: r.breed ?? null,
           gender: r.gender ?? null,
           age_size: r.age_size ?? null,
+          video_thumbnail_path: r.video_thumbnail_path ?? null,
         };
       }
     }
   }
   const items = rows.map((row) => {
-    const base = toAlert(row);
     const sid = (row as any).source_id as string | undefined;
     const extra = sid ? byReport[sid] : undefined;
+    const base = toAlert({
+      ...row,
+      video_thumbnail_path: extra?.video_thumbnail_path ?? null,
+    });
     return extra
       ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
       : base;
@@ -383,11 +403,11 @@ export async function searchAlerts(
   const reportIds = rows
     .filter((r) => (r as any).source_table === "reports" && (r as any).source_id)
     .map((r) => String((r as any).source_id));
-  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null }> = {};
+  const byReport: Record<string, { breed?: string | null; gender?: string | null; age_size?: string | null; video_thumbnail_path?: string | null }> = {};
   if (reportIds.length > 0) {
     const { data: rep } = await supabase
       .from("reports")
-      .select("id, breed, gender, age_size")
+      .select("id, breed, gender, age_size, video_thumbnail_path")
       .in("id", reportIds);
     if (Array.isArray(rep)) {
       for (const r of rep as any[]) {
@@ -395,14 +415,18 @@ export async function searchAlerts(
           breed: r.breed ?? null,
           gender: r.gender ?? null,
           age_size: r.age_size ?? null,
+          video_thumbnail_path: r.video_thumbnail_path ?? null,
         };
       }
     }
   }
   return rows.map((row) => {
-    const base = toAlert(row);
     const sid = (row as any).source_id as string | undefined;
     const extra = sid ? byReport[sid] : undefined;
+    const base = toAlert({
+      ...row,
+      video_thumbnail_path: extra?.video_thumbnail_path ?? null,
+    });
     return extra
       ? { ...base, breed: extra.breed ?? null, sex: extra.gender ?? null, ageSize: extra.age_size ?? null }
       : base;
@@ -447,7 +471,7 @@ export async function searchAdoptionPets(
   const base = supabase
     .from("adoption_pets")
     .select(
-      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,pet_status"
+      "id,species,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,energy_level,pet_status"
     )
     .or(orParts.join(","))
     .eq("status", "available")

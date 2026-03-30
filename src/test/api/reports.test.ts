@@ -159,6 +159,20 @@ describe("POST /api/reports", () => {
     expect(row.is_anonymous).toBe(true);
   });
 
+  it("persists videoThumbnailPath when provided", async () => {
+    const { POST } = await import("@/app/api/reports/route");
+    await POST(
+      makeRequest({
+        type: "found",
+        photoPath: "reports/video.mp4",
+        videoThumbnailPath: "reports/video-thumb.jpg",
+      })
+    );
+    const row = mockInsert.mock.calls[0][0][0];
+    expect(row.photo_path).toBe("reports/video.mp4");
+    expect(row.video_thumbnail_path).toBe("reports/video-thumb.jpg");
+  });
+
   it("returns id and customId on success", async () => {
     const { POST } = await import("@/app/api/reports/route");
     const res = await POST(makeRequest({ type: "found" }));

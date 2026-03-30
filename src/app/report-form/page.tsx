@@ -26,7 +26,12 @@ import { VideoTrimModal } from "@/components/VideoTrimModal";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { AlertType, ReportStatus } from "@/types/app";
 import { showToast } from "@/lib/toast";
-import { getMediaKindFromFile, getVideoDuration, isVideoFile } from "@/lib/media";
+import {
+  createVideoThumbnailBlob,
+  getMediaKindFromFile,
+  getVideoDuration,
+  isVideoFile,
+} from "@/lib/media";
 
 // Storage bucket to keep report photos consistent with the home page
 const PET_MEDIA_BUCKET = "pet-media";
@@ -718,11 +723,31 @@ function ReportFormPageInner() {
     return data.path as string;
   };
 
+  const uploadMainVideoThumbnail = async (file: File, trim?: TrimInfo | null) => {
+    const seekSeconds = Math.max(0.2, (trim?.start ?? 0) + 0.2);
+    const blob = await createVideoThumbnailBlob(file, { seekSeconds });
+    const filePath = `reports/${crypto.randomUUID()}-thumb.jpg`;
+    const { data, error } = await getSupabaseClient().storage
+      .from(PET_MEDIA_BUCKET)
+      .upload(filePath, blob, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/jpeg",
+      });
+
+    if (error) {
+      throw new Error(error.message ?? "Thumbnail upload failed");
+    }
+
+    return data?.path ?? filePath;
+  };
+
   const handleSubmitReport = useCallback(async () => {
     const supabase = getSupabaseClient();
     setReportStatus("submitting");
 
     let uploadedPhotoPath: string | null = null;
+    let uploadedVideoThumbnailPath: string | null = null;
     let uploadedLandmarkPaths: string[] = [];
     if (reportPhoto) {
       if (reportPhotoKind === "video") {
@@ -732,8 +757,12 @@ function ReportFormPageInner() {
             "reports",
             reportPhotoTrim
           );
+          uploadedVideoThumbnailPath = await uploadMainVideoThumbnail(
+            reportPhoto,
+            reportPhotoTrim
+          );
         } catch (err) {
-          console.error("Failed to upload report video", err);
+          console.error("Failed to upload report video or thumbnail", err);
           setReportStatus("error");
           return;
         }
@@ -807,6 +836,7 @@ function ReportFormPageInner() {
       lat: reportLat,
       lng: reportLng,
       photoPath: uploadedPhotoPath,
+      videoThumbnailPath: uploadedVideoThumbnailPath,
       landmarkMediaPaths: uploadedLandmarkPaths,
 
       // extended fields from the full form

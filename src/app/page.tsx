@@ -47,6 +47,7 @@ import { CrueltySection } from "@/components/CrueltySection";
 import { showToast } from "@/lib/toast";
 import {
   CARD_VIDEO_FALLBACK_ICON,
+  createVideoThumbnailBlob,
   getMediaKindFromFile,
   getVideoDuration,
   isVideoFile,
@@ -907,6 +908,23 @@ export default function Home() {
     return data.path as string;
   };
 
+  const uploadMainVideoThumbnail = async (file: File, trim?: TrimInfo | null) => {
+    const seekSeconds = Math.max(0.2, (trim?.start ?? 0) + 0.2);
+    const blob = await createVideoThumbnailBlob(file, { seekSeconds });
+    const filePath = `reports/${crypto.randomUUID()}-thumb.jpg`;
+    const { data, error } = await getSupabaseClient().storage
+      .from(PET_MEDIA_BUCKET)
+      .upload(filePath, blob, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/jpeg",
+      });
+    if (error) {
+      throw new Error(error.message ?? "Thumbnail upload failed");
+    }
+    return data?.path ?? filePath;
+  };
+
   const handleSubmitReport = async (
     speciesValue?: string,
     reporter?: QuickReporter,
@@ -915,6 +933,7 @@ export default function Home() {
     setReportStatus("submitting");
 
     let uploadedPhotoPath: string | null = null;
+    let uploadedVideoThumbnailPath: string | null = null;
     let uploadedLandmarkPaths: string[] = [];
 
     if (reportPhoto) {
@@ -925,8 +944,12 @@ export default function Home() {
             "reports",
             reportPhotoTrim,
           );
+          uploadedVideoThumbnailPath = await uploadMainVideoThumbnail(
+            reportPhoto,
+            reportPhotoTrim,
+          );
         } catch (err) {
-          console.error("Failed to upload report video", err);
+          console.error("Failed to upload report video or thumbnail", err);
           setReportStatus("error");
           return;
         }
@@ -1023,6 +1046,7 @@ export default function Home() {
       lat: reportLat,
       lng: reportLng,
       photoPath: uploadedPhotoPath,
+      videoThumbnailPath: uploadedVideoThumbnailPath,
       landmarkMediaPaths: uploadedLandmarkPaths,
       species: speciesValue || null,
       isAnonymous: draftAnon,
@@ -1327,8 +1351,10 @@ export default function Home() {
                                           Alerts
                                         </div>
                                         <ul>
-                                          {searchAlerts.map((a) => (
-                                            <li
+                                          {searchAlerts.map((a) => {
+                                            const previewUrl =
+                                              a.previewImageUrl ?? a.imageUrl;
+                                            return <li
                                               key={`s-a-${a.id}`}
                                               className="cursor-pointer px-3 py-2 hover:bg-[#545454] flex items-center gap-3"
                                               onClick={() => {
@@ -1338,8 +1364,8 @@ export default function Home() {
                                                 });
                                               }}
                                             >
-                                              {a.imageUrl ? (
-                                                isVideoUrl(a.imageUrl) ? (
+                                              {previewUrl ? (
+                                                isVideoUrl(previewUrl) ? (
                                                   <div
                                                     className="grid h-8 w-8 place-content-center rounded-md text-base"
                                                     style={{
@@ -1352,7 +1378,7 @@ export default function Home() {
                                                 ) : (
                                                   // eslint-disable-next-line @next/next/no-img-element
                                                   <img
-                                                    src={a.imageUrl}
+                                                    src={previewUrl}
                                                     alt="alert"
                                                     className="h-8 w-8 rounded-md object-cover"
                                                   />
@@ -1376,8 +1402,8 @@ export default function Home() {
                                                   {a.area}
                                                 </div>
                                               </div>
-                                            </li>
-                                          ))}
+                                            </li>;
+                                          })}
                                         </ul>
                                       </div>
                                     )}
@@ -1465,8 +1491,10 @@ export default function Home() {
                                       Alerts
                                     </div>
                                     <ul>
-                                      {searchAlerts.map((a) => (
-                                        <li
+                                      {searchAlerts.map((a) => {
+                                        const previewUrl =
+                                          a.previewImageUrl ?? a.imageUrl;
+                                        return <li
                                           key={`s-a-${a.id}`}
                                           className="cursor-pointer px-3 py-2 hover:bg-gray-50/60 flex items-center gap-3"
                                           onClick={() => {
@@ -1476,8 +1504,8 @@ export default function Home() {
                                             });
                                           }}
                                         >
-                                          {a.imageUrl ? (
-                                            isVideoUrl(a.imageUrl) ? (
+                                          {previewUrl ? (
+                                            isVideoUrl(previewUrl) ? (
                                               <div
                                                 className="grid h-8 w-8 place-content-center rounded-md text-base"
                                                 style={{
@@ -1490,7 +1518,7 @@ export default function Home() {
                                             ) : (
                                               // eslint-disable-next-line @next/next/no-img-element
                                               <img
-                                                src={a.imageUrl}
+                                                src={previewUrl}
                                                 alt="alert"
                                                 className="h-8 w-8 rounded-md object-cover"
                                               />
@@ -1517,8 +1545,8 @@ export default function Home() {
                                           <button className="btn btn-accent px-2 py-1 text-[12px]">
                                             View
                                           </button>
-                                        </li>
-                                      ))}
+                                        </li>;
+                                      })}
                                     </ul>
                                   </div>
                                 )}
