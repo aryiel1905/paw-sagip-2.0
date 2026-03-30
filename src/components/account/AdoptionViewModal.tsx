@@ -370,16 +370,17 @@ export default function AdoptionViewModal({
       return;
     }
     let cancelled = false;
-    supabase
-      .from("reports")
-      .select(
-        "photo_path, video_thumbnail_path, landmark_media_paths, breed, gender, age_size"
-      )
-      .eq("promoted_to_pet_id", petId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data, error }) => {
+    const loadReportMedia = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("reports")
+          .select(
+            "photo_path, video_thumbnail_path, landmark_media_paths, breed, gender, age_size"
+          )
+          .eq("promoted_to_pet_id", petId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
         if (cancelled) return;
         if (error) {
           console.error(error);
@@ -387,13 +388,14 @@ export default function AdoptionViewModal({
           return;
         }
         setReportMedia((data as ReportMediaRow | null) ?? null);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           console.error(err);
           setReportMedia(null);
         }
-      });
+      }
+    };
+    void loadReportMedia();
     return () => {
       cancelled = true;
     };
