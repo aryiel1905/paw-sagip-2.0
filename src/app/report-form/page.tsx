@@ -29,6 +29,7 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { AlertType, ReportStatus } from "@/types/app";
 import { showToast } from "@/lib/toast";
 import {
+  createTrimmedVideoFile,
   createVideoThumbnailBlob,
   getMediaKindFromFile,
   getVideoDuration,
@@ -62,6 +63,7 @@ type LandmarkMediaItem = {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_VIDEO_SECONDS = 20;
+const MAX_RAW_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 function normalizeSpecies(value: string) {
   return value.trim().toLowerCase();
@@ -832,13 +834,35 @@ function ReportFormPageInner() {
     target: "reports" | "reports/landmarks",
     trim?: TrimInfo | null
   ) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("target", target);
-    if (trim) {
-      form.append("trimStart", String(trim.start));
-      form.append("trimEnd", String(trim.end));
+    const sourceFile =
+      trim && Number.isFinite(trim.end - trim.start)
+        ? await createTrimmedVideoFile(file, {
+            startSeconds: trim.start,
+            endSeconds: trim.end,
+          })
+        : file;
+    if (sourceFile.size > MAX_RAW_VIDEO_UPLOAD_BYTES) {
+      throw new Error(
+        "The selected clip is still too large to upload. Please trim it shorter or use a smaller video."
+      );
     }
+    const supabase = getSupabaseClient();
+    const ext = sourceFile.name.split(".").pop()?.toLowerCase() || "webm";
+    const rawPath = `${target}/raw/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PET_MEDIA_BUCKET)
+      .upload(rawPath, sourceFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: sourceFile.type || "application/octet-stream",
+      });
+    if (uploadError) {
+      throw new Error(uploadError.message ?? "Raw video upload failed");
+    }
+    const form = new FormData();
+    form.append("sourcePath", rawPath);
+    form.append("target", target);
+    form.append("cleanupSource", "true");
     const res = await fetch("/api/media/ingest", {
       method: "POST",
       body: form,
@@ -1166,6 +1190,9 @@ function ReportFormPageInner() {
                         ? `Selected: ${reportPhotoName}`
                         : "Upload pet media"}
                     </span>
+                    <span className="mt-1 text-xs ink-subtle">
+                      Videos currently work best up to 20 seconds and 100 MB.
+                    </span>
                     <div className="mt-2">
                       <div
                         className="mx-auto rounded-full w-10 h-10 flex items-center justify-center text-xl opacity-70 group-hover:opacity-100 transition"
@@ -1277,6 +1304,9 @@ function ReportFormPageInner() {
                       {reportPhotoName
                         ? `Selected: ${reportPhotoName}`
                         : "Upload pet media"}
+                    </span>
+                    <span className="mt-1 text-xs ink-subtle">
+                      Videos currently work best up to 20 seconds and 100 MB.
                     </span>
                     {!reportPhotoName && prevPhotoName && (
                       <span className="mt-1 block text-xs ink-subtle">

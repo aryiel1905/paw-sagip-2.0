@@ -100,16 +100,17 @@ export async function POST(request: Request) {
   const supabase = createServerSupabaseClient();
 
   let tempDir: string | null = null;
+  let sourceStoragePath: string | null = null;
+  let cleanupSource = false;
   try {
     const form = await request.formData();
     const file = form.get("file");
     const target = form.get("target");
+    const sourcePath = form.get("sourcePath");
+    sourceStoragePath = typeof sourcePath === "string" ? sourcePath : null;
+    cleanupSource = String(form.get("cleanupSource") ?? "false") === "true";
     const trimStart = Number(form.get("trimStart") ?? 0);
     const trimEnd = Number(form.get("trimEnd") ?? 0);
-
-    if (!file || typeof file !== "object" || !("arrayBuffer" in file)) {
-      return NextResponse.json({ error: "Missing file" }, { status: 400 });
-    }
 
     if (typeof target !== "string") {
       return NextResponse.json({ error: "Missing target" }, { status: 400 });
@@ -120,8 +121,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid target" }, { status: 400 });
     }
 
-    const fileName = (file as File).name || "upload";
-    const mimeType = (file as File).type || "";
+    if (
+      (!file || typeof file !== "object" || !("arrayBuffer" in file)) &&
+      !sourceStoragePath
+    ) {
+      return NextResponse.json(
+        { error: "Missing file or source path" },
+        { status: 400 }
+      );
+    }
+
+    let fileName = "upload";
+    let mimeType = "";
+    let data: Buffer;
+    if (file && typeof file === "object" && "arrayBuffer" in file) {
+      fileName = (file as File).name || "upload";
+      mimeType = (file as File).type || "";
+      data = Buffer.from(await (file as File).arrayBuffer());
+    } else {
+      fileName = path.basename(sourceStoragePath as string);
+      const { data: downloaded, error: downloadError } = await supabase.storage
+        .from(PET_MEDIA_BUCKET)
+        .download(sourceStoragePath as string);
+      if (downloadError || !downloaded) {
+        return NextResponse.json(
+          { error: downloadError?.message || "Could not download source file" },
+          { status: 500 }
+        );
+      }
+      mimeType = downloaded.type || "";
+      data = Buffer.from(await downloaded.arrayBuffer());
+    }
     const isVideo = isVideoFile(fileName, mimeType);
     const isAllowedVideo =
       VIDEO_EXT_RE.test(fileName) ||
@@ -135,9 +165,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    const data = Buffer.from(await (file as File).arrayBuffer());
-
     if (!isVideo) {
       const ext = path.extname(fileName).toLowerCase() || "";
       const uniqueName = `${crypto.randomUUID()}${ext || ""}`;
@@ -193,6 +220,13 @@ export async function POST(request: Request) {
     if (tempDir) {
       try {
         await fs.rm(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    if (cleanupSource && sourceStoragePath) {
+      try {
+        await supabase.storage
+          .from(PET_MEDIA_BUCKET)
+          .remove([sourceStoragePath]);
       } catch {}
     }
   }

@@ -50,6 +50,10 @@ type ReportSectionProps = {
       reporterName?: string | null;
       isAnonymous?: boolean;
       petStatus?: PetStatus;
+      eventAt?: string | null;
+      features?: string | null;
+      isAggressive?: boolean;
+      isFriendly?: boolean;
     }
   ) => void;
   reportPhotoInputRef: RefObject<HTMLInputElement>;
@@ -536,6 +540,10 @@ export function ReportSection({
         reporterName,
         isAnonymous: qAnon,
         petStatus: toPetStatus(qPetStatus || "Roaming"),
+        eventAt: qWhen ? new Date(qWhen).toISOString() : null,
+        features: reportDescription.trim() ? reportDescription.trim() : null,
+        isAggressive: qAggressive,
+        isFriendly: qFriendly,
       });
     },
     [
@@ -625,6 +633,9 @@ export function ReportSection({
                         {reportPhotoName
                           ? `Selected: ${reportPhotoName}`
                           : "Upload pet media"}
+                      </span>
+                      <span className="mt-1 text-xs ink-subtle">
+                        Videos currently work best up to 20 seconds and 100 MB.
                       </span>
                       <div className="mt-2">
                         <div
@@ -1109,6 +1120,9 @@ export function ReportSection({
                             {reportPhotoName
                               ? `Selected: ${reportPhotoName}`
                               : "Upload pet media"}
+                          </span>
+                          <span className="mt-1 text-xs ink-subtle">
+                            Videos currently work best up to 20 seconds and 100 MB.
                           </span>
                           <div className="mt-2">
                             <div

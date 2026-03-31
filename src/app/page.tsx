@@ -47,6 +47,7 @@ import { CrueltySection } from "@/components/CrueltySection";
 import { showToast } from "@/lib/toast";
 import {
   CARD_VIDEO_FALLBACK_ICON,
+  createTrimmedVideoFile,
   createVideoThumbnailBlob,
   getMediaKindFromFile,
   getVideoDuration,
@@ -99,6 +100,7 @@ type LandmarkMediaItem = {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_VIDEO_SECONDS = 20;
+const MAX_RAW_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 // Emoji fallback for missing photos based on species
 function speciesToEmoji(species?: string | null) {
@@ -1002,6 +1004,10 @@ export default function Home() {
     reporterName?: string | null;
     isAnonymous?: boolean;
     petStatus?: "roaming" | "in_custody";
+    eventAt?: string | null;
+    features?: string | null;
+    isAggressive?: boolean;
+    isFriendly?: boolean;
   };
 
   const uploadProcessedVideo = async (
@@ -1009,13 +1015,35 @@ export default function Home() {
     target: "reports" | "reports/landmarks",
     trim?: TrimInfo | null,
   ) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("target", target);
-    if (trim) {
-      form.append("trimStart", String(trim.start));
-      form.append("trimEnd", String(trim.end));
+    const sourceFile =
+      trim && Number.isFinite(trim.end - trim.start)
+        ? await createTrimmedVideoFile(file, {
+            startSeconds: trim.start,
+            endSeconds: trim.end,
+          })
+        : file;
+    if (sourceFile.size > MAX_RAW_VIDEO_UPLOAD_BYTES) {
+      throw new Error(
+        "The selected clip is still too large to upload. Please trim it shorter or use a smaller video.",
+      );
     }
+    const supabase = getSupabaseClient();
+    const ext = sourceFile.name.split(".").pop()?.toLowerCase() || "webm";
+    const rawPath = `${target}/raw/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PET_MEDIA_BUCKET)
+      .upload(rawPath, sourceFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: sourceFile.type || "application/octet-stream",
+      });
+    if (uploadError) {
+      throw new Error(uploadError.message ?? "Raw video upload failed");
+    }
+    const form = new FormData();
+    form.append("sourcePath", rawPath);
+    form.append("target", target);
+    form.append("cleanupSource", "true");
     const res = await fetch("/api/media/ingest", {
       method: "POST",
       body: form,
@@ -1172,11 +1200,15 @@ export default function Home() {
       isAnonymous: draftAnon,
       // iREPORT pet status
       petStatus: reporter?.petStatus ?? "roaming",
+      eventAt: reporter?.eventAt ?? null,
+      features: reporter?.features ?? null,
       // Map quick reporter info (server will null these if anonymous)
       reporterContact: draftAnon
         ? null
         : reporter?.reporterContact?.trim?.() || null,
       reporterName: draftAnon ? null : reporter?.reporterName?.trim?.() || null,
+      isAggressive: reporter?.isAggressive ?? null,
+      isFriendly: reporter?.isFriendly ?? null,
     };
 
     try {

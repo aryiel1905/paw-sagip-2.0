@@ -150,6 +150,167 @@ export async function getVideoDuration(file: File): Promise<number> {
   });
 }
 
+function getCaptureStream(video: HTMLVideoElement): MediaStream | null {
+  const candidate = video as HTMLVideoElement & {
+    captureStream?: () => MediaStream;
+    mozCaptureStream?: () => MediaStream;
+  };
+  if (typeof candidate.captureStream === "function") {
+    return candidate.captureStream();
+  }
+  if (typeof candidate.mozCaptureStream === "function") {
+    return candidate.mozCaptureStream();
+  }
+  return null;
+}
+
+function resolveRecordingMimeType() {
+  if (typeof MediaRecorder === "undefined") return "";
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+}
+
+async function waitForVideoEvent(
+  video: HTMLVideoElement,
+  eventName: "loadedmetadata" | "seeked" | "ended",
+) {
+  await new Promise<void>((resolve, reject) => {
+    const onDone = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error(`Unable to prepare video for ${eventName}`));
+    };
+    const cleanup = () => {
+      video.removeEventListener(eventName, onDone);
+      video.removeEventListener("error", onError);
+    };
+    video.addEventListener(eventName, onDone, { once: true });
+    video.addEventListener("error", onError, { once: true });
+  });
+}
+
+export async function createTrimmedVideoFile(
+  file: File,
+  options?: {
+    startSeconds?: number;
+    endSeconds?: number;
+  },
+): Promise<File> {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = objectUrl;
+
+  try {
+    await waitForVideoEvent(video, "loadedmetadata");
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const startSeconds = Math.max(
+      0,
+      Math.min(options?.startSeconds ?? 0, Math.max(duration - 0.05, 0)),
+    );
+    const rawEnd = options?.endSeconds ?? duration;
+    const endSeconds = Math.max(startSeconds, Math.min(rawEnd, duration || rawEnd));
+    const selectedDuration = Math.max(0, endSeconds - startSeconds);
+
+    if (!selectedDuration || !Number.isFinite(selectedDuration)) {
+      throw new Error("Unable to export the selected clip");
+    }
+
+    const stream = getCaptureStream(video);
+    if (!stream) {
+      throw new Error("This browser cannot export trimmed video clips");
+    }
+
+    const mimeType = resolveRecordingMimeType();
+    if (!mimeType) {
+      throw new Error("This browser cannot record trimmed video clips");
+    }
+
+    const recorder = new MediaRecorder(
+      stream,
+      mimeType ? { mimeType } : undefined,
+    );
+    const chunks: BlobPart[] = [];
+
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data && event.data.size > 0) chunks.push(event.data);
+    });
+
+    const stopped = new Promise<void>((resolve, reject) => {
+      recorder.addEventListener("stop", () => resolve(), { once: true });
+      recorder.addEventListener(
+        "error",
+        () => reject(new Error("Unable to record the selected clip")),
+        { once: true },
+      );
+    });
+
+    video.currentTime = startSeconds;
+    await waitForVideoEvent(video, "seeked");
+
+    recorder.start(250);
+    await video.play();
+
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+
+      const checkTime = () => {
+        if (video.currentTime >= endSeconds) {
+          finish();
+          return;
+        }
+        requestAnimationFrame(checkTime);
+      };
+
+      video.addEventListener(
+        "ended",
+        () => {
+          finish();
+        },
+        { once: true },
+      );
+
+      requestAnimationFrame(checkTime);
+    });
+
+    try {
+      video.pause();
+    } catch {}
+    if (recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    await stopped;
+
+    const blob = new Blob(chunks, {
+      type: recorder.mimeType || mimeType || "video/webm",
+    });
+    const trimmedName = `${file.name.replace(/\.[^.]+$/, "")}-clip.webm`;
+    return new File([blob], trimmedName, {
+      type: blob.type || "video/webm",
+      lastModified: Date.now(),
+    });
+  } finally {
+    try {
+      video.pause();
+    } catch {}
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export function formatSeconds(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
   const mins = Math.floor(safe / 60);
