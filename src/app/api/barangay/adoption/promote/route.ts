@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const { data: r, error: readErr } = await supabase
     .from("reports")
     .select(
-      "id, species, pet_name, age_size, features, location, photo_path, landmark_media_paths, latitude, longitude, promoted_to_pet_id"
+      "id, species, pet_name, age_size, features, location, photo_path, video_thumbnail_path, landmark_media_paths, latitude, longitude, promoted_to_pet_id"
     )
     .eq("id", reportId)
     .maybeSingle();
@@ -94,12 +94,36 @@ export async function POST(request: Request) {
     latitude: (r as any).latitude ?? null,
     longitude: (r as any).longitude ?? null,
     posted_by: scope?.profileId ?? null,
+    video_thumbnail_path: (r as any).video_thumbnail_path ?? null,
   } as const;
-  const { data: p, error: insErr } = await supabase
+
+  let p: { id: string } | null = null;
+  let insErr: { message?: string } | null = null;
+
+  const firstInsert = await supabase
     .from("adoption_pets")
     .insert([insert])
     .select("id")
     .single();
+
+  if (!firstInsert.error && firstInsert.data) {
+    p = firstInsert.data as { id: string };
+  } else if (
+    firstInsert.error?.message?.toLowerCase().includes("video_thumbnail_path")
+  ) {
+    const legacyInsert = { ...insert } as Record<string, unknown>;
+    delete legacyInsert.video_thumbnail_path;
+    const legacyResult = await supabase
+      .from("adoption_pets")
+      .insert([legacyInsert])
+      .select("id")
+      .single();
+    p = (legacyResult.data as { id: string } | null) ?? null;
+    insErr = legacyResult.error;
+  } else {
+    insErr = firstInsert.error;
+  }
+
   if (insErr || !p) {
     return NextResponse.json({ error: insErr?.message || "Insert failed" }, { status: 500 });
   }

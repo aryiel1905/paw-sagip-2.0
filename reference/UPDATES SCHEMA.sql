@@ -732,11 +732,11 @@ begin
   -- Create the adoption entry from the report (curated defaults)
   insert into public.adoption_pets (
     species, pet_name, age_size, features, location,
-    status, photo_path, landmark_media_paths, latitude, longitude
+    status, photo_path, video_thumbnail_path, landmark_media_paths, latitude, longitude
   )
   select
     r.species, r.pet_name, r.age_size, r.features, r.location,
-    'available', r.photo_path, coalesce(r.landmark_media_paths, '{}'),
+    'available', r.photo_path, r.video_thumbnail_path, coalesce(r.landmark_media_paths, '{}'),
     r.latitude, r.longitude
   from public.reports r
   where r.id = p_report_id and r.report_type = 'adoption'
@@ -941,6 +941,7 @@ CREATE TABLE public.adoption_pets (
     emoji_code text,
     status text DEFAULT 'available'::text NOT NULL,
     photo_path text,
+    video_thumbnail_path text,
     landmark_media_paths text[] DEFAULT '{}'::text[] NOT NULL,
     latitude double precision,
     longitude double precision,
@@ -2355,4 +2356,3 @@ CREATE POLICY "update own adoption apps via email" ON public.adoption_applicatio
 --
 
 \unrestrict GowU0tq7K0n1GlpZIG9A6dCRO0QDPjmLgPdebOJBx68hxkqDCBLB9byG0HeM7bU
-

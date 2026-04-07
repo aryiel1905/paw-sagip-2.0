@@ -17,6 +17,19 @@ function isVideoLike(path?: string | null): boolean {
   return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
 }
 
+function resolveCardPreviewUrl(args: {
+  photoPath?: string | null;
+  imageUrl?: string | null;
+  rowThumbnailUrl?: string | null;
+  reportThumbnailUrl?: string | null;
+}) {
+  const { photoPath, imageUrl, rowThumbnailUrl, reportThumbnailUrl } = args;
+  if (photoPath && !isVideoLike(photoPath)) {
+    return imageUrl ?? rowThumbnailUrl ?? reportThumbnailUrl ?? null;
+  }
+  return rowThumbnailUrl ?? reportThumbnailUrl ?? null;
+}
+
 export async function GET(request: Request) {
   const supabase = createServerSupabaseClient();
   const url = new URL(request.url);
@@ -73,8 +86,11 @@ export async function GET(request: Request) {
       ? supabase.storage.from("pet-media").getPublicUrl(row.video_thumbnail_path).data
           .publicUrl
       : null;
-    const previewImageUrl =
-      imageUrl && !isVideoLike(row.photo_path) ? imageUrl : (videoThumbnailUrl ?? imageUrl);
+    const previewImageUrl = resolveCardPreviewUrl({
+      photoPath: row.photo_path,
+      imageUrl,
+      rowThumbnailUrl: videoThumbnailUrl,
+    });
     const displaySpecies = (sMeta?.canonical_name as string | undefined) ?? ((row.species as string | null) ?? null);
     const kind = toKind(displaySpecies);
     const emoji =
@@ -141,11 +157,14 @@ export async function GET(request: Request) {
             .from("pet-media")
             .getPublicUrl(extra.video_thumbnail_path).data.publicUrl
         : null;
-      const previewImageUrl =
-        (it as any)._photoPath && isVideoLike((it as any)._photoPath)
-          ? thumbnailUrl ?? it.previewImageUrl ?? it.imageUrl ?? null
-          : it.previewImageUrl ?? it.imageUrl ?? thumbnailUrl ?? null;
-      const { _photoPath, ...cleanItem } = it as any;
+      const previewImageUrl = resolveCardPreviewUrl({
+        photoPath: (it as any)._photoPath,
+        imageUrl: it.imageUrl ?? null,
+        rowThumbnailUrl: it.previewImageUrl ?? null,
+        reportThumbnailUrl: thumbnailUrl,
+      });
+      const cleanItem = { ...(it as any) };
+      delete cleanItem._photoPath;
       if (!extra) {
         return {
           ...cleanItem,
@@ -167,9 +186,7 @@ export async function GET(request: Request) {
     const over = Math.min(600, limit * 3);
     const { data, error } = await supabase
       .from("adoption_pets")
-      .select(
-        "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,energy_level,pet_status"
-      )
+      .select("*")
       .eq("status", "available")
       .order("created_at", { ascending: false })
       .limit(over);
@@ -188,10 +205,7 @@ export async function GET(request: Request) {
 
   const { data, error, count } = await supabase
     .from("adoption_pets")
-    .select(
-      "id,species,species_id,pet_name,age_size,features,location,emoji_code,status,created_at,photo_path,latitude,longitude,energy_level,pet_status",
-      { count: "exact" }
-    )
+    .select("*", { count: "exact" })
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .range(from, to);

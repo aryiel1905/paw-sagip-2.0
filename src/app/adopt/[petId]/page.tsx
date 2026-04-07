@@ -25,6 +25,24 @@ type PetSummary = {
   postedById?: string | null;
 };
 
+function isVideoLike(path?: string | null) {
+  if (!path) return false;
+  return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
+}
+
+function resolvePetPreviewUrl(args: {
+  photoPath?: string | null;
+  imageUrl?: string | null;
+  rowThumbnailUrl?: string | null;
+  reportThumbnailUrl?: string | null;
+}) {
+  const { photoPath, imageUrl, rowThumbnailUrl, reportThumbnailUrl } = args;
+  if (photoPath && !isVideoLike(photoPath)) {
+    return imageUrl ?? rowThumbnailUrl ?? reportThumbnailUrl ?? null;
+  }
+  return rowThumbnailUrl ?? reportThumbnailUrl ?? null;
+}
+
 function speciesEmoji(species?: string | null) {
   const s = (species || "").toLowerCase();
   if (s.includes("cat")) return "🐱";
@@ -184,24 +202,33 @@ export default function AdoptionApplicationPage() {
         const { data, error } = await supabase
           .from("adoption_pets")
           .select(
-            "id, pet_name, species, location, photo_path, created_at, age_size, posted_by"
+            "id, pet_name, species, location, photo_path, video_thumbnail_path, created_at, age_size, posted_by"
           )
           .eq("id", petId)
           .limit(1)
           .maybeSingle();
         if (error) throw error;
         if (mounted && data) {
-          const imageUrl = data.photo_path
+          const rowImageUrl = data.photo_path
             ? supabase.storage
                 .from(PET_MEDIA_BUCKET)
                 .getPublicUrl(data.photo_path).data.publicUrl
+            : null;
+          const rowThumbnailUrl = (data as any).video_thumbnail_path
+            ? supabase.storage
+                .from(PET_MEDIA_BUCKET)
+                .getPublicUrl((data as any).video_thumbnail_path).data.publicUrl
             : null;
           setPet({
             id: data.id,
             name: data.pet_name ?? "",
             species: data.species ?? "",
             location: data.location ?? null,
-            imageUrl,
+            imageUrl: resolvePetPreviewUrl({
+              photoPath: (data as any).photo_path ?? null,
+              imageUrl: rowImageUrl,
+              rowThumbnailUrl,
+            }),
             createdAt: (data as any).created_at ?? null,
             ageSize: (data as any).age_size ?? null,
             postedById: (data as any).posted_by ?? null,
@@ -245,28 +272,42 @@ export default function AdoptionApplicationPage() {
             let base: any = null;
             const viaPromoted = await supabase
               .from("reports")
-              .select("breed,gender,age_size,promoted_to_pet_id")
+              .select(
+                "breed,gender,age_size,promoted_to_pet_id,video_thumbnail_path"
+              )
               .eq("promoted_to_pet_id", data.id)
               .maybeSingle();
             if (viaPromoted.data) base = viaPromoted.data;
             else if ((data as any).photo_path) {
               const viaPhoto = await supabase
                 .from("reports")
-                .select("breed,gender,age_size,photo_path")
+                .select("breed,gender,age_size,photo_path,video_thumbnail_path")
                 .eq("photo_path", (data as any).photo_path as string)
                 .maybeSingle();
               if (viaPhoto.data) base = viaPhoto.data;
             }
-            if (base && mounted) {
+            const reportThumbnailUrl = base?.video_thumbnail_path
+              ? supabase.storage
+                  .from(PET_MEDIA_BUCKET)
+                  .getPublicUrl(base.video_thumbnail_path).data.publicUrl
+              : null;
+            if (mounted) {
               setPet((prev) =>
                 prev
                   ? {
                       ...prev,
+                      imageUrl: resolvePetPreviewUrl({
+                        photoPath: (data as any).photo_path ?? null,
+                        imageUrl: rowImageUrl,
+                        rowThumbnailUrl,
+                        reportThumbnailUrl,
+                      }),
                       breed:
-                        (base.breed as string | null) ?? prev.breed ?? null,
-                      sex: (base.gender as string | null) ?? prev.sex ?? null,
+                        (base?.breed as string | null) ?? prev.breed ?? null,
+                      sex:
+                        (base?.gender as string | null) ?? prev.sex ?? null,
                       ageSize:
-                        (base.age_size as string | null) ??
+                        (base?.age_size as string | null) ??
                         prev.ageSize ??
                         null,
                     }
