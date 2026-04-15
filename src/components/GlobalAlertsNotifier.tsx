@@ -55,13 +55,14 @@ export function GlobalAlertsNotifier() {
 
   useEffect(() => {
     const unsubscribe = subscribeToAlertsIncremental({
-      onInsert: (a) => {
+      onInsert: async (a) => {
         if (!liveNotifyRef.current) return;
         try {
+          await ensureAudioReady();
           notifyNewAlertWithDetails({
             type: (a as any)?.type,
             title: (a as any)?.title ?? null,
-            location: (a as any)?.near ?? (a as any)?.location ?? null,
+            location: (a as any)?.area ?? (a as any)?.location ?? null,
           });
         } catch {
           notifyNewAlertWithDetails();
@@ -89,9 +90,7 @@ export function GlobalAlertsNotifier() {
       if (unlocked) return;
       unlocked = true;
       try {
-        if (getNotifyEnabled()) {
-          await ensureAudioReady();
-        }
+        await ensureAudioReady();
       } catch {}
       cleanup();
     };
