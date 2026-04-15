@@ -4,12 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchContacts } from "@/data/supabaseApi";
 import type { Contact } from "@/types/app";
 
-type Grouping = "role" | "barangay" | "city" | "province";
-
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [groupBy, setGroupBy] = useState<Grouping>("role");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -39,33 +36,13 @@ export default function ContactsPage() {
     };
   }, []);
 
-  const grouped = useMemo(() => {
-    const key: Grouping = groupBy;
-    const map = new Map<string, Contact[]>();
-    for (const c of contacts) {
-      const raw = (c as any)[key] as string | null | undefined;
-      const g = (raw ?? "Unknown").toString().trim() || "Unknown";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(c);
-    }
-    // Sort groups and items by name
-    const entries = Array.from(map.entries()).sort(([a], [b]) =>
-      a.localeCompare(b)
-    );
-    return entries.map(([label, items]) => ({
-      label,
-      items: items
-        .slice()
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    }));
-  }, [contacts, groupBy]);
-
-  // Filter: only barangay-admin and shelter admins
   const admins = useMemo(() => {
-    const allow = new Set(["barangay-admin", "shelter", "shelter-admin"]);
-    const list = contacts.filter((c) =>
-      allow.has((c.role || "").toLowerCase().trim())
+    const list = contacts.filter(
+      (c) =>
+        (c.role || "").toLowerCase().trim() === "admin" &&
+        !!(c.barangay || "").trim(),
     );
+
     return list.slice().sort((a, b) => {
       const aKey = [a.city || "", a.barangay || "", a.name || ""].join("|");
       const bKey = [b.city || "", b.barangay || "", b.name || ""].join("|");
@@ -75,21 +52,21 @@ export default function ContactsPage() {
 
   const SkeletonList = ({ count = 10 }: { count?: number }) => (
     <section className="w-full">
-      <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-white">
+        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
           <h2 className="text-lg font-semibold ink-heading">Contacts</h2>
-          <span className="text-sm ink-subtle">—</span>
+          <span className="text-sm ink-subtle">-</span>
         </div>
         <div className="p-4">
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {Array.from({ length: count }).map((_, i) => (
               <li key={`s-${i}`} className="mb-0">
-                <div className="rounded-lg border border-[var(--border-color)] bg-white p-4 animate-pulse">
-                  <div className="h-4 w-32 bg-gray-200 rounded mb-2" />
-                  <div className="h-3 w-24 bg-gray-200 rounded mb-2" />
-                  <div className="h-3 w-40 bg-gray-200 rounded mb-1" />
-                  <div className="h-3 w-28 bg-gray-200 rounded mb-1" />
-                  <div className="h-3 w-36 bg-gray-200 rounded" />
+                <div className="animate-pulse rounded-lg border border-[var(--border-color)] bg-white p-4">
+                  <div className="mb-2 h-4 w-32 rounded bg-gray-200" />
+                  <div className="mb-2 h-3 w-24 rounded bg-gray-200" />
+                  <div className="mb-1 h-3 w-40 rounded bg-gray-200" />
+                  <div className="mb-1 h-3 w-28 rounded bg-gray-200" />
+                  <div className="h-3 w-36 rounded bg-gray-200" />
                 </div>
               </li>
             ))}
@@ -109,46 +86,33 @@ export default function ContactsPage() {
         </div>
       ) : (
         <section className="w-full">
-          <div className="rounded-xl border border-[var(--border-color)] bg-white overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-              <div className=" flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-white">
+            <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold ink-heading">
+                  <h1 className="text-2xl font-bold ink-heading md:text-3xl">
                     Contacts
                   </h1>
-                  <p className="ink-muted">Barangay & Shelter Admins</p>
+                  <p className="ink-muted">Admin Contacts</p>
                 </div>
                 <div />
               </div>
             </div>
             <div className="p-4">
-              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {admins.map((c) => {
-                  const roleRaw = (c.role || "")
-                    .toString()
-                    .toLowerCase()
-                    .trim();
-                  const isBarangay = roleRaw === "barangay-admin";
-                  const isShelter =
-                    roleRaw === "shelter" || roleRaw === "shelter-admin";
-                  const roleLabel = isBarangay
-                    ? `Barangay ${c.barangay ?? ""}`.trim()
-                    : isShelter
-                    ? `Shelter ${c.barangay ?? ""}`.trim()
-                    : "";
+                  const locationLabel =
+                    [c.barangay, c.city, c.province].filter(Boolean).join(", ") ||
+                    "-";
+
                   return (
                     <li key={c.id} className="mb-0">
                       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg,#fff)] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold ink-heading leading-tight">
+                            <p className="font-semibold leading-tight ink-heading">
                               {c.name}
                             </p>
-                            {roleLabel ? (
-                              <p className="text-xs mt-0.5 text-[var(--primary-orange)] font-medium">
-                                {roleLabel}
-                              </p>
-                            ) : null}
                           </div>
                         </div>
                         <div className="mt-2 space-y-1 text-sm">
@@ -172,10 +136,8 @@ export default function ContactsPage() {
                               </a>
                             </p>
                           )}
-                          <p className="ink-subtle truncate">
-                            {[c.barangay, c.city, c.province]
-                              .filter(Boolean)
-                              .join(", ") || "—"}
+                          <p className="truncate font-medium text-[var(--primary-orange)]">
+                            {locationLabel}
                           </p>
                         </div>
                       </div>

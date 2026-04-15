@@ -4,10 +4,6 @@ import { PawPrint, UserRound, Home, BellRing, FileEdit, HeartHandshake, Menu, X 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import {
-  requestSystemNotifyPermission,
-  setSystemNotifyEnabled,
-} from "@/lib/notify";
 import ProfileCard from "@/components/account/ProfileCard";
 
 const NAV_LINKS = [
@@ -38,27 +34,6 @@ export function Navbar({
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setHydrated(true), []);
-
-  // Politely ask for browser notification permission once ever on this device
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (!("Notification" in window)) return;
-      if (Notification.permission !== "default") return; // already granted/denied
-      const ASK_KEY = "ps:autoAskSystemNotify:asked";
-      if (localStorage.getItem(ASK_KEY)) return;
-      localStorage.setItem(ASK_KEY, "1");
-      const id = window.setTimeout(async () => {
-        try {
-          const perm = await requestSystemNotifyPermission();
-          if (perm === "granted") {
-            setSystemNotifyEnabled(true);
-          }
-        } catch {}
-      }, 1200);
-      return () => window.clearTimeout(id);
-    } catch {}
-  }, []);
 
   const scrollToSection = (hash: string) => {
     const id = hash.replace(/^#/, "");

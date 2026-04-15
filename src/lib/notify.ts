@@ -15,6 +15,7 @@ import { ALERT_NOTIFY_COOLDOWN_MS } from "@/constants/app";
 let audioCtx: AudioContext | null = null;
 let lastNotifyAt = 0;
 const COOLDOWN_MS = ALERT_NOTIFY_COOLDOWN_MS;
+const MAX_NOTIFY_SOUND_MS = 1500;
 
 // Optional custom sound support (served from Next.js public dir)
 export const DEFAULT_NOTIFY_SOUND_URL = "/sounds/notifyy.mp3"; // place file at public/sounds/notifyy.mp3
@@ -231,6 +232,15 @@ async function playCustomIfAvailable(): Promise<boolean> {
       if (activeCustomSource === src) activeCustomSource = null;
     };
     src.start();
+    const stopAfter = Math.max(50, MAX_NOTIFY_SOUND_MS);
+    window.setTimeout(() => {
+      try {
+        if (activeCustomSource === src) {
+          src.stop();
+          activeCustomSource = null;
+        }
+      } catch {}
+    }, stopAfter);
     return true;
   } catch {
     return false;

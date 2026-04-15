@@ -6,6 +6,7 @@ import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 import { GlobalOnboarding } from "@/components/OnboardingTour";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BgTileLoader } from "@/components/BgTileLoader";
+import { GlobalSoundPrompt } from "@/components/GlobalSoundPrompt";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -60,6 +61,7 @@ export default function RootLayout({
               `}
             </Script>
             <BgTileLoader />
+            <GlobalSoundPrompt />
             {children}
             <GlobalDetailsModal />
             <GlobalFindMyMatchModal />
