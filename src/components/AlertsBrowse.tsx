@@ -3,11 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertType } from "@/types/app";
-import {
-  fetchAlertsPaged,
-  subscribeToAlertsIncremental,
-  subscribeToReportsInsert,
-} from "@/data/supabaseApi";
+import { fetchAlertsPaged } from "@/data/supabaseApi";
 import { DetailsModal } from "@/components/DetailsModal";
 import { ArrowLeft } from "lucide-react";
 import { alertFallbackTheme } from "@/lib/alertFallbackTheme";
@@ -134,45 +130,6 @@ export default function AlertsBrowse() {
       try {
         controllerRef.current?.abort();
       } catch {}
-    };
-  }, [fetchPage]);
-
-  useEffect(() => {
-    let refreshTimer: number | null = null;
-
-    const scheduleRefresh = () => {
-      if (typeof window === "undefined") return;
-      if (refreshTimer != null) {
-        window.clearTimeout(refreshTimer);
-      }
-      refreshTimer = window.setTimeout(() => {
-        void fetchPage();
-      }, 150);
-    };
-
-    const unsubscribeAlerts = subscribeToAlertsIncremental({
-      onInsert: () => scheduleRefresh(),
-      onUpdate: () => scheduleRefresh(),
-      onDelete: () => scheduleRefresh(),
-    });
-    const unsubscribeReports = subscribeToReportsInsert((row) => {
-      const reportType = String(row?.report_type ?? "").toLowerCase();
-      if (
-        reportType === "lost" ||
-        reportType === "found" ||
-        reportType === "cruelty" ||
-        reportType === "adoption"
-      ) {
-        scheduleRefresh();
-      }
-    });
-
-    return () => {
-      if (refreshTimer != null && typeof window !== "undefined") {
-        window.clearTimeout(refreshTimer);
-      }
-      unsubscribeAlerts();
-      unsubscribeReports();
     };
   }, [fetchPage]);
 
