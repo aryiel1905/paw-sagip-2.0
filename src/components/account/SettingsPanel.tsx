@@ -208,7 +208,6 @@ export default function SettingsPanel({ userEmail }: Props) {
   async function toggleSystemNotify() {
     const next = !systemNotifyEnabled;
     if (next) {
-      await ensureAudioReady();
       const perm = await requestSystemNotifyPermission();
       if (perm !== "granted") {
         setSystemNotifyEnabledState(false);
