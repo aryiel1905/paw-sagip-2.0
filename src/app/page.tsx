@@ -20,7 +20,6 @@ import {
   searchAdoptionPets as searchAdoptionPetsApi,
   PET_MEDIA_BUCKET,
   subscribeToAlertsIncremental,
-  subscribeToReportsInsert,
   subscribeToAdoptionsIncremental,
 } from "@/data/supabaseApi";
 import {
@@ -32,6 +31,14 @@ import {
   AdoptionRow,
 } from "@/types/app";
 import { AlertsSection } from "@/components/AlertsSection";
+import {
+  ALERTS_NOTIFY_KEY,
+  SYSTEM_NOTIFY_KEY,
+  getNotifyEnabled,
+  getSystemNotifyEnabled,
+  notifyNewAlertWithDetails,
+  ensureAudioReady,
+} from "@/lib/notify";
 import { ReportSection } from "@/components/ReportSection";
 import { VideoTrimModal } from "@/components/VideoTrimModal";
 import { RegistrySection } from "@/components/RegistrySection";
@@ -126,6 +133,7 @@ export default function Home() {
   // Reactive state hooks grouped by feature (alerts, adoption, report wizard, UI helpers)
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
+  const liveNotifyRef = useRef<boolean>(false);
   const [adoptions, setAdoptions] = useState<AdoptionPet[]>([]);
   const [showPetProfile, setShowPetProfile] = useState(false);
   const [adoptionFilter, setAdoptionFilter] = useState<"all" | "dog" | "cat">(
@@ -307,11 +315,10 @@ export default function Home() {
     [scoreText],
   );
 
-  const loadAlertsRef = useRef<() => Promise<void>>(async () => {});
-  loadAlertsRef.current = async () => {
+  const loadAlerts = useCallback(async () => {
     const data = await fetchAlertsGrouped(6);
     if (isMountedRef.current) setAlerts(data);
-  };
+  }, []);
 
   const scrollToTarget = useCallback((target: string, offset?: number) => {
     if (scrollTimeoutRef.current) {
@@ -416,12 +423,12 @@ export default function Home() {
   useEffect(() => {
     setAlertsLoading(true);
 
-    loadAlertsRef.current().finally(() => {
+    loadAlerts().finally(() => {
       if (isMountedRef.current) {
         setAlertsLoading(false);
       }
     });
-  }, []);
+  }, [loadAlerts]);
 
   // Continuously track user's location while the app is in use to keep distances fresh
   useEffect(() => {
@@ -449,47 +456,35 @@ export default function Home() {
 
   // Listen for realtime alert changes so the UI reflects updates/deletes too
   useEffect(() => {
-    let refreshTimer: number | null = null;
-    const scheduleRefresh = () => {
-      if (refreshTimer != null) {
-        window.clearTimeout(refreshTimer);
-      }
-      refreshTimer = window.setTimeout(() => {
-        void loadAlertsRef.current();
-      }, 150);
-    };
-
+    // Incremental realtime updates to avoid reload flicker
     const unsubscribe = subscribeToAlertsIncremental({
       onInsert: (a) => {
+        setAlerts((prev) => [a, ...prev].slice(0, 50));
         try {
           const title = (a as any)?.title || "New report";
           const area = (a as any)?.area || (a as any)?.location || "";
           const label = area ? `${title} • ${area}` : String(title);
           showToast("info", `New report: ${label}`);
         } catch {}
-        scheduleRefresh();
+        // Notify (sound and/or system) if either preference enabled
+        if (liveNotifyRef.current) {
+          try {
+            const details = {
+              type: (a as any)?.type,
+              title: (a as any)?.title ?? null,
+              location: (a as any)?.near ?? (a as any)?.location ?? null,
+            };
+            notifyNewAlertWithDetails(details);
+          } catch {
+            notifyNewAlertWithDetails();
+          }
+        }
       },
-      onUpdate: () => scheduleRefresh(),
-      onDelete: () => scheduleRefresh(),
+      onUpdate: (a) =>
+        setAlerts((prev) => prev.map((x) => (x.id === a.id ? a : x))),
+      onDelete: (id) => setAlerts((prev) => prev.filter((x) => x.id !== id)),
     });
-    const unsubscribeReports = subscribeToReportsInsert((row) => {
-      const type = String(row?.report_type ?? "").toLowerCase();
-      if (
-        type === "lost" ||
-        type === "found" ||
-        type === "cruelty" ||
-        type === "adoption"
-      ) {
-        scheduleRefresh();
-      }
-    });
-    return () => {
-      if (refreshTimer != null) {
-        window.clearTimeout(refreshTimer);
-      }
-      unsubscribe();
-      unsubscribeReports();
-    };
+    return () => unsubscribe();
   }, []);
 
   // Load adoption listings once and ignore late responses after unmount
@@ -510,6 +505,81 @@ export default function Home() {
       ignore = true;
       unsubscribe();
     };
+  }, []);
+
+  // Initialize and keep notify preference in a ref
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const read = () => {
+      const enabled = getNotifyEnabled() || getSystemNotifyEnabled();
+      liveNotifyRef.current = enabled;
+    };
+    read();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ALERTS_NOTIFY_KEY || e.key === SYSTEM_NOTIFY_KEY) {
+        read();
+      }
+    };
+    const onCustom = () => read();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(
+      "ps:alertsNotifyChanged",
+      onCustom as EventListener,
+    );
+    window.addEventListener(
+      "ps:alertsSystemNotifyChanged",
+      onCustom as EventListener,
+    );
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(
+        "ps:alertsNotifyChanged",
+        onCustom as EventListener,
+      );
+      window.removeEventListener(
+        "ps:alertsSystemNotifyChanged",
+        onCustom as EventListener,
+      );
+    };
+  }, []);
+
+  // Once per session: on first user gesture, if notifications are enabled, unlock audio context
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let unlocked = false;
+    const unlock = async () => {
+      if (unlocked) return;
+      unlocked = true;
+      try {
+        if (getNotifyEnabled()) {
+          await ensureAudioReady();
+        }
+      } catch {}
+      cleanup();
+    };
+    const cleanup = () => {
+      try {
+        window.removeEventListener("pointerdown", unlock as EventListener);
+        window.removeEventListener("keydown", unlock as EventListener);
+        window.removeEventListener("touchstart", unlock as EventListener);
+      } catch {}
+    };
+    window.addEventListener(
+      "pointerdown",
+      unlock as EventListener,
+      { once: true } as any,
+    );
+    window.addEventListener(
+      "keydown",
+      unlock as EventListener,
+      { once: true } as any,
+    );
+    window.addEventListener(
+      "touchstart",
+      unlock as EventListener,
+      { once: true } as any,
+    );
+    return cleanup;
   }, []);
 
   const nearbyAlerts = useMemo(
