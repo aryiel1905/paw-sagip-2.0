@@ -20,6 +20,11 @@ async function readPublicAsset(relPath: string): Promise<ArrayBuffer> {
   return base.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
+function isVideoLike(path?: string | null) {
+  if (!path) return false;
+  return /\.(mp4|mov|webm|ogg|m4v|avi|mkv)(?:[?#].*)?$/i.test(path);
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -97,12 +102,40 @@ export async function GET(
       }
     }
 
-    // Prepare pet photo if available (from adoption_pets.photo_path); otherwise try emoji fallback
+    // Prepare pet photo. Match the modal preview by preferring the newest
+    // promoted report media before falling back to adoption_pets fields.
     let petPhoto: PhotoInput | null = null;
     try {
       const ap = (data as any)?.adoption_pets;
       const pet = Array.isArray(ap) ? ap[0] ?? null : ap;
+      const petId =
+        ((data as any)?.pet_id as string | null) ||
+        (pet?.id as string | null) ||
+        null;
+      const reportPathCandidates: string[] = [];
+
+      if (petId) {
+        const { data: latestReport } = await supabase
+          .from("reports")
+          .select("photo_path, video_thumbnail_path")
+          .eq("promoted_to_pet_id", petId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const reportPhotoPath =
+          latestReport?.photo_path && !isVideoLike(latestReport.photo_path)
+            ? latestReport.photo_path
+            : null;
+        const reportVideoThumbPath =
+          latestReport?.video_thumbnail_path || null;
+
+        if (reportPhotoPath) reportPathCandidates.push(reportPhotoPath);
+        if (reportVideoThumbPath) reportPathCandidates.push(reportVideoThumbPath);
+      }
+
       const pathCandidates: string[] = [
+        ...reportPathCandidates,
         pet?.photo_path,
         pet?.main_photo_path,
         pet?.primary_photo_path,

@@ -100,6 +100,7 @@ export type AdoptionApplicationViewData = {
     breed?: string | null;
     sex?: string | null;
     age?: string | null;
+    age_size?: string | null;
     location?: string | null;
     photo_url?: string | null;
     photo_path?: string | null;
@@ -679,25 +680,8 @@ export default function AdoptionViewModal({
       throw new Error("Missing application data.");
     }
 
-    // Prefer server-side PDF generation, fallback to client-side fill
-    try {
-      const apiUrl = `/api/forms/adoption/${effectiveData.id}?flatten=1`;
-      const resp = await fetch(apiUrl, {
-        headers: { Accept: "application/pdf" },
-      });
-      const ct =
-        resp.headers.get("content-type") ||
-        resp.headers.get("Content-Type") ||
-        "";
-      if (resp.ok && ct.includes("application/pdf")) {
-        const buf = await resp.arrayBuffer();
-        return new Blob([buf], { type: "application/pdf" });
-      }
-    } catch {
-      // ignore and fallback
-    }
-
-    // Fallback: generate on the client using pdf-lib and the public template
+    // Generate on the client so print/download matches the currently displayed
+    // preview media and derived pet summary fields exactly.
     const res = await fetch(ADOPTION_FORM_TEMPLATE_PATH);
     if (!res.ok) {
       throw new Error(`Template not found at ${ADOPTION_FORM_TEMPLATE_PATH}.`);
@@ -723,23 +707,47 @@ export default function AdoptionViewModal({
         photos = blobs;
       }
       if (petProfile?.photo) {
-        const pr = await fetch(petProfile.photo);
-        if (pr.ok) {
-          const pb = await pr.blob();
-          petPhoto = {
-            data: await pb.arrayBuffer(),
-            mimeType: pb.type || undefined,
-          };
-        }
+        petPhoto =
+          (await cropImageUrlToSquarePhotoInput(petProfile.photo)) ?? undefined;
       }
       // No further fallback; leave Pet_Photo field blank if we have no image
     } catch {
       // ignore image failures and continue with text-only
     }
 
+    const existingPet =
+      effectiveData.adoption_pets && !Array.isArray(effectiveData.adoption_pets)
+        ? effectiveData.adoption_pets
+        : null;
+    const pdfData = {
+      ...effectiveData,
+      adoption_pets: {
+        ...(existingPet ?? {}),
+        pet_name: petProfile?.name ?? existingPet?.pet_name ?? null,
+        species:
+          petProfile?.species ??
+          existingPet?.species ??
+          effectiveData.adopt_what ??
+          null,
+        location: petProfile?.location ?? existingPet?.location ?? null,
+        breed:
+          petProfile?.breed && petProfile.breed !== "--"
+            ? petProfile.breed
+            : existingPet?.breed ?? null,
+        sex:
+          petProfile?.sex && petProfile.sex !== "--"
+            ? petProfile.sex
+            : existingPet?.sex ?? null,
+        age_size:
+          petProfile?.age && petProfile.age !== "--"
+            ? petProfile.age
+            : existingPet?.age ?? null,
+      },
+    } satisfies AdoptionApplicationViewData;
+
     const bytes = await fillAdoptionApplicationPdf(
       templateBytes,
-      effectiveData,
+      pdfData,
       { flatten: true, photos, petPhoto }
     );
     const buffer =
@@ -1916,4 +1924,60 @@ function petFallbackTheme(species?: string | null) {
     background: "radial-gradient(circle at 50% 50%, #F3F4F6 0%, #E5E7EB 100%)",
     color: "#4A55C2",
   } as const;
+}
+
+async function cropImageUrlToSquarePhotoInput(url: string): Promise<{
+  data: ArrayBuffer;
+  mimeType?: string;
+} | null> {
+  if (typeof window === "undefined") return null;
+
+  const response = await fetch(url);
+  if (!response.ok) return null;
+
+  const blob = await response.blob();
+  if (!blob.type.startsWith("image/")) {
+    return {
+      data: await blob.arrayBuffer(),
+      mimeType: blob.type || undefined,
+    };
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = objectUrl;
+    });
+
+    const size = Math.min(image.naturalWidth, image.naturalHeight);
+    const sx = (image.naturalWidth - size) / 2;
+    const sy = (image.naturalHeight - size) / 2;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    context.drawImage(image, sx, sy, size, size, 0, 0, size, size);
+
+    const croppedBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(
+        (nextBlob) => resolve(nextBlob),
+        blob.type || "image/jpeg",
+        0.92
+      );
+    });
+    if (!croppedBlob) return null;
+
+    return {
+      data: await croppedBlob.arrayBuffer(),
+      mimeType: croppedBlob.type || blob.type || undefined,
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
