@@ -1197,7 +1197,7 @@ export default function Home() {
         }, 5000);
       }
 
-      await loadAlertsRef.current();
+      await loadAlerts();
     } catch (error) {
       console.error("Failed to submit report", error);
       setReportStatus("error");
