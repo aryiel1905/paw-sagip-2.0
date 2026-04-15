@@ -592,6 +592,24 @@ export function subscribeToAlertsIncremental(handlers: {
   return () => supabase.removeChannel(channel);
 }
 
+export function subscribeToReportsInsert(
+  onInsert: (row: { id?: string; report_type?: string | null }) => void
+): () => void {
+  const supabase = getSupabaseClient();
+  const channel = supabase
+    .channel("public:reports:insert")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "reports" },
+      (payload) => {
+        const row = payload.new as { id?: string; report_type?: string | null };
+        onInsert(row);
+      }
+    )
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 export function subscribeToAdoptionsIncremental(handlers: {
   onInsert?: (p: AdoptionPet) => void;
   onUpdate?: (p: AdoptionPet) => void;
