@@ -165,9 +165,23 @@ export default function LoginPage() {
 
         <div className="text-center text-sm mt-6">
           <span className="ink-muted">Don&apos;t have an account? </span>
-          <a href="#" className="underline underline-offset-4">
+          <button
+            type="button"
+            className="underline underline-offset-4"
+            onClick={() => {
+              try {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("app:signin", {
+                      detail: { mode: "signup" },
+                    })
+                  );
+                }
+              } catch {}
+            }}
+          >
             Sign up
-          </a>
+          </button>
         </div>
       </div>
     </main>
