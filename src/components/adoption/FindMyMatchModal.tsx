@@ -383,13 +383,10 @@ export default function FindMyMatchModal({
                   className="rounded-xl border p-3"
                   style={{ borderColor: "var(--border-color)" }}
                 >
-                  <div className="mb-1 flex items-center justify-between gap-2">
+                  <div className="mb-1">
                     <p className="font-semibold text-black truncate">
                       {entry.pet.name?.trim() || entry.pet.kind.toUpperCase()}
                     </p>
-                    <span className="text-xs font-semibold" style={{ color: accent }}>
-                      {entry.score}
-                    </span>
                   </div>
                   <p className="text-xs text-black/70 mb-2 truncate">
                     {entry.pet.breed ||
