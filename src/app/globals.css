@@ -153,6 +153,7 @@ body::before {
   background-color: var(--secondary-orange);
 }
 
+
 .active-tab {
   background: var(--dark-gray);
   color: #ffffff;

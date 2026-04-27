@@ -1441,7 +1441,7 @@ export default function Home() {
                   Quick Report
                 </button>
                 <button
-                  className="flex flex-1 btn btn-xl btn-xl--outline shadow-2xl whitespace-nowrap"
+                  className="flex flex-1 btn btn-accent btn-xl border-2 border-[var(--primary-orange)] shadow-2xl whitespace-nowrap"
                   onClick={() => scrollToTarget("#adoption")}
                   type="button"
                 >
